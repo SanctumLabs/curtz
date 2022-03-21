@@ -3,19 +3,32 @@ package url
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sanctumlabs/curtz/internal/core/domain/models"
 )
 
 // URL is model for short urls
 type URL struct {
 	models.Identifier
-	Owner       string `json:"owner" gorm:"owner_id"`
-	ShortCode   string `json:"short_code" gorm:"size:12;uniqueIndex;not null"`
-	OriginalURL string `json:"original_url" gorm:"size:2048;index;not null"`
-	Hits        uint   `json:"hits" gorm:"default:0;not null"`
+	Owner        uuid.UUID `json:"owner" gorm:"owner_id"`
+	ShortenedUrl string    `json:"short_code" gorm:"size:12;uniqueIndex;not null"`
+	OriginalUrl  string    `json:"original_url" gorm:"size:2048;index;not null"`
+	Hits         uint      `json:"hits" gorm:"default:0;not null"`
 	models.BaseModel
 	ExpiresOn time.Time `json:"expires_on"`
 	Keywords  []Keyword `json:"-" gorm:"many2many:url_keywords"`
+}
+
+func NewUrl(owner uuid.UUID, originalUrl, shortenedUrl string) URL {
+	identifier := models.NewIdentifier()
+
+	return URL{
+		Identifier:   identifier,
+		Owner:        owner,
+		BaseModel:    models.NewBaseModel(),
+		OriginalUrl:  originalUrl,
+		ShortenedUrl: shortenedUrl,
+	}
 }
 
 // IsActive checks if the url model is active

@@ -1,10 +1,7 @@
 package user
 
 import (
-	"time"
-
 	"github.com/sanctumlabs/curtz/internal/core/domain/models"
-	"github.com/sanctumlabs/curtz/pkg/encoding"
 )
 
 const (
@@ -23,8 +20,7 @@ type User struct {
 	Status   string `db:"status,omitempty"`
 }
 
-func NewUser(email, password string) User {
-	var now time.Time = time.Now()
+func NewUser(email, password string) (User, error) {
 	userPassword := NewUserPassword(password)
 	userEmail := NewUserEmail(email)
 	identifier := models.NewIdentifier()
@@ -33,22 +29,18 @@ func NewUser(email, password string) User {
 		panic("Invalid email")
 	}
 
-	userPassword.HashPassword()
+	if err := userPassword.HashPassword(); err != nil {
+		return User{}, err
+	}
 
-	verificationToken := encoding.GenUniqueID()
-	verificationToken.String()
+	userToken := NewUserToken()
+	baseModel := models.NewBaseModel()
 
 	return User{
 		Identifier:   identifier,
 		UserEmail:    userEmail,
 		UserPassword: userPassword,
-		UserToken: {
-			VerificationToken:   verificationToken.String(),
-			VerificationExpires: now.Add(time.Minute * 15).UTC().Round(time.Microsecond), //expires 15 mins later
-		},
-		BaseModel: {
-			CreatedAt: now.UTC().Round(time.Microsecond),
-			UpdatedAt: now.UTC().Round(time.Microsecond),
-		},
-	}
+		UserToken:    userToken,
+		BaseModel:    baseModel,
+	}, nil
 }
