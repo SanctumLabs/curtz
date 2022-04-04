@@ -13,4 +13,5 @@ type UrlService interface {
 	GetByKeywords(keywords []string) ([]url.URL, error)
 	GetByOriginalUrl(originalUrl string) ([]url.URL, error)
 	GetById(id uuid.UUID) (url.URL, error)
+	Remove(id uuid.UUID) error
 }

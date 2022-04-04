@@ -6,14 +6,14 @@ import (
 	"github.com/sanctumlabs/curtz/internal/core/domain/url"
 )
 
-type UrlUseCase struct {
+type UseCase struct {
 	urlRepo contracts.UrlRepository
 }
 
-func NewUrlUseCase(urlRepository contracts.UrlRepository) *UrlUseCase {
-	return &UrlUseCase{urlRepository}
+func NewUseCase(urlRepository contracts.UrlRepository) *UseCase {
+	return &UseCase{urlRepository}
 }
 
-func (s *UrlUseCase) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {
+func (s *UseCase) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {
 	return s.urlRepo.CreateUrl(owner, originalUrl, shortenedUrl)
 }

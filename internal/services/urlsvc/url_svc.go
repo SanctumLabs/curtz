@@ -7,10 +7,10 @@ import (
 )
 
 type UrlService struct {
-	urlUseCase uc.UrlUseCase
+	urlUseCase uc.UseCase
 }
 
-func NewUrlService(urlUseCase uc.UrlUseCase) *UrlService {
+func NewUrlService(urlUseCase uc.UseCase) *UrlService {
 	return &UrlService{urlUseCase}
 }
 

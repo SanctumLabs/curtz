@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	// UserStatusActive is the status for an active user
+	// USER_STATUS_ACTIVE UserStatusActive is the status for an active user
 	USER_STATUS_ACTIVE      = "ACTIVE"
 	USER_STATUS_DEACTIVATED = "DEACTIVATED"
 )
@@ -13,16 +13,16 @@ const (
 type User struct {
 	models.Identifier
 	models.BaseModel
-	UserEmail
-	UserPassword
-	UserToken
+	Email
+	Password
+	Token
 	Verified bool   `db:"verified,omitempty"`
 	Status   string `db:"status,omitempty"`
 }
 
 func NewUser(email, password string) (User, error) {
-	userPassword := NewUserPassword(password)
-	userEmail := NewUserEmail(email)
+	userPassword := NewPassword(password)
+	userEmail := NewEmail(email)
 	identifier := models.NewIdentifier()
 
 	if !userEmail.isValid() {
@@ -33,14 +33,14 @@ func NewUser(email, password string) (User, error) {
 		return User{}, err
 	}
 
-	userToken := NewUserToken()
+	userToken := NewToken()
 	baseModel := models.NewBaseModel()
 
 	return User{
-		Identifier:   identifier,
-		UserEmail:    userEmail,
-		UserPassword: userPassword,
-		UserToken:    userToken,
-		BaseModel:    baseModel,
+		Identifier: identifier,
+		Email:      userEmail,
+		Password:   userPassword,
+		Token:      userToken,
+		BaseModel:  baseModel,
 	}, nil
 }

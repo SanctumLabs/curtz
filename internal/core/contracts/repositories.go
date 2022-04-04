@@ -13,4 +13,11 @@ type UrlRepository interface {
 	GetByKeywords(keywords []string) ([]url.URL, error)
 	GetByOriginalUrl(originalUrl string) ([]url.URL, error)
 	GetById(id uuid.UUID) (url.URL, error)
+	Delete(id uuid.UUID) error
+}
+
+type UserRepository interface {
+	CreateUser(email, password string) (uuid.UUID, error)
+	GetByEmail(email string) (uuid.UUID, error)
+	GetById(id uuid.UUID) (uuid.UUID, error)
 }

@@ -2,19 +2,19 @@ package user
 
 import "golang.org/x/crypto/bcrypt"
 
-// UserPassword contains user password information
-type UserPassword struct {
+// Password contains user password information
+type Password struct {
 	Password string `db:"password"`
 }
 
-func NewUserPassword(value string) UserPassword {
-	return UserPassword{
+func NewPassword(value string) Password {
+	return Password{
 		Password: value,
 	}
 }
 
 //HashPassword hashes the user password using bcrypt hash function
-func (p *UserPassword) HashPassword() error {
+func (p *Password) HashPassword() error {
 
 	pwd := []byte(p.Password)
 
@@ -30,7 +30,7 @@ func (p *UserPassword) HashPassword() error {
 }
 
 //Compare compares the password hash against the passed in password string
-func (p UserPassword) Compare(hash, password string) (bool, error) {
+func (p Password) Compare(hash, password string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	if err != nil {
 		return false, err
