@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/sanctumlabs/curtz/api/health"
+	urlApi "github.com/sanctumlabs/curtz/api/url"
 	"github.com/sanctumlabs/curtz/config"
+	"github.com/sanctumlabs/curtz/internal/core/usecases/url"
+	"github.com/sanctumlabs/curtz/internal/repositories"
+	"github.com/sanctumlabs/curtz/internal/services/urlsvc"
 	"github.com/sanctumlabs/curtz/server"
 	"github.com/sanctumlabs/curtz/server/middleware"
 	"github.com/sanctumlabs/curtz/server/router"
@@ -71,13 +75,13 @@ func main() {
 	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
 
-	//repository := repositories.NewRepository(configuration.Database)
-
-	//pathsService := services.NewPathsService(repository)
+	repository := repositories.NewRepository(configuration.Database)
+	urlUseCase := url.NewUseCase(repository.GetUrlRepo())
+	urlService := urlsvc.NewUrlService(urlUseCase)
 
 	// setup routers
 	routers := []router.Router{
-		//paths.NewRouter(pathsService),
+		urlApi.NewUrlRouter(urlService),
 		health.NewHealthRouter(),
 	}
 

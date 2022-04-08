@@ -7,11 +7,16 @@ import (
 )
 
 type UrlService struct {
-	urlUseCase uc.UseCase
+	urlUseCase *uc.UseCase
 }
 
-func NewUrlService(urlUseCase uc.UseCase) *UrlService {
+func NewUrlService(urlUseCase *uc.UseCase) *UrlService {
 	return &UrlService{urlUseCase}
+}
+
+func (svc *UrlService) Remove(id uuid.UUID) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (svc *UrlService) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {

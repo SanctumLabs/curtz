@@ -2,22 +2,32 @@ package url
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/internal/core/contracts"
 )
 
-type UrlHandler struct {
-	urlService contracts.UrlService
-}
-
-func NewUrlHandler(urlService contracts.UrlService) *UrlHandler {
-	return &UrlHandler{urlService}
-}
-
-func (hdl *UrlHandler) CreateUrl(c *gin.Context) {
+func (hdl *urlRouter) createUrl(c *gin.Context) {
 	request := CreateUrlDto{}
-	c.BindJSON(&request)
+	err := c.BindJSON(&request)
+	if err != nil {
+		return
+	}
 
-	url, err := hdl.urlService.CreateUrl(request.owner, request.originalUrl, request.shortenedUrl)
+	url, err := hdl.svc.CreateUrl(request.owner, request.originalUrl, request.shortenedUrl)
+
+	if err != nil {
+		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, url)
+}
+
+func (hdl *urlRouter) getUrl(c *gin.Context) {
+	request := CreateUrlDto{}
+	err := c.BindJSON(&request)
+	if err != nil {
+		return
+	}
+
+	url, err := hdl.svc.CreateUrl(request.owner, request.originalUrl, request.shortenedUrl)
 
 	if err != nil {
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

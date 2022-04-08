@@ -11,13 +11,13 @@ import (
 	"log"
 )
 
-type repo struct {
+type repository struct {
 	db       *gorm.DB
 	userRepo *userepo.UserRepo
 	urlRepo  *urlRepo.UrlRepo
 }
 
-func NewRepo(config config.DatabaseConfig) *repo {
+func NewRepository(config config.DatabaseConfig) *repository {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", config.Host, config.User, config.Password, config.Database, config.Port)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -30,9 +30,17 @@ func NewRepo(config config.DatabaseConfig) *repo {
 		log.Fatalf("AutoMigration failed with err: %v", err)
 	}
 
-	return &repo{
+	return &repository{
 		db:       db,
 		userRepo: userepo.NewUserRepo(db),
 		urlRepo:  urlRepo.NewUrlRepo(db),
 	}
+}
+
+func (r repository) GetUrlRepo() *urlRepo.UrlRepo {
+	return r.urlRepo
+}
+
+func (r repository) GetUserRepo() *userepo.UserRepo {
+	return r.userRepo
 }
