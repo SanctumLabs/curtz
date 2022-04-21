@@ -1,7 +1,7 @@
 package user
 
 import (
-	"github.com/sanctumlabs/curtz/internal/core/domain/models"
+	"github.com/sanctumlabs/curtz/internal/core/domain/entities"
 )
 
 const (
@@ -11,8 +11,8 @@ const (
 )
 
 type User struct {
-	models.Identifier
-	models.BaseModel
+	entities.Identifier
+	entities.BaseEntity
 	Email
 	Password
 	Token
@@ -23,7 +23,7 @@ type User struct {
 func NewUser(email, password string) (User, error) {
 	userPassword := NewPassword(password)
 	userEmail := NewEmail(email)
-	identifier := models.NewIdentifier()
+	identifier := entities.NewIdentifier()
 
 	if !userEmail.isValid() {
 		panic("Invalid email")
@@ -34,13 +34,13 @@ func NewUser(email, password string) (User, error) {
 	}
 
 	userToken := NewToken()
-	baseModel := models.NewBaseModel()
+	baseModel := entities.NewBaseEntity()
 
 	return User{
 		Identifier: identifier,
 		Email:      userEmail,
 		Password:   userPassword,
 		Token:      userToken,
-		BaseModel:  baseModel,
+		BaseEntity: baseModel,
 	}, nil
 }

@@ -1,4 +1,4 @@
-package models
+package entities
 
 import (
 	"github.com/google/uuid"
@@ -12,8 +12,8 @@ type Identifier struct {
 }
 
 func NewIdentifier() Identifier {
-	uuid := uidgen.New().Create()
+	newUuid := uidgen.New().Create()
 	return Identifier{
-		UUID: uuid,
+		UUID: newUuid,
 	}
 }

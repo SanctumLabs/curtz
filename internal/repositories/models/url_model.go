@@ -1,6 +1,6 @@
-package entities
+package models
 
-type UrlModel struct {
+type Url struct {
 	BaseModel
 	Owner             uint   `gorm:"owner"`
 	OriginalURL       string `gorm:"column:original_url"`

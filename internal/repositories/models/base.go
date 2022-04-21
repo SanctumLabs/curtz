@@ -1,11 +1,11 @@
-package entities
+package models
 
 import (
 	"gorm.io/gorm"
 	"time"
 )
 
-// BaseModel definition same as gorm.Model, but including column
+// BaseModel definition same as gorm.Model, but including other common columns
 type BaseModel struct {
 	gorm.Model
 	ID         uint       `cql:"id" gorm:"primary_key;column:id"`

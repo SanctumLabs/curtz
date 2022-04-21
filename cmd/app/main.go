@@ -42,9 +42,9 @@ func main() {
 	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
 	port := env.EnvOr(EnvPort, "8080")
 	host := env.EnvOr(EnvDatabaseHost, "localhost")
-	database := env.EnvOr(EnvDatabase, "vehicles")
-	databaseUser := env.EnvOr(EnvDatabaseUsername, "root")
-	databasePass := env.EnvOr(EnvDatabasePassword, "root")
+	database := env.EnvOr(EnvDatabase, "curtz-db")
+	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtz-user")
+	databasePass := env.EnvOr(EnvDatabasePassword, "curtz-pass")
 	databasePort := env.EnvOr(EnvDatabasePort, "5432")
 
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)

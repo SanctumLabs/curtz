@@ -1,11 +1,11 @@
-package entities
+package models
 
 import (
 	"github.com/google/uuid"
 	"time"
 )
 
-type UserModel struct {
+type User struct {
 	BaseModel
 	Email                string     `gorm:"column:email,uniqueIndex"`
 	Password             string     `gorm:"column:password"`
@@ -15,5 +15,5 @@ type UserModel struct {
 	VerificationExpires  time.Time  `gorm:"column:verification_expires"`
 	VerificationToken    uuid.UUID  `gorm:"column:verification_token"`
 	Verified             bool       `gorm:"column:verified,omitempty"`
-	Urls                 []UrlModel `gorm:"foreignkey:UserID"`
+	Urls                 []Url      `gorm:"foreignKey:Owner"`
 }

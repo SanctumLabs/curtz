@@ -3,7 +3,7 @@ package repositories
 import (
 	"fmt"
 	"github.com/sanctumlabs/curtz/config"
-	"github.com/sanctumlabs/curtz/internal/repositories/entities"
+	"github.com/sanctumlabs/curtz/internal/repositories/models"
 	urlRepo "github.com/sanctumlabs/curtz/internal/repositories/urlrepo"
 	"github.com/sanctumlabs/curtz/internal/repositories/userepo"
 	"gorm.io/driver/postgres"
@@ -26,7 +26,7 @@ func NewRepository(config config.DatabaseConfig) *repository {
 		log.Fatalf("DB Connection failed with err: %v", err)
 	}
 
-	if err = db.AutoMigrate(&entities.UserModel{}, &entities.UrlModel{}); err != nil {
+	if err = db.AutoMigrate(&models.User{}, &models.Url{}); err != nil {
 		log.Fatalf("AutoMigration failed with err: %v", err)
 	}
 
