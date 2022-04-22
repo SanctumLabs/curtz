@@ -16,16 +16,16 @@ func NewUserRepo(db *gorm.DB) *UserRepo {
 }
 
 func (u UserRepo) CreateUser(email, password string) (uuid.UUID, error) {
-	//TODO implement me
+
 	panic("implement me")
 }
 
 func (u UserRepo) GetByEmail(email string) (uuid.UUID, error) {
-	//TODO implement me
+
 	panic("implement me")
 }
 
 func (u UserRepo) GetById(id uuid.UUID) (uuid.UUID, error) {
-	//TODO implement me
+
 	panic("implement me")
 }

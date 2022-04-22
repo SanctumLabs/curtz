@@ -27,7 +27,7 @@ func (hdl *urlRouter) getUrl(c *gin.Context) {
 		return
 	}
 
-	url, err := hdl.svc.CreateUrl(request.owner, request.originalUrl, request.shortenedUrl)
+	url, err := hdl.svc.GetByOriginalUrl(request.originalUrl)
 
 	if err != nil {
 		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})

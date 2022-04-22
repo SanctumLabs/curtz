@@ -15,5 +15,6 @@ func NewUseCase(urlRepository contracts.UrlRepository) *UseCase {
 }
 
 func (s *UseCase) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {
+	url.NewUrl()
 	return s.urlRepo.CreateUrl(owner, originalUrl, shortenedUrl)
 }

@@ -6,43 +6,42 @@ import (
 	uc "github.com/sanctumlabs/curtz/internal/core/usecases/url"
 )
 
-type UrlService struct {
+type service struct {
 	urlUseCase *uc.UseCase
 }
 
-func NewUrlService(urlUseCase *uc.UseCase) *UrlService {
-	return &UrlService{urlUseCase}
+func NewUrlService(urlUseCase *uc.UseCase) *service {
+	return &service{urlUseCase}
 }
 
-func (svc *UrlService) Remove(id uuid.UUID) error {
-	//TODO implement me
+func (svc *service) Remove(id uuid.UUID) error {
 	panic("implement me")
 }
 
-func (svc *UrlService) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {
+func (svc *service) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {
 	return svc.urlUseCase.CreateUrl(owner, originalUrl, shortenedUrl)
 }
 
-func (svc *UrlService) GetByShortUrl(shortenedUrl string) (url.URL, error) {
+func (svc *service) GetByShortUrl(shortenedUrl string) (url.URL, error) {
 	panic("implement me")
 }
 
-func (svc *UrlService) GetByOwner(owner uuid.UUID) ([]url.URL, error) {
+func (svc *service) GetByOwner(owner uuid.UUID) ([]url.URL, error) {
 	panic("implement me")
 }
 
-func (svc *UrlService) GetByKeyword(keyword string) ([]url.URL, error) {
+func (svc *service) GetByKeyword(keyword string) ([]url.URL, error) {
 	panic("implement me")
 }
 
-func (svc *UrlService) GetByKeywords(keywords []string) ([]url.URL, error) {
+func (svc *service) GetByKeywords(keywords []string) ([]url.URL, error) {
 	panic("implement me")
 }
 
-func (svc *UrlService) GetByOriginalUrl(originalUrl string) ([]url.URL, error) {
+func (svc *service) GetByOriginalUrl(originalUrl string) ([]url.URL, error) {
 	panic("implement me")
 }
 
-func (svc *UrlService) GetById(id uuid.UUID) (url.URL, error) {
+func (svc *service) GetById(id uuid.UUID) (url.URL, error) {
 	panic("implement me")
 }

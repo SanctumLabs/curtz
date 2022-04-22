@@ -5,7 +5,7 @@ import (
 	"github.com/sanctumlabs/curtz/server/router"
 )
 
-// urlRouter is a router to talk
+// urlRouter is a router for the url API.
 type urlRouter struct {
 	svc    contracts.UrlService
 	routes []router.Route
