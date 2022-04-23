@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	nanoid "github.com/matoous/go-nanoid"
-	"github.com/sanctumlabs/curtz/pkg/uidgen"
+	"github.com/sanctumlabs/curtz/pkg/identifier"
 )
 
 //Encode encodes the uuid to a base64 string that is url-safe.
@@ -40,7 +40,7 @@ func GenUniqueParam(len int) (string, error) {
 
 //GenUniqueID returns a random but unique id.
 func GenUniqueID() uuid.UUID {
-	return uidgen.New().Create()
+	return identifier.New().Create()
 }
 
 //GenHexKey generates a crypto-random key with byte length len and hex-encodes it to a string.

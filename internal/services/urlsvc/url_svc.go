@@ -2,16 +2,16 @@ package urlsvc
 
 import (
 	"github.com/google/uuid"
+	"github.com/sanctumlabs/curtz/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/internal/core/domain/url"
-	uc "github.com/sanctumlabs/curtz/internal/core/usecases/url"
 )
 
 type service struct {
-	urlUseCase *uc.UseCase
+	repo contracts.UrlRepository
 }
 
-func NewUrlService(urlUseCase *uc.UseCase) *service {
-	return &service{urlUseCase}
+func NewUrlService(urlRepository contracts.UrlRepository) *service {
+	return &service{repo: urlRepository}
 }
 
 func (svc *service) Remove(id uuid.UUID) error {
@@ -19,7 +19,7 @@ func (svc *service) Remove(id uuid.UUID) error {
 }
 
 func (svc *service) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (url.URL, error) {
-	return svc.urlUseCase.CreateUrl(owner, originalUrl, shortenedUrl)
+	return svc.repo.CreateUrl(owner, originalUrl, shortenedUrl)
 }
 
 func (svc *service) GetByShortUrl(shortenedUrl string) (url.URL, error) {

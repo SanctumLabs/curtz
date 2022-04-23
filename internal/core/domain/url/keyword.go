@@ -1,7 +1,7 @@
 package url
 
-// Keyword is model for keywords
+// Keyword is model for keywords attached to a url
 type Keyword struct {
-	ID      uint   `json:"-" gorm:"primaryKey"`
-	Keyword string `json:"keyword" gorm:"size:25;unique;not null"`
+	ID      uint
+	Keyword string
 }

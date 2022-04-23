@@ -6,7 +6,6 @@ import (
 	"github.com/sanctumlabs/curtz/api/health"
 	urlApi "github.com/sanctumlabs/curtz/api/url"
 	"github.com/sanctumlabs/curtz/config"
-	"github.com/sanctumlabs/curtz/internal/core/usecases/url"
 	"github.com/sanctumlabs/curtz/internal/repositories"
 	"github.com/sanctumlabs/curtz/internal/services/urlsvc"
 	"github.com/sanctumlabs/curtz/server"
@@ -76,8 +75,7 @@ func main() {
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
 
 	repository := repositories.NewRepository(configuration.Database)
-	urlUseCase := url.NewUseCase(repository.GetUrlRepo())
-	urlService := urlsvc.NewUrlService(urlUseCase)
+	urlService := urlsvc.NewUrlService(repository.GetUrlRepo())
 
 	// setup routers
 	routers := []router.Router{

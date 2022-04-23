@@ -1,12 +1,11 @@
 package url
 
 import (
+	"github.com/sanctumlabs/curtz/internal/core/entity"
+	"github.com/sanctumlabs/curtz/pkg/identifier"
 	netUrl "net/url"
 	"regexp"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/sanctumlabs/curtz/internal/core/domain/entities"
 )
 
 // @see https://github.com/asaskevich/govalidator/blob/master/patterns.go
@@ -32,48 +31,45 @@ var (
 	filterRe = regexp.MustCompile(FilterRegex)
 )
 
-// URL is model for short urls
+// URL is model for urls
 type URL struct {
-	entities.Identifier
-	Owner        uuid.UUID `json:"owner" gorm:"owner_id"`
-	ShortenedUrl string    `json:"short_code" gorm:"size:12;uniqueIndex;not null"`
-	OriginalUrl  string    `json:"original_url" gorm:"size:2048;index;not null"`
-	Hits         uint      `json:"hits" gorm:"default:0;not null"`
-	entities.BaseEntity
-	ExpiresOn time.Time `json:"expires_on"`
-	Keywords  []Keyword `json:"-" gorm:"many2many:url_keywords"`
+	identifier.ID
+	UserId       identifier.ID
+	ShortenedUrl string
+	OriginalUrl  string
+	Hits         uint
+	entity.BaseEntity
+	ExpiresOn time.Time
+	Keywords  []Keyword
 }
 
-func NewUrl(owner uuid.UUID, originalUrl, shortenedUrl string) URL {
-	identifier := entities.NewIdentifier()
+func New(userId identifier.ID, originalUrl, shortenedUrl string) (*URL, error) {
+	id := identifier.New[URL]()
 
-	return URL{
-		Identifier:   identifier,
-		Owner:        owner,
-		BaseEntity:   entities.NewBaseEntity(),
+	if l := len(originalUrl); l < MinLength || l > MaxLength {
+		return nil, ErrInvalidURLLen
+	}
+
+	if filterRe.MatchString(originalUrl) {
+		return nil, ErrFilteredURL
+	}
+
+	_, err := netUrl.ParseRequestURI(originalUrl)
+	if err != nil {
+		return nil, ErrInvalidURL
+	}
+
+	if urlRe.MatchString(originalUrl) {
+		return nil, ErrInvalidURL
+	}
+
+	return &URL{
+		ID:           id,
+		UserId:       userId,
+		BaseEntity:   entity.NewBaseEntity(),
 		OriginalUrl:  originalUrl,
 		ShortenedUrl: shortenedUrl,
-	}
-}
-
-// Validate validates the url
-func (url *URL) Validate() error {
-	if l := len(url.OriginalUrl); l < MinLength || l > MaxLength {
-		return ErrInvalidURLLen
-	}
-
-	if filterRe.MatchString(url.OriginalUrl) {
-		return ErrFilteredURL
-	}
-
-	uri, err := netUrl.ParseRequestURI(url.OriginalUrl)
-	if err != nil {
-		return ErrInvalidURL
-	}
-
-	if urlRe.MatchString(url.OriginalUrl) {
-		return ErrInvalidURL
-	}
+	}, nil
 }
 
 // IsActive checks if the url model is active
@@ -84,4 +80,8 @@ func (url URL) IsActive() bool {
 	}
 
 	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
+}
+
+func (url URL) Prefix() string {
+	return "url"
 }
