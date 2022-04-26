@@ -1,0 +1,106 @@
+package main
+
+import (
+	"fmt"
+	"github.com/joho/godotenv"
+	"github.com/sanctumlabs/curtz/app/api/health"
+	urlApi "github.com/sanctumlabs/curtz/app/api/url"
+	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/curtz/app/internal/core/domain"
+	"github.com/sanctumlabs/curtz/app/internal/repositories"
+	"github.com/sanctumlabs/curtz/app/internal/services/urlsvc"
+	"github.com/sanctumlabs/curtz/app/server"
+	"github.com/sanctumlabs/curtz/app/server/middleware"
+	"github.com/sanctumlabs/curtz/app/server/router"
+	"github.com/sanctumlabs/curtz/app/tools/env"
+	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"strconv"
+)
+
+const (
+	Env                 = "ENV"
+	EnvLogLevel         = "LOG_LEVEL"
+	EnvLogJsonOutput    = "LOG_JSON_OUTPUT"
+	EnvPort             = "PORT"
+	EnvDatabaseHost     = "DATABASE_HOST"
+	EnvDatabase         = "DATABASE"
+	EnvDatabaseUsername = "DATABASE_USERNAME"
+	EnvDatabasePassword = "DATABASE_PASSWORD"
+	EnvDatabasePort     = "DATABASE_PORT"
+)
+
+func main() {
+	log := logger.NewLogger("vehicle-api")
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Warn("Error loading .env file. Using defaults")
+	}
+
+	environment := env.EnvOr(Env, "development")
+	logLevel := env.EnvOr(EnvLogLevel, "debug")
+	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
+	port := env.EnvOr(EnvPort, "8080")
+	host := env.EnvOr(EnvDatabaseHost, "localhost")
+	database := env.EnvOr(EnvDatabase, "curtz-db")
+	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtz-user")
+	databasePass := env.EnvOr(EnvDatabasePassword, "curtz-pass")
+	databasePort := env.EnvOr(EnvDatabasePort, "5432")
+
+	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
+	if err != nil {
+		enableJsonOutput = true
+	}
+
+	configuration := config.Config{
+		Env:  environment,
+		Port: port,
+		Logging: config.LoggingConfig{
+			Level:            logLevel,
+			EnableJSONOutput: enableJsonOutput,
+		},
+		Database: config.DatabaseConfig{
+			Host:     host,
+			Database: database,
+			User:     databaseUser,
+			Password: databasePass,
+			Port:     databasePort,
+		},
+	}
+
+	srv := server.NewServer(&configuration)
+
+	corsMiddleware := middleware.NewCORSMiddleware(configuration.CorsHeaders)
+	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
+	recoveryMiddleware := middleware.NewRecoveryMiddleware()
+
+	repository := repositories.NewRepository(configuration.Database)
+	urlInteractor := domain.NewInteractor(repository.GetUrlRepo())
+	urlService := urlsvc.NewUrlService(urlInteractor)
+	//userService := user
+
+	// setup routers
+	routers := []router.Router{
+		urlApi.NewUrlRouter(urlService),
+		//auth.NewRouter(userService),
+		health.NewHealthRouter(),
+	}
+
+	// initialize routers
+	srv.InitRouter(routers...)
+
+	// use middlewares
+	srv.UseMiddleware(loggingMiddleware)
+	srv.UseMiddleware(corsMiddleware)
+	srv.UseMiddleware(recoveryMiddleware)
+
+	appServer := srv.CreateServer()
+
+	// start & run the server
+	err = appServer.Run(fmt.Sprintf(":%s", port))
+	if err != nil {
+		_, msg := fmt.Printf("Failed to start Server %s", err)
+		log.Error(msg)
+		panic(msg)
+	}
+}
