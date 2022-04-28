@@ -21,13 +21,13 @@ func NewUrlRouter(s contracts.UrlService) router.Router {
 }
 
 // Routes returns the available routes to the controller
-func (hdl *urlRouter) Routes() []router.Route {
-	return hdl.routes
+func (route *urlRouter) Routes() []router.Route {
+	return route.routes
 }
 
-func (hdl *urlRouter) initRoutes() {
-	hdl.routes = []router.Route{
-		router.NewGetRoute("/:identifier", hdl.getUrl),
-		router.NewPostRoute("/", hdl.createUrl),
+func (route *urlRouter) initRoutes() {
+	route.routes = []router.Route{
+		router.NewGetRoute("/api/v1/:identifier", route.getUrl),
+		router.NewPostRoute("/api/v1/", route.createUrl),
 	}
 }

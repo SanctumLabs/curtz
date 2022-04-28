@@ -5,6 +5,11 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 )
 
+type AuthService interface {
+	// Authenticate a user given the token. Returns user id if authenticated, error otherwise.
+	Authenticate(token string) (string, error)
+}
+
 type UrlService interface {
 	CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (entity.URL, error)
 	CreateUrlShortCode(originalUrl string) (entity.URL, error)

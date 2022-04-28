@@ -2,15 +2,15 @@ package urlsvc
 
 import (
 	"github.com/google/uuid"
-	urlUseCase "github.com/sanctumlabs/curtz/app/internal/core/domain"
+	"github.com/sanctumlabs/curtz/app/internal/core/domain"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 )
 
 type service struct {
-	useCase *urlUseCase.Interactor
+	useCase *domain.UrlInteractor
 }
 
-func NewUrlService(urlInteractor *urlUseCase.Interactor) *service {
+func NewUrlService(urlInteractor *domain.UrlInteractor) *service {
 	return &service{useCase: urlInteractor}
 }
 

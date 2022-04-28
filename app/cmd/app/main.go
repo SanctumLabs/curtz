@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/joho/godotenv"
 	"github.com/sanctumlabs/curtz/app/api/health"
 	urlApi "github.com/sanctumlabs/curtz/app/api/url"
@@ -14,7 +16,6 @@ import (
 	"github.com/sanctumlabs/curtz/app/server/router"
 	"github.com/sanctumlabs/curtz/app/tools/env"
 	"github.com/sanctumlabs/curtz/app/tools/logger"
-	"strconv"
 )
 
 const (
@@ -75,7 +76,7 @@ func main() {
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
 
 	repository := repositories.NewRepository(configuration.Database)
-	urlInteractor := domain.NewInteractor(repository.GetUrlRepo())
+	urlInteractor := domain.NewUrlInteractor(repository.GetUrlRepo())
 	urlService := urlsvc.NewUrlService(urlInteractor)
 	//userService := user
 

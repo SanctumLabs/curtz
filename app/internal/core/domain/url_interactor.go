@@ -6,18 +6,18 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 )
 
-type Interactor struct {
+type UrlInteractor struct {
 	repo contracts.UrlRepository
 }
 
-func NewInteractor(urlRepository contracts.UrlRepository) *Interactor {
-	return &Interactor{urlRepository}
+func NewUrlInteractor(urlRepository contracts.UrlRepository) *UrlInteractor {
+	return &UrlInteractor{urlRepository}
 }
 
-func (useCase Interactor) CreateShortCode(longUrl string) (entity.URL, error) {
+func (useCase UrlInteractor) CreateShortCode(longUrl string) (entity.URL, error) {
 	panic("implement me")
 }
 
-func (useCase *Interactor) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (entity.URL, error) {
+func (useCase *UrlInteractor) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (entity.URL, error) {
 	return useCase.repo.Save(owner, originalUrl, shortenedUrl)
 }

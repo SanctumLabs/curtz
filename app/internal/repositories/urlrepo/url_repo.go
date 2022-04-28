@@ -1,11 +1,12 @@
 package urlRepo
 
 import (
+	"sync"
+
 	"github.com/google/uuid"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"gorm.io/gorm"
-	"sync"
 )
 
 type UrlRepo struct {
@@ -55,7 +56,7 @@ func (r *UrlRepo) GetByShortUrl(shortenedUrl string) (entity.URL, error) {
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetByOwner(owner uuid.UUID) ([]entity.URL, error) {
+func (r *UrlRepo) GetByOwner(owner string) ([]entity.URL, error) {
 
 	panic("implement me")
 }
@@ -75,12 +76,12 @@ func (r *UrlRepo) GetByOriginalUrl(originalUrl string) ([]entity.URL, error) {
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetById(id uuid.UUID) (entity.URL, error) {
+func (r *UrlRepo) GetById(id string) (entity.URL, error) {
 
 	panic("implement me")
 }
 
-func (r *UrlRepo) Delete(id uuid.UUID) error {
+func (r *UrlRepo) Delete(id string) error {
 
 	panic("implement me")
 }

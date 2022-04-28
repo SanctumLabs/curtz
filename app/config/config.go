@@ -7,4 +7,5 @@ type Config struct {
 	CorsHeaders string
 	Version     string
 	Database    DatabaseConfig
+	Auth        AuthConfig
 }

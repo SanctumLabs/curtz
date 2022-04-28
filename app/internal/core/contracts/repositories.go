@@ -6,14 +6,14 @@ import (
 )
 
 type UrlRepository interface {
-	Save(owner uuid.UUID, originalUrl, shortenedUrl string) (entity.URL, error)
+	Save(owner string, originalUrl, shortenedUrl string) (entity.URL, error)
 	GetByShortUrl(shortenedUrl string) (entity.URL, error)
-	GetByOwner(owner uuid.UUID) ([]entity.URL, error)
+	GetByOwner(owner string) ([]entity.URL, error)
 	GetByKeyword(keyword string) ([]entity.URL, error)
 	GetByKeywords(keywords []string) ([]entity.URL, error)
 	GetByOriginalUrl(originalUrl string) ([]entity.URL, error)
-	GetById(id uuid.UUID) (entity.URL, error)
-	Delete(id uuid.UUID) error
+	GetById(id string) (entity.URL, error)
+	Delete(id string) error
 }
 
 type UserRepository interface {

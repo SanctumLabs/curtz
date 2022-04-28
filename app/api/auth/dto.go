@@ -1,11 +1,11 @@
 package auth
 
 type signUpRequestDto struct {
-	email    string `json:"username" binding:"required"`
-	password string `json:"password" binding:"required"`
+	Email    string `json:"email" binding:"required" validate:"required"`
+	Password string `json:"password" binding:"required" validate:"required"`
 }
 
 type loginRequestDto struct {
-	email    string `json:"username" binding:"required"`
-	password string `json:"password" binding:"required"`
+	Email    string `json:"email" binding:"required" validate:"required"`
+	Password string `json:"password" binding:"required" validate:"required"`
 }
