@@ -1,7 +1,6 @@
 package urlsvc
 
 import (
-	"github.com/google/uuid"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 )
@@ -18,11 +17,11 @@ func (svc *service) CreateUrlShortCode(originalUrl string) (entity.URL, error) {
 	return svc.useCase.CreateShortCode(originalUrl)
 }
 
-func (svc *service) Remove(id uuid.UUID) error {
+func (svc *service) Remove(id string) error {
 	panic("implement me")
 }
 
-func (svc *service) CreateUrl(owner uuid.UUID, originalUrl, shortenedUrl string) (entity.URL, error) {
+func (svc *service) CreateUrl(owner string, originalUrl, shortenedUrl string) (entity.URL, error) {
 	return svc.useCase.CreateUrl(owner, originalUrl, shortenedUrl)
 }
 
@@ -30,7 +29,7 @@ func (svc *service) GetByShortUrl(shortenedUrl string) (entity.URL, error) {
 	panic("implement me")
 }
 
-func (svc *service) GetByOwner(owner uuid.UUID) ([]entity.URL, error) {
+func (svc *service) GetByOwner(owner string) ([]entity.URL, error) {
 	panic("implement me")
 }
 
@@ -46,6 +45,6 @@ func (svc *service) GetByOriginalUrl(originalUrl string) ([]entity.URL, error) {
 	panic("implement me")
 }
 
-func (svc *service) GetById(id uuid.UUID) (entity.URL, error) {
+func (svc *service) GetById(id string) (entity.URL, error) {
 	panic("implement me")
 }

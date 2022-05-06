@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"github.com/google/uuid"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 )
 
@@ -17,7 +16,9 @@ type UrlRepository interface {
 }
 
 type UserRepository interface {
-	CreateUser(email, password string) (uuid.UUID, error)
-	GetByEmail(email string) (uuid.UUID, error)
-	GetById(id uuid.UUID) (uuid.UUID, error)
+	CreateUser(email, password string) (entity.User, error)
+	GetByEmail(email string) (entity.User, error)
+	GetById(id string) (entity.User, error)
+	GetByUsername(username string) (entity.User, error)
+	RemoveUser(id string) error
 }

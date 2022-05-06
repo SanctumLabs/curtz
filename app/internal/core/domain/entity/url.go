@@ -1,12 +1,13 @@
 package entity
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/domain"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 	netUrl "net/url"
 	"regexp"
 	"time"
+
+	"github.com/sanctumlabs/curtz/app/internal/core/domain"
+	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
 // @see https://github.com/asaskevich/govalidator/blob/master/patterns.go
@@ -45,7 +46,7 @@ type URL struct {
 }
 
 func New(userId identifier.ID, originalUrl string) (*URL, error) {
-	id := identifier.New[URL]()
+	id := identifier.New()
 
 	if l := len(originalUrl); l < MinLength || l > MaxLength {
 		return nil, domain.ErrInvalidURLLen

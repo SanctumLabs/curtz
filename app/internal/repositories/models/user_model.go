@@ -1,15 +1,15 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type User struct {
 	BaseModel
 	Email                string     `gorm:"column:email,uniqueIndex"`
 	Password             string     `gorm:"column:password"`
-	APIKey               *uuid.UUID `gorm:"column:api_key"`
 	ResetPasswordExpires *time.Time `gorm:"column:reset_password_expires"`
 	ResetPasswordToken   *uuid.UUID `gorm:"column:reset_password_token"`
 	VerificationExpires  time.Time  `gorm:"column:verification_expires"`

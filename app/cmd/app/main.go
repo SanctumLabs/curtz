@@ -5,12 +5,15 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+	authApi "github.com/sanctumlabs/curtz/app/api/auth"
 	"github.com/sanctumlabs/curtz/app/api/health"
 	urlApi "github.com/sanctumlabs/curtz/app/api/url"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain"
 	"github.com/sanctumlabs/curtz/app/internal/repositories"
+	"github.com/sanctumlabs/curtz/app/internal/services/auth"
 	"github.com/sanctumlabs/curtz/app/internal/services/urlsvc"
+	"github.com/sanctumlabs/curtz/app/internal/services/usersvc"
 	"github.com/sanctumlabs/curtz/app/server"
 	"github.com/sanctumlabs/curtz/app/server/middleware"
 	"github.com/sanctumlabs/curtz/app/server/router"
@@ -31,7 +34,7 @@ const (
 )
 
 func main() {
-	log := logger.NewLogger("vehicle-api")
+	log := logger.NewLogger("curtz-api")
 
 	err := godotenv.Load()
 	if err != nil {
@@ -43,9 +46,9 @@ func main() {
 	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
 	port := env.EnvOr(EnvPort, "8080")
 	host := env.EnvOr(EnvDatabaseHost, "localhost")
-	database := env.EnvOr(EnvDatabase, "curtz-db")
-	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtz-user")
-	databasePass := env.EnvOr(EnvDatabasePassword, "curtz-pass")
+	database := env.EnvOr(EnvDatabase, "curtzdb")
+	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtzUser")
+	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPass")
 	databasePort := env.EnvOr(EnvDatabasePort, "5432")
 
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
@@ -71,19 +74,22 @@ func main() {
 
 	srv := server.NewServer(&configuration)
 
+	authService := auth.NewService(configuration.Auth)
 	corsMiddleware := middleware.NewCORSMiddleware(configuration.CorsHeaders)
 	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
+	authMiddleware := middleware.NewAuthMiddleware(configuration.Auth, authService)
 
 	repository := repositories.NewRepository(configuration.Database)
 	urlInteractor := domain.NewUrlInteractor(repository.GetUrlRepo())
+	userInteractor := domain.NewUserInteractor(repository.GetUserRepo())
 	urlService := urlsvc.NewUrlService(urlInteractor)
-	//userService := user
+	userService := usersvc.NewService(userInteractor)
 
 	// setup routers
 	routers := []router.Router{
 		urlApi.NewUrlRouter(urlService),
-		//auth.NewRouter(userService),
+		authApi.NewRouter(userService),
 		health.NewHealthRouter(),
 	}
 
@@ -94,6 +100,7 @@ func main() {
 	srv.UseMiddleware(loggingMiddleware)
 	srv.UseMiddleware(corsMiddleware)
 	srv.UseMiddleware(recoveryMiddleware)
+	srv.UseMiddleware(authMiddleware)
 
 	appServer := srv.CreateServer()
 

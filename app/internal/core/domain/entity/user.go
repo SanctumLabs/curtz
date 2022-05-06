@@ -24,7 +24,7 @@ type User struct {
 func NewUser(email, password string) (User, error) {
 	userPassword := NewPassword(password)
 	userEmail := NewEmail(email)
-	id := identifier.New[User]()
+	id := identifier.New()
 
 	if !userEmail.isValid() {
 		panic("Invalid email")
@@ -44,8 +44,4 @@ func NewUser(email, password string) (User, error) {
 		Token:      userToken,
 		BaseEntity: baseModel,
 	}, nil
-}
-
-func (user User) Prefix() string {
-	return "user"
 }

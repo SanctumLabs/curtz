@@ -4,19 +4,19 @@ import "golang.org/x/crypto/bcrypt"
 
 // Password contains user password information
 type Password struct {
-	Password string `db:"password"`
+	Value string
 }
 
 func NewPassword(value string) Password {
 	return Password{
-		Password: value,
+		Value: value,
 	}
 }
 
 //HashPassword hashes the user password using bcrypt hash function
 func (p *Password) HashPassword() error {
 
-	pwd := []byte(p.Password)
+	pwd := []byte(p.Value)
 
 	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.DefaultCost)
 
@@ -24,7 +24,7 @@ func (p *Password) HashPassword() error {
 		return err
 	}
 
-	p.Password = string(hash)
+	p.Value = string(hash)
 
 	return nil
 }

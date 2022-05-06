@@ -3,7 +3,6 @@ package urlRepo
 import (
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"gorm.io/gorm"
@@ -28,7 +27,7 @@ func NewUrlRepo(db *gorm.DB) *UrlRepo {
 	return repo
 }
 
-func (r *UrlRepo) Save(owner uuid.UUID, originalUrl, shortenedUrl string) (entity.URL, error) {
+func (r *UrlRepo) Save(owner string, originalUrl, shortenedUrl string) (entity.URL, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	panic("implement me")

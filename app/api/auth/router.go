@@ -24,7 +24,7 @@ func (hdl authRouter) Routes() []router.Route {
 
 func (hdl *authRouter) initRoutes() {
 	hdl.routes = []router.Route{
-		router.NewPostRoute("/", hdl.signUp),
-		router.NewPostRoute("/", hdl.login),
+		router.NewPostRoute("/api/v1/signup", hdl.signUp),
+		router.NewPostRoute("/api/v1/login", hdl.login),
 	}
 }

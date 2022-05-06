@@ -1,7 +1,7 @@
 package userepo
 
 import (
-	"github.com/google/uuid"
+	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
 	"gorm.io/gorm"
 )
 
@@ -15,17 +15,22 @@ func NewUserRepo(db *gorm.DB) *UserRepo {
 	}
 }
 
-func (u UserRepo) CreateUser(email, password string) (uuid.UUID, error) {
-
+func (u *UserRepo) CreateUser(email, password string) (entity.User, error) {
 	panic("implement me")
 }
 
-func (u UserRepo) GetByEmail(email string) (uuid.UUID, error) {
-
+func (u *UserRepo) GetByEmail(email string) (entity.User, error) {
 	panic("implement me")
 }
 
-func (u UserRepo) GetById(id uuid.UUID) (uuid.UUID, error) {
+func (u *UserRepo) GetById(id string) (entity.User, error) {
+	panic("implement me")
+}
 
+func (u *UserRepo) GetByUsername(username string) (entity.User, error) {
+	panic("implement me")
+}
+
+func (u *UserRepo) RemoveUser(id string) error {
 	panic("implement me")
 }

@@ -4,8 +4,9 @@ import (
 	"crypto/rand"
 	b64 "encoding/base64"
 	"encoding/hex"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 	"log"
+
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 
 	"github.com/google/uuid"
 	nanoid "github.com/matoous/go-nanoid"
@@ -39,8 +40,8 @@ func GenUniqueParam(len int) (string, error) {
 }
 
 //GenUniqueID returns a random but unique id.
-func GenUniqueID() uuid.UUID {
-	return identifier.New().Create()
+func GenUniqueID() identifier.ID {
+	return identifier.New()
 }
 
 //GenHexKey generates a crypto-random key with byte length len and hex-encodes it to a string.
