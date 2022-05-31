@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/domain"
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
@@ -33,39 +33,70 @@ var (
 	filterRe = regexp.MustCompile(FilterRegex)
 )
 
-// URL is model for urls
+// URL represents an entity for a url
 type URL struct {
 	identifier.ID
 	UserId       identifier.ID
 	ShortenedUrl string
 	OriginalUrl  string
 	Hits         uint
+	ExpiresOn    time.Time
+	Keywords     []Keyword
 	entity.BaseEntity
-	ExpiresOn time.Time
-	Keywords  []Keyword
 }
 
-func New(userId identifier.ID, originalUrl string) (*URL, error) {
-	id := identifier.New()
-
+// NewUrl creates a new URL entity
+func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, keywords []string) (*URL, error) {
 	if l := len(originalUrl); l < MinLength || l > MaxLength {
-		return nil, domain.ErrInvalidURLLen
+		return nil, pkg.ErrInvalidURLLen
 	}
 
 	if filterRe.MatchString(originalUrl) {
-		return nil, domain.ErrFilteredURL
+		return nil, pkg.ErrFilteredURL
 	}
 
 	_, err := netUrl.ParseRequestURI(originalUrl)
 	if err != nil {
-		return nil, domain.ErrInvalidURL
+		return nil, pkg.ErrInvalidURL
 	}
 
 	if urlRe.MatchString(originalUrl) {
-		return nil, domain.ErrInvalidURL
+		return nil, pkg.ErrInvalidURL
 	}
 
-	// TODO: shorten url from long url
+	if len(keywords) > 10 {
+		return nil, pkg.ErrKeywordsCount
+	}
+
+	for _, kw := range keywords {
+		if l := len(kw); l < 2 || l > 25 {
+			return nil, pkg.ErrKeywordLength
+		}
+
+		if !kwRe.MatchString(kw) {
+			return nil, pkg.ErrInvalidKeyword
+		}
+	}
+
+	if len(expiresOn) != len(pkg.DateLayout) {
+		return nil, pkg.ErrInvalidDate
+	}
+
+	expiry, err := parseExpiresOn(expiresOn)
+
+	if err != nil {
+		return nil, pkg.ErrInvalidDate
+	}
+
+	if expiry.In(time.UTC).Before(time.Now().In(time.UTC)) {
+		return nil, pkg.ErrPastExpiration
+	}
+
+	id := identifier.New()
+
+	if customAlias == "" {
+	}
+
 	shortenedUrl := ""
 
 	return &URL{
@@ -80,11 +111,15 @@ func New(userId identifier.ID, originalUrl string) (*URL, error) {
 // IsActive checks if the url model is active
 // It returns true if url is not marked deleted or expired, false otherwise.
 func (url URL) IsActive() bool {
-	if url.Deleted {
-		return false
+	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
+}
+
+func parseExpiresOn(expiresOn string) (time.Time, error) {
+	if expiresOn == "" {
+		return time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), nil
 	}
 
-	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
+	return time.ParseInLocation(pkg.DateLayout, expiresOn, time.UTC)
 }
 
 func (url URL) Prefix() string {

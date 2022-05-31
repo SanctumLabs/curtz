@@ -4,11 +4,12 @@ import "time"
 
 // BaseEntity is a base model for all models
 type BaseEntity struct {
-	Deleted   bool
+	DeletedAt time.Time
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
+// NewBaseEntity creates a new base entity
 func NewBaseEntity() BaseEntity {
 	now := time.Now()
 	return BaseEntity{
