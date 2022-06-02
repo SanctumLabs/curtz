@@ -3,7 +3,7 @@ package validators
 import (
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/pkg"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 )
 
 type testCase struct {
@@ -26,7 +26,7 @@ var testCases = []testCase{
 	{
 		name:        "invalid url with invalid protocol",
 		url:         "htt://www.google.com",
-		expectedErr: pkg.ErrInvalidURL,
+		expectedErr: errdefs.ErrInvalidURL,
 	},
 }
 
