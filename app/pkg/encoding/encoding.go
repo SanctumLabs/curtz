@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"log"
 
+	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 
 	"github.com/google/uuid"
@@ -33,10 +34,11 @@ func Decode(id string) (uuid.UUID, error) {
 	return decoded, nil
 }
 
-//GenUniqueParam returns a random param but unique key.
-func GenUniqueParam(len int) (string, error) {
+//GetUniqueShortCode returns a random unique short code.
+func GetUniqueShortCode() (string, error) {
+	l := pkg.ShortCodeLength
 	alphanumeric := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	return nanoid.Generate(alphanumeric, len)
+	return nanoid.Generate(alphanumeric, l)
 }
 
 //GenUniqueID returns a random but unique id.
