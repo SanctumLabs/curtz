@@ -4,17 +4,16 @@ import (
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/pkg/encoding"
-
-	"github.com/google/uuid"
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
 // Token contains token information for a user
 type Token struct {
-	APIKey               *uuid.UUID
+	APIKey               identifier.ID
 	ResetPasswordExpires *time.Time
-	ResetPasswordToken   *uuid.UUID
+	ResetPasswordToken   *identifier.ID
 	VerificationExpires  time.Time
-	VerificationToken    uuid.UUID
+	VerificationToken    identifier.ID
 }
 
 func NewToken() Token {

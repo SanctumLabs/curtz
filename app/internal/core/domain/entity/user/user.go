@@ -11,29 +11,42 @@ const (
 	USER_STATUS_DEACTIVATED = "DEACTIVATED"
 )
 
+// User is a domain entity for user
 type User struct {
+	// ID is the unique identifier for a user
 	identifier.ID
+
+	// BaseEntity is the base entity for a user
 	entity.BaseEntity
+
+	// Email is the email address for a user
 	Email
+
+	// Password is the password for a user
 	Password
+
+	// Token is the token for a user
 	Token
+
+	// Verified is the verification status for a user
 	Verified bool
-	Status   string
+
+	// Status is the status for a user
+	Status string
 }
 
 func NewUser(email, password string) (User, error) {
-	userPassword := NewPassword(password)
-	userEmail := NewEmail(email)
-	id := identifier.New()
-
-	if !userEmail.isValid() {
-		panic("Invalid email")
-	}
-
-	if err := userPassword.HashPassword(); err != nil {
+	userPassword, err := NewPassword(password)
+	if err != nil {
 		return User{}, err
 	}
 
+	userEmail, err := NewEmail(email)
+	if err != nil {
+		return User{}, err
+	}
+
+	id := identifier.New()
 	userToken := NewToken()
 	baseModel := entity.NewBaseEntity()
 

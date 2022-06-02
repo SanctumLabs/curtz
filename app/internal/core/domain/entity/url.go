@@ -1,12 +1,15 @@
 package entity
 
 import (
+	"fmt"
 	netUrl "net/url"
 	"regexp"
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/pkg"
+	"github.com/sanctumlabs/curtz/app/pkg/encoding"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
@@ -20,91 +23,102 @@ var (
 	UrlIP     = `([1-9]\d?|1\d\d|2[01]\d|22[0-3]|24\d|25[0-5])(\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])){2}(?:\.([0-9]\d?|1\d\d|2[0-4]\d|25[0-5]))`
 	Subdomain = `((www\.)|([a-zA-Z0-9]+([-_\.]?[a-zA-Z0-9])*[a-zA-Z0-9]\.[a-zA-Z0-9]+))`
 
-	MinLength    = 15
-	MaxLength    = 2048
-	KeywordRegex = `^[a-zA-Z0-9-_]+$`
-	Regex        = `^` + Schema + `?` + Username + `?` + `((` + IP + `|(\[` + IP + `\])|(([a-zA-Z0-9]([a-zA-Z0-9-_]+)?[a-zA-Z0-9]([-\.][a-zA-Z0-9]+)*)|(` + Subdomain + `?))?(([a-zA-Z\x{00a1}-\x{ffff}0-9]+-?-?)*[a-zA-Z\x{00a1}-\x{ffff}0-9]+)(?:\.([a-zA-Z\x{00a1}-\x{ffff}]{1,}))?))\.?` + Port + `?` + Path + `?$`
-	FilterRegex  = `(xxx|localhost|127\.0\.0\.1|\.lvh\.me|\.local|urlss?h\.)`
+	MinLength   = 15
+	MaxLength   = 2048
+	Regex       = `^` + Schema + `?` + Username + `?` + `((` + IP + `|(\[` + IP + `\])|(([a-zA-Z0-9]([a-zA-Z0-9-_]+)?[a-zA-Z0-9]([-\.][a-zA-Z0-9]+)*)|(` + Subdomain + `?))?(([a-zA-Z\x{00a1}-\x{ffff}0-9]+-?-?)*[a-zA-Z\x{00a1}-\x{ffff}0-9]+)(?:\.([a-zA-Z\x{00a1}-\x{ffff}]{1,}))?))\.?` + Port + `?` + Path + `?$`
+	FilterRegex = `(xxx|localhost|127\.0\.0\.1|\.lvh\.me|\.local|urlss?h\.)`
 )
 
 var (
-	kwRe     = regexp.MustCompile(KeywordRegex)
 	urlRe    = regexp.MustCompile(Regex)
 	filterRe = regexp.MustCompile(FilterRegex)
 )
 
 // URL represents an entity for a url
 type URL struct {
+	// ID is the unique identifier for the url
 	identifier.ID
-	UserId       identifier.ID
-	ShortenedUrl string
-	OriginalUrl  string
-	Hits         uint
-	ExpiresOn    time.Time
-	Keywords     []Keyword
+
+	// UserID is the user id of the url owner
+	UserId identifier.ID
+
+	// ShortCode is the short code for the url
+	ShortCode string
+
+	// CustomAlias is the custom alias for the url
+	CustomAlias string
+
+	// OriginalURL is the original url
+	OriginalUrl string
+
+	// Hits is the number of hits for the url
+	Hits uint
+
+	// ExpiresOn is the expiration date for the url
+	ExpiresOn time.Time
+
+	// Keywords is a list of keywords for the url
+	Keywords []Keyword
+
+	// BaseEntity is the base entity for the url
 	entity.BaseEntity
 }
 
 // NewUrl creates a new URL entity
 func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, keywords []string) (*URL, error) {
+	kws := make([]Keyword, len(keywords))
+
 	if l := len(originalUrl); l < MinLength || l > MaxLength {
-		return nil, pkg.ErrInvalidURLLen
+		return nil, errdefs.ErrInvalidURLLen
 	}
 
 	if filterRe.MatchString(originalUrl) {
-		return nil, pkg.ErrFilteredURL
+		return nil, errdefs.ErrFilteredURL
 	}
 
 	_, err := netUrl.ParseRequestURI(originalUrl)
 	if err != nil {
-		return nil, pkg.ErrInvalidURL
+		return nil, errdefs.ErrInvalidURL
 	}
 
 	if urlRe.MatchString(originalUrl) {
-		return nil, pkg.ErrInvalidURL
-	}
-
-	if len(keywords) > 10 {
-		return nil, pkg.ErrKeywordsCount
-	}
-
-	for _, kw := range keywords {
-		if l := len(kw); l < 2 || l > 25 {
-			return nil, pkg.ErrKeywordLength
-		}
-
-		if !kwRe.MatchString(kw) {
-			return nil, pkg.ErrInvalidKeyword
-		}
+		return nil, errdefs.ErrInvalidURL
 	}
 
 	if len(expiresOn) != len(pkg.DateLayout) {
-		return nil, pkg.ErrInvalidDate
+		return nil, errdefs.ErrInvalidDate
 	}
 
 	expiry, err := parseExpiresOn(expiresOn)
 
 	if err != nil {
-		return nil, pkg.ErrInvalidDate
+		return nil, errdefs.ErrInvalidDate
 	}
 
 	if expiry.In(time.UTC).Before(time.Now().In(time.UTC)) {
-		return nil, pkg.ErrPastExpiration
+		return nil, errdefs.ErrPastExpiration
 	}
 
 	id := identifier.New()
 
-	if customAlias == "" {
+	shortCode, err := encoding.GetUniqueShortCode()
+	if err != nil {
+		return nil, err
 	}
 
-	shortenedUrl := ""
+	kws, err = createKeywords(keywords)
+	if err != nil {
+		return nil, err
+	}
 
 	return &URL{
-		ID:           id,
-		UserId:       userId,
-		BaseEntity:   entity.NewBaseEntity(),
-		OriginalUrl:  originalUrl,
-		ShortenedUrl: shortenedUrl,
+		ID:          id,
+		UserId:      userId,
+		BaseEntity:  entity.NewBaseEntity(),
+		OriginalUrl: originalUrl,
+		ShortCode:   shortCode,
+		CustomAlias: customAlias,
+		Keywords:    kws,
 	}, nil
 }
 
@@ -122,6 +136,7 @@ func parseExpiresOn(expiresOn string) (time.Time, error) {
 	return time.ParseInLocation(pkg.DateLayout, expiresOn, time.UTC)
 }
 
+// Prefix returns the url prefix for logging
 func (url URL) Prefix() string {
-	return "url"
+	return fmt.Sprintf("url-%s-%s", url.ID, url.ShortCode)
 }
