@@ -1,4 +1,4 @@
-package entity
+package entities
 
 import "github.com/sanctumlabs/curtz/app/pkg/utils"
 

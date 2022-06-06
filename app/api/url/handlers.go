@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/validators"
 )
 
@@ -22,7 +23,28 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 		return
 	}
 
-	_, err = hdl.svc.CreateUrlShortCode(payload.OriginalUrl)
+	url, err := hdl.svc.CreateUrl("", payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := urlResponseDto{
+		Id:          url.ID.String(),
+		UserId:      url.UserId.String(),
+		OriginalUrl: url.OriginalUrl,
+		CustomAlias: url.CustomAlias,
+		ShortCode:   url.ShortCode,
+		Keywords:    payload.Keywords,
+		ExpiresOn:   url.ExpiresOn.Format(pkg.DateLayout),
+		DeletedAt:   url.DeletedAt.Format(pkg.DateLayout),
+		CreatedAt:   url.CreatedAt.Format(pkg.DateLayout),
+		UpdatedAt:   url.UpdatedAt.Format(pkg.DateLayout),
+		Hits:        url.Hits,
+	}
+
+	c.JSON(http.StatusCreated, response)
 }
 
 func (hdl *urlRouter) getUrl(c *gin.Context) {

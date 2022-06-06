@@ -1,4 +1,4 @@
-package entity
+package entities
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/encoding"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -61,7 +60,7 @@ type URL struct {
 	Keywords []Keyword
 
 	// BaseEntity is the base entity for the url
-	entity.BaseEntity
+	BaseEntity
 }
 
 // NewUrl creates a new URL entity
@@ -114,7 +113,7 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 	return &URL{
 		ID:          id,
 		UserId:      userId,
-		BaseEntity:  entity.NewBaseEntity(),
+		BaseEntity:  NewBaseEntity(),
 		OriginalUrl: originalUrl,
 		ShortCode:   shortCode,
 		CustomAlias: customAlias,

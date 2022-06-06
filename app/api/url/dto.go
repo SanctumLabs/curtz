@@ -1,5 +1,41 @@
 package url
 
+//urlResponseDto is the response dto for the url service
+type urlResponseDto struct {
+	// Id is the id of the created url to shorten
+	Id string `json:"id"`
+
+	// UserId is the id of the user whow created this url to shorten
+	UserId string `json:"user_id"`
+
+	// OriginalUrl is the original url to shorten
+	OriginalUrl string `json:"original_url"`
+
+	// CustomAlias is the custom alias for the url provided for by the user
+	CustomAlias string `json:"custom_alias" default:""`
+
+	// ShortCode is the short code generated for the url provided for by the user
+	ShortCode string `json:"short_code"`
+
+	// ExpiresOn is the expiration date for the url
+	ExpiresOn string `json:"expires_on" default:""`
+
+	// Deletedat is the deleted at date for the url
+	DeletedAt string `json:"deleted_at" default:""`
+
+	// CreatedAt is the created date for the url
+	CreatedAt string `json:"created_at" default:""`
+
+	// UpdatedAt is the updated date for the url
+	UpdatedAt string `json:"updated_at" default:""`
+
+	// Keywords is the list of keywords to be attached to the url
+	Keywords []string `json:"keywords"`
+
+	// Hits is the number of hits of the url
+	Hits uint `json:"hits"`
+}
+
 // CreateUrlDto is the request body for creating a url
 type createShortUrlDto struct {
 	// OriginalUrl is the original url to shorten

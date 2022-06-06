@@ -3,7 +3,7 @@ package urlRepo
 import (
 	"sync"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
+	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"gorm.io/gorm"
 )
@@ -11,11 +11,11 @@ import (
 type UrlRepo struct {
 	db       *gorm.DB
 	mu       sync.RWMutex
-	saveChan chan entity.URL
+	saveChan chan entities.URL
 }
 
 func NewUrlRepo(db *gorm.DB) *UrlRepo {
-	saveChan := make(chan entity.URL, 1000)
+	saveChan := make(chan entities.URL, 1000)
 
 	repo := &UrlRepo{
 		db:       db,
@@ -27,7 +27,7 @@ func NewUrlRepo(db *gorm.DB) *UrlRepo {
 	return repo
 }
 
-func (r *UrlRepo) Save(owner string, originalUrl, shortenedUrl string) (entity.URL, error) {
+func (r *UrlRepo) Save(url entities.URL) (entities.URL, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	panic("implement me")
@@ -35,19 +35,19 @@ func (r *UrlRepo) Save(owner string, originalUrl, shortenedUrl string) (entity.U
 
 func (r *UrlRepo) saveLoop() {
 	for {
-		urlEntity := <-r.saveChan
+		urlentities := <-r.saveChan
 		urlModel := models.Url{
 			BaseModel: models.BaseModel{},
-			//Owner:             urlEntity.UserId.String(),
-			OriginalURL:       urlEntity.OriginalUrl,
-			ShortenedURLParam: urlEntity.ShortenedUrl,
+			//Owner:             urlentities.UserId.String(),
+			OriginalURL:       urlentities.OriginalUrl,
+			ShortenedURLParam: urlentities.ShortCode,
 			VisitCount:        nil,
 		}
 		r.db.Create(&urlModel)
 	}
 }
 
-func (r *UrlRepo) GetByShortUrl(shortenedUrl string) (entity.URL, error) {
+func (r *UrlRepo) GetByShortUrl(shortenedUrl string) (entities.URL, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -55,27 +55,27 @@ func (r *UrlRepo) GetByShortUrl(shortenedUrl string) (entity.URL, error) {
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetByOwner(owner string) ([]entity.URL, error) {
+func (r *UrlRepo) GetByOwner(owner string) ([]entities.URL, error) {
 
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetByKeyword(keyword string) ([]entity.URL, error) {
+func (r *UrlRepo) GetByKeyword(keyword string) ([]entities.URL, error) {
 
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetByKeywords(keywords []string) ([]entity.URL, error) {
+func (r *UrlRepo) GetByKeywords(keywords []string) ([]entities.URL, error) {
 
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetByOriginalUrl(originalUrl string) ([]entity.URL, error) {
+func (r *UrlRepo) GetByOriginalUrl(originalUrl string) ([]entities.URL, error) {
 
 	panic("implement me")
 }
 
-func (r *UrlRepo) GetById(id string) (entity.URL, error) {
+func (r *UrlRepo) GetById(id string) (entities.URL, error) {
 
 	panic("implement me")
 }

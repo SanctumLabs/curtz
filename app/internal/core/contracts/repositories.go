@@ -1,24 +1,24 @@
 package contracts
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
+	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 )
 
 type UrlRepository interface {
-	Save(owner string, originalUrl, shortenedUrl string) (entity.URL, error)
-	GetByShortUrl(shortenedUrl string) (entity.URL, error)
-	GetByOwner(owner string) ([]entity.URL, error)
-	GetByKeyword(keyword string) ([]entity.URL, error)
-	GetByKeywords(keywords []string) ([]entity.URL, error)
-	GetByOriginalUrl(originalUrl string) ([]entity.URL, error)
-	GetById(id string) (entity.URL, error)
+	Save(entities.URL) (entities.URL, error)
+	GetByShortUrl(shortenedUrl string) (entities.URL, error)
+	GetByOwner(owner string) ([]entities.URL, error)
+	GetByKeyword(keyword string) ([]entities.URL, error)
+	GetByKeywords(keywords []string) ([]entities.URL, error)
+	GetByOriginalUrl(originalUrl string) ([]entities.URL, error)
+	GetById(id string) (entities.URL, error)
 	Delete(id string) error
 }
 
 type UserRepository interface {
-	CreateUser(email, password string) (entity.User, error)
-	GetByEmail(email string) (entity.User, error)
-	GetById(id string) (entity.User, error)
-	GetByUsername(username string) (entity.User, error)
+	CreateUser(email, password string) (entities.User, error)
+	GetByEmail(email string) (entities.User, error)
+	GetById(id string) (entities.User, error)
+	GetByUsername(username string) (entities.User, error)
 	RemoveUser(id string) error
 }

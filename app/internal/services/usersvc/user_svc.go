@@ -2,7 +2,7 @@ package usersvc
 
 import (
 	"github.com/sanctumlabs/curtz/app/internal/core/domain"
-	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
+	entity "github.com/sanctumlabs/curtz/app/internal/core/entities"
 )
 
 type service struct {

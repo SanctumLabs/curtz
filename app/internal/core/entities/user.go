@@ -1,7 +1,6 @@
-package entity
+package entities
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
@@ -17,7 +16,7 @@ type User struct {
 	identifier.ID
 
 	// BaseEntity is the base entity for a user
-	entity.BaseEntity
+	BaseEntity
 
 	// Email is the email address for a user
 	Email
@@ -48,7 +47,7 @@ func NewUser(email, password string) (User, error) {
 
 	id := identifier.New()
 	userToken := NewToken()
-	baseModel := entity.NewBaseEntity()
+	baseModel := NewBaseEntity()
 
 	return User{
 		ID:         id,

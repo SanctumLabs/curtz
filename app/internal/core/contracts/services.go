@@ -1,7 +1,7 @@
 package contracts
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
+	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 )
 
 type AuthService interface {
@@ -10,22 +10,21 @@ type AuthService interface {
 }
 
 type UrlService interface {
-	CreateUrl(owner string, originalUrl, shortenedUrl string) (entity.URL, error)
-	CreateUrlShortCode(originalUrl string) (entity.URL, error)
-	GetByShortUrl(shortenedUrl string) (entity.URL, error)
-	GetByOwner(owner string) ([]entity.URL, error)
-	GetByKeyword(keyword string) ([]entity.URL, error)
-	GetByKeywords(keywords []string) ([]entity.URL, error)
-	GetByOriginalUrl(originalUrl string) ([]entity.URL, error)
-	GetById(id string) (entity.URL, error)
+	CreateUrl(userId, originalUrl, customAlias, expiresOn string, keywords []string) (entities.URL, error)
+	GetByShortUrl(shortenedUrl string) (entities.URL, error)
+	GetByuserId(userId string) ([]entities.URL, error)
+	GetByKeyword(keyword string) ([]entities.URL, error)
+	GetByKeywords(keywords []string) ([]entities.URL, error)
+	GetByOriginalUrl(originalUrl string) ([]entities.URL, error)
+	GetById(id string) (entities.URL, error)
 	Remove(id string) error
 }
 
 type UserService interface {
-	CreateUser(email, password string) (entity.User, error)
-	GetUserByEmail(email string) (entity.User, error)
-	GetUserByID(id string) (entity.User, error)
-	GetUserByToken(token string) (entity.User, error)
-	GetUserByUsername(username string) (entity.User, error)
+	CreateUser(email, password string) (entities.User, error)
+	GetUserByEmail(email string) (entities.User, error)
+	GetUserByID(id string) (entities.User, error)
+	GetUserByToken(token string) (entities.User, error)
+	GetUserByUsername(username string) (entities.User, error)
 	RemoveUser(id string) error
 }

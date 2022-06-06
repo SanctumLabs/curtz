@@ -2,7 +2,7 @@ package domain
 
 import (
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
-	"github.com/sanctumlabs/curtz/app/internal/core/domain/entity"
+	entity "github.com/sanctumlabs/curtz/app/internal/core/entities"
 )
 
 type UserInteractor struct {
