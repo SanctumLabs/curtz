@@ -81,7 +81,7 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 		return nil, errdefs.ErrInvalidURL
 	}
 
-	if urlRe.MatchString(originalUrl) {
+	if !urlRe.MatchString(originalUrl) {
 		return nil, errdefs.ErrInvalidURL
 	}
 
@@ -119,6 +119,7 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 		ShortCode:   shortCode,
 		CustomAlias: customAlias,
 		Keywords:    kws,
+		ExpiresOn:   expiry,
 	}, nil
 }
 
