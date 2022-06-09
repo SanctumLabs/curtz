@@ -27,7 +27,7 @@ func (route *urlRouter) Routes() []router.Route {
 
 func (route *urlRouter) initRoutes() {
 	route.routes = []router.Route{
-		router.NewGetRoute("/api/v1/:identifier", route.getUrl),
-		router.NewPostRoute("/api/v1/", route.createShortUrl),
+		router.NewGetRoute("/api/v1/curtz/:identifier", route.getUrl),
+		router.NewPostRoute("/api/v1/curtz", route.createShortUrl),
 	}
 }

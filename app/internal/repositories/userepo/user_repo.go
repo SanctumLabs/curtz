@@ -1,17 +1,21 @@
 package userepo
 
 import (
+	"context"
+
 	entity "github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"gorm.io/gorm"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type UserRepo struct {
-	db *gorm.DB
+	dbClient *mongo.Collection
+	context  context.Context
 }
 
-func NewUserRepo(db *gorm.DB) *UserRepo {
+func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 	return &UserRepo{
-		db: db,
+		dbClient: dbClient,
+		context:  ctx,
 	}
 }
 

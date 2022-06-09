@@ -9,11 +9,10 @@ import (
 	"github.com/sanctumlabs/curtz/app/api/health"
 	urlApi "github.com/sanctumlabs/curtz/app/api/url"
 	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/internal/core/domain"
+	"github.com/sanctumlabs/curtz/app/internal/core/urlsvc"
+	"github.com/sanctumlabs/curtz/app/internal/core/usersvc"
 	"github.com/sanctumlabs/curtz/app/internal/repositories"
 	"github.com/sanctumlabs/curtz/app/internal/services/auth"
-	"github.com/sanctumlabs/curtz/app/internal/services/urlsvc"
-	"github.com/sanctumlabs/curtz/app/internal/services/usersvc"
 	"github.com/sanctumlabs/curtz/app/server"
 	"github.com/sanctumlabs/curtz/app/server/middleware"
 	"github.com/sanctumlabs/curtz/app/server/router"
@@ -81,10 +80,8 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(configuration.Auth, authService)
 
 	repository := repositories.NewRepository(configuration.Database)
-	urlInteractor := domain.NewUrlInteractor(repository.GetUrlRepo())
-	userInteractor := domain.NewUserInteractor(repository.GetUserRepo())
-	urlService := urlsvc.NewUrlService(urlInteractor)
-	userService := usersvc.NewService(userInteractor)
+	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo())
+	userService := usersvc.NewUserSvc(repository.GetUserRepo())
 
 	// setup routers
 	routers := []router.Router{

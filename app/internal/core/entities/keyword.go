@@ -15,7 +15,7 @@ var (
 // Keyword is model for keywords attached to a url
 type Keyword struct {
 	identifier.ID
-	Keyword string
+	Value string
 }
 
 // NewKeyword creates a new keyword
@@ -31,8 +31,8 @@ func NewKeyword(keyword string) (Keyword, error) {
 
 	id := identifier.New()
 	return Keyword{
-		ID:      id,
-		Keyword: keyword,
+		ID:    id,
+		Value: keyword,
 	}, nil
 }
 

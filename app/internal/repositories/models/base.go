@@ -2,16 +2,12 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
-// BaseModel definition same as gorm.Model, but including other common columns
+// BaseModel including other common fields
 type BaseModel struct {
-	gorm.Model
-	ID         uint      `gorm:"primary_key;column:id"`
-	Identifier string    `gorm:"column;column:identifier"`
-	CreatedAt  time.Time `gorm:"column:created_at"`
-	UpdatedAt  time.Time `gorm:"column:updated_at"`
-	DeletedAt  time.Time `gorm:"column:deleted_at"`
+	Id        string    `bson:"id" gorm:"primary_key;column;column:id"`
+	CreatedAt time.Time `bson:"created_at" gorm:"column:created_at"`
+	UpdatedAt time.Time `bson:"updated_at" gorm:"column:updated_at"`
+	DeletedAt time.Time `bson:"deleted_at" gorm:"column:deleted_at"`
 }

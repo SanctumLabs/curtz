@@ -1,46 +1,56 @@
 package repositories
 
 import (
+	"context"
 	"fmt"
-	"github.com/sanctumlabs/curtz/app/config"
-	models2 "github.com/sanctumlabs/curtz/app/internal/repositories/models"
-	"github.com/sanctumlabs/curtz/app/internal/repositories/urlrepo"
-	"github.com/sanctumlabs/curtz/app/internal/repositories/userepo"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 	"log"
+	"time"
+
+	"github.com/sanctumlabs/curtz/app/config"
+	urlRepo "github.com/sanctumlabs/curtz/app/internal/repositories/urlrepo"
+	"github.com/sanctumlabs/curtz/app/internal/repositories/userepo"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type repository struct {
-	db       *gorm.DB
+type Repository struct {
+	dbClient *mongo.Client
 	userRepo *userepo.UserRepo
 	urlRepo  *urlRepo.UrlRepo
 }
 
-func NewRepository(config config.DatabaseConfig) *repository {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", config.Host, config.User, config.Password, config.Database, config.Port)
+func NewRepository(config config.DatabaseConfig) *Repository {
+	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", config.User, config.Password, config.Host, config.Port, config.Database)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	dbClient, err := mongo.NewClient(options.Client().ApplyURI(uri))
 
 	if err != nil {
 		log.Fatalf("DB Connection failed with err: %v", err)
 	}
 
-	if err = db.AutoMigrate(&models2.User{}, &models2.Url{}); err != nil {
-		log.Fatalf("AutoMigration failed with err: %v", err)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = dbClient.Connect(ctx)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	return &repository{
-		db:       db,
-		userRepo: userepo.NewUserRepo(db),
-		urlRepo:  urlRepo.NewUrlRepo(db),
+	defer dbClient.Disconnect(ctx)
+
+	db := dbClient.Database(config.Database)
+
+	return &Repository{
+		dbClient: dbClient,
+		userRepo: userepo.NewUserRepo(db.Collection("users"), ctx),
+		urlRepo:  urlRepo.NewUrlRepo(db.Collection("urls"), ctx),
 	}
 }
 
-func (r repository) GetUrlRepo() *urlRepo.UrlRepo {
+func (r *Repository) GetUrlRepo() *urlRepo.UrlRepo {
 	return r.urlRepo
 }
 
-func (r repository) GetUserRepo() *userepo.UserRepo {
+func (r *Repository) GetUserRepo() *userepo.UserRepo {
 	return r.userRepo
 }

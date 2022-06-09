@@ -40,8 +40,24 @@ services:
     volumes:
       - db3:/cockroach/cockroach-data
 
+  documentdb:
+    image: mongo:4.4.14
+    container_name: curtz-documentdb
+    hostname: documentdb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: curtzUser
+      MONGO_INITDB_ROOT_PASSWORD: curtzPassword
+      MONGO_INITDB_DATABASE: curtz
+      MONGO_INITDB_USER: curtzUser
+      MONGO_INITDB_PASSWORD: curtzPassword
+    volumes:
+      - docdb:/data/db
+
 volumes:
   db:
   db1:
   db2:
   db3:
+  docdb:
