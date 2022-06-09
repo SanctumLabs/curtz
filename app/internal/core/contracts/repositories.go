@@ -16,7 +16,7 @@ type UrlRepository interface {
 }
 
 type UserRepository interface {
-	CreateUser(email, password string) (entities.User, error)
+	CreateUser(entities.User) (entities.User, error)
 	GetByEmail(email string) (entities.User, error)
 	GetById(id string) (entities.User, error)
 	GetByUsername(username string) (entities.User, error)

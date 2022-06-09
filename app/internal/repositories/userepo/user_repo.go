@@ -3,7 +3,7 @@ package userepo
 import (
 	"context"
 
-	entity "github.com/sanctumlabs/curtz/app/internal/core/entities"
+	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -19,19 +19,19 @@ func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 	}
 }
 
-func (u *UserRepo) CreateUser(email, password string) (entity.User, error) {
+func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
 	panic("implement me")
 }
 
-func (u *UserRepo) GetByEmail(email string) (entity.User, error) {
+func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
 	panic("implement me")
 }
 
-func (u *UserRepo) GetById(id string) (entity.User, error) {
+func (u *UserRepo) GetById(id string) (entities.User, error) {
 	panic("implement me")
 }
 
-func (u *UserRepo) GetByUsername(username string) (entity.User, error) {
+func (u *UserRepo) GetByUsername(username string) (entities.User, error) {
 	panic("implement me")
 }
 

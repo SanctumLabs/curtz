@@ -5,9 +5,9 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
-	authApi "github.com/sanctumlabs/curtz/app/api/auth"
 	"github.com/sanctumlabs/curtz/app/api/health"
-	urlApi "github.com/sanctumlabs/curtz/app/api/url"
+	authApi "github.com/sanctumlabs/curtz/app/api/v1/auth"
+	"github.com/sanctumlabs/curtz/app/api/v1/url"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/core/urlsvc"
 	"github.com/sanctumlabs/curtz/app/internal/core/usersvc"
@@ -83,10 +83,12 @@ func main() {
 	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo())
 	userService := usersvc.NewUserSvc(repository.GetUserRepo())
 
+	baseUri := "/api/v1/curtz"
+
 	// setup routers
 	routers := []router.Router{
-		urlApi.NewUrlRouter(urlService),
-		authApi.NewRouter(userService),
+		url.NewUrlRouter(baseUri, urlService),
+		authApi.NewRouter(baseUri, userService),
 		health.NewHealthRouter(),
 	}
 

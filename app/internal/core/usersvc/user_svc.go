@@ -14,7 +14,13 @@ func NewUserSvc(userRepo contracts.UserRepository) *UserSvc {
 }
 
 func (svc UserSvc) CreateUser(email, password string) (entities.User, error) {
-	return svc.repo.CreateUser(email, password)
+	user, err := entities.NewUser(email, password)
+
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	return svc.repo.CreateUser(user)
 }
 
 func (svc UserSvc) GetUserByEmail(email string) (entities.User, error) {

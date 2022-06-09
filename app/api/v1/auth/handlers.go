@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (hdl *authRouter) signUp(ctx *gin.Context) {
-	var request signUpRequestDto
+func (hdl *authRouter) register(ctx *gin.Context) {
+	var request registerRequestDto
 	err := ctx.BindJSON(&request)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"message": err.Error()})

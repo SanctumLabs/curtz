@@ -1,18 +1,22 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/server/router"
 )
 
 type authRouter struct {
-	svc    contracts.UserService
-	routes []router.Route
+	svc     contracts.UserService
+	routes  []router.Route
+	baseUri string
 }
 
-func NewRouter(svc contracts.UserService) router.Router {
+func NewRouter(baseUri string, svc contracts.UserService) router.Router {
 	r := &authRouter{
-		svc: svc,
+		svc:     svc,
+		baseUri: baseUri,
 	}
 	r.initRoutes()
 	return r
@@ -24,7 +28,7 @@ func (hdl authRouter) Routes() []router.Route {
 
 func (hdl *authRouter) initRoutes() {
 	hdl.routes = []router.Route{
-		router.NewPostRoute("/api/v1/signup", hdl.signUp),
-		router.NewPostRoute("/api/v1/login", hdl.login),
+		router.NewPostRoute(fmt.Sprintf("%s/auth/register", hdl.baseUri), hdl.register),
+		router.NewPostRoute(fmt.Sprintf("%s/auth/login", hdl.baseUri), hdl.login),
 	}
 }

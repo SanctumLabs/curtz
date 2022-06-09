@@ -1,20 +1,24 @@
 package url
 
 import (
+	"fmt"
+
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/server/router"
 )
 
 // urlRouter is a router for the url API.
 type urlRouter struct {
-	svc    contracts.UrlService
-	routes []router.Route
+	svc     contracts.UrlService
+	routes  []router.Route
+	baseUri string
 }
 
 // NewUrlRouter initializes a new router
-func NewUrlRouter(s contracts.UrlService) router.Router {
+func NewUrlRouter(baseUri string, s contracts.UrlService) router.Router {
 	r := &urlRouter{
-		svc: s,
+		svc:     s,
+		baseUri: baseUri,
 	}
 	r.initRoutes()
 	return r
@@ -27,7 +31,7 @@ func (route *urlRouter) Routes() []router.Route {
 
 func (route *urlRouter) initRoutes() {
 	route.routes = []router.Route{
-		router.NewGetRoute("/api/v1/curtz/:identifier", route.getUrl),
-		router.NewPostRoute("/api/v1/curtz", route.createShortUrl),
+		router.NewGetRoute(fmt.Sprintf("%s/:identifier", route.baseUri), route.getUrl),
+		router.NewPostRoute(fmt.Sprintf("%s", route.baseUri), route.createShortUrl),
 	}
 }
