@@ -11,6 +11,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/repositories/userepo"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 type Repository struct {
@@ -20,7 +21,7 @@ type Repository struct {
 }
 
 func NewRepository(config config.DatabaseConfig) *Repository {
-	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", config.User, config.Password, config.Host, config.Port, config.Database)
+	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Host, config.Port)
 
 	dbClient, err := mongo.NewClient(options.Client().ApplyURI(uri))
 
@@ -39,6 +40,12 @@ func NewRepository(config config.DatabaseConfig) *Repository {
 	defer dbClient.Disconnect(ctx)
 
 	db := dbClient.Database(config.Database)
+
+	if err := dbClient.Ping(ctx, readpref.Primary()); err != nil {
+		log.Fatalf("DB Connection failed with err: %v", err)
+	}
+
+	log.Println("DB Connection successful")
 
 	return &Repository{
 		dbClient: dbClient,

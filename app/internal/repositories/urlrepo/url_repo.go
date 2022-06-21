@@ -45,7 +45,7 @@ func (r *UrlRepo) Save(url entities.URL) (entities.URL, error) {
 		Keywords:    keywords,
 	}
 
-	_, err := r.dbClient.InsertOne(context.TODO(), urlModel)
+	_, err := r.dbClient.InsertOne(r.ctx, urlModel)
 
 	if err != nil {
 		return url, err

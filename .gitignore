@@ -69,3 +69,4 @@ fabric.properties
 bin/golangci-lint
 !bin
 !build
+__debug_bin

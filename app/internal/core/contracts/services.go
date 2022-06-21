@@ -28,3 +28,15 @@ type UserService interface {
 	GetUserByUsername(username string) (entities.User, error)
 	RemoveUser(id string) error
 }
+
+type NotificationService interface {
+	SendNotification(recipient, message, notifyType string) error
+}
+
+type EmailService interface {
+	SendEmail(recipient, subject, body string) error
+}
+
+type SmsService interface {
+	SendSms(recipient, message string) error
+}

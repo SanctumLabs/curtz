@@ -1,12 +1,18 @@
 package middleware
 
 import (
+	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/services/auth"
 	"github.com/sanctumlabs/curtz/app/tools/logger"
+)
+
+var (
+	registerRouteRe = regexp.MustCompile("^/api/v[0-9]+/curtz/auth/(register|login)$")
 )
 
 // NewAuthMiddleware creates a new auth middleware for authenticating requests
@@ -17,9 +23,19 @@ func NewAuthMiddleware(config config.AuthConfig, authService *auth.AuthService) 
 	return func(context *gin.Context) {
 		authHeader := context.GetHeader("Authorization")
 
+		requestUrl := context.Request.URL
+
+		requestPath := requestUrl.Path
+
+		// if request path matches register url, then allow request through
+		if registerRouteRe.MatchString(requestPath) {
+			context.Next()
+			return
+		}
+
 		if authHeader == "" {
 			log.Error("No Authorization header found")
-			context.AbortWithStatus(401)
+			context.AbortWithStatus(http.StatusUnauthorized)
 			return
 		} else {
 			if len(authHeader) < 7 || strings.ToUpper(authHeader[:6]) != "BEARER" {
@@ -32,7 +48,7 @@ func NewAuthMiddleware(config config.AuthConfig, authService *auth.AuthService) 
 			userId, _, err := authService.Authenticate(token)
 			if err != nil {
 				log.Error(err)
-				context.AbortWithStatus(401)
+				context.AbortWithStatus(http.StatusUnauthorized)
 				return
 			}
 

@@ -49,7 +49,7 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: curtzUser
       MONGO_INITDB_ROOT_PASSWORD: curtzPassword
-      MONGO_INITDB_DATABASE: curtz
+      MONGO_INITDB_DATABASE: curtzdb
       MONGO_INITDB_USER: curtzUser
       MONGO_INITDB_PASSWORD: curtzPassword
     volumes:

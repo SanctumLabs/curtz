@@ -13,6 +13,8 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/usersvc"
 	"github.com/sanctumlabs/curtz/app/internal/repositories"
 	"github.com/sanctumlabs/curtz/app/internal/services/auth"
+	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
+	"github.com/sanctumlabs/curtz/app/internal/services/notifications/email"
 	"github.com/sanctumlabs/curtz/app/server"
 	"github.com/sanctumlabs/curtz/app/server/middleware"
 	"github.com/sanctumlabs/curtz/app/server/router"
@@ -43,12 +45,12 @@ func main() {
 	environment := env.EnvOr(Env, "development")
 	logLevel := env.EnvOr(EnvLogLevel, "debug")
 	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
-	port := env.EnvOr(EnvPort, "8080")
+	port := env.EnvOr(EnvPort, "8085")
 	host := env.EnvOr(EnvDatabaseHost, "localhost")
 	database := env.EnvOr(EnvDatabase, "curtzdb")
 	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtzUser")
-	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPass")
-	databasePort := env.EnvOr(EnvDatabasePort, "5432")
+	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPassword")
+	databasePort := env.EnvOr(EnvDatabasePort, "27017")
 
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
 	if err != nil {
@@ -82,13 +84,15 @@ func main() {
 	repository := repositories.NewRepository(configuration.Database)
 	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo())
 	userService := usersvc.NewUserSvc(repository.GetUserRepo())
+	emailSvc := email.NewEmailSvc()
+	notificationSvc := notifications.NewNotificationSvc(emailSvc)
 
 	baseUri := "/api/v1/curtz"
 
 	// setup routers
 	routers := []router.Router{
 		url.NewUrlRouter(baseUri, urlService),
-		authApi.NewRouter(baseUri, userService),
+		authApi.NewRouter(baseUri, userService, notificationSvc),
 		health.NewHealthRouter(),
 	}
 

@@ -9,26 +9,25 @@ import (
 	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 
-	"github.com/google/uuid"
 	nanoid "github.com/matoous/go-nanoid"
 )
 
-//Encode encodes the uuid to a base64 string that is url-safe.
-func Encode(id uuid.UUID) string {
-	return b64.RawURLEncoding.EncodeToString(id.NodeID())
+//Encode encodes the identifier to a base64 string that is url-safe.
+func Encode(id identifier.ID) string {
+	return b64.RawURLEncoding.EncodeToString(id.Bytes())
 }
 
-//Decode decodes a base64 string to a raw uuid.
-func Decode(id string) (uuid.UUID, error) {
+//Decode decodes a base64 string to a raw identifier.
+func Decode(id string) (identifier.ID, error) {
 	dec, err := b64.RawURLEncoding.DecodeString(id)
 
 	if err != nil {
-		return uuid.UUID{}, err
+		return identifier.ID{}, err
 	}
 
-	decoded, err := uuid.FromBytes(dec)
+	decoded, err := identifier.FromBytes(dec)
 	if err != nil {
-		return uuid.UUID{}, err
+		return identifier.ID{}, err
 	}
 
 	return decoded, nil
