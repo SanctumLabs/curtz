@@ -1,12 +1,16 @@
 package contracts
 
 import (
+	"time"
+
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 )
 
 type AuthService interface {
 	// Authenticate a user given the token. Returns user id if authenticated, error otherwise.
-	Authenticate(token string) (string, error)
+	Authenticate(token string) (string, time.Time, error)
+	// GenerateToken generates a user token provided the user id
+	GenerateToken(userId string) (string, error)
 }
 
 type UrlService interface {

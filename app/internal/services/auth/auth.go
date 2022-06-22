@@ -18,3 +18,8 @@ func NewService(config config.AuthConfig) *AuthService {
 func (svc *AuthService) Authenticate(tokenString string) (string, time.Time, error) {
 	return jwt.Decode(tokenString, svc.config.Jwt.Issuer, svc.config.Jwt.Secret)
 }
+
+func (svc *AuthService) GenerateToken(userId string) (string, error) {
+	// TODO: make expire delter configurable
+	return jwt.Encode(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, 6)
+}

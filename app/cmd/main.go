@@ -92,7 +92,7 @@ func main() {
 	// setup routers
 	routers := []router.Router{
 		url.NewUrlRouter(baseUri, urlService),
-		authApi.NewRouter(baseUri, userService, notificationSvc),
+		authApi.NewRouter(baseUri, userService, notificationSvc, authService),
 		health.NewHealthRouter(),
 	}
 

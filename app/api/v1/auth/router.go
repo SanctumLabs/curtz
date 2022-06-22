@@ -10,14 +10,16 @@ import (
 type authRouter struct {
 	svc             contracts.UserService
 	notificationSvc contracts.NotificationService
+	authSvc         contracts.AuthService
 	routes          []router.Route
 	baseUri         string
 }
 
-func NewRouter(baseUri string, svc contracts.UserService, notificationSvc contracts.NotificationService) router.Router {
+func NewRouter(baseUri string, svc contracts.UserService, notificationSvc contracts.NotificationService, authSvc contracts.AuthService) router.Router {
 	r := &authRouter{
 		svc:             svc,
 		notificationSvc: notificationSvc,
+		authSvc:         authSvc,
 		baseUri:         baseUri,
 	}
 	r.initRoutes()
