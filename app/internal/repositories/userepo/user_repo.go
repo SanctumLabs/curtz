@@ -5,6 +5,8 @@ import (
 
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -21,6 +23,10 @@ func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 }
 
 func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
+	filter := bson.E{"email", user.Email.Value}
+	if result := u.dbClient.FindOne(u.context, filter); result.Err().Error() != "ErrNoDocuments" {
+		return entities.User{}, errdefs.ErrUserExists
+	}
 
 	userModel := models.User{
 		BaseModel: models.BaseModel{

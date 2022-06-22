@@ -7,5 +7,6 @@ func NewEmailSvc() *EmailService {
 }
 
 func (e *EmailService) SendEmail(recipient, subject, body string) error {
-	panic("implement me")
+	return nil
+	// panic("implement me")
 }

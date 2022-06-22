@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/sanctumlabs/curtz/app/config"
 	urlRepo "github.com/sanctumlabs/curtz/app/internal/repositories/urlrepo"
@@ -29,15 +28,12 @@ func NewRepository(config config.DatabaseConfig) *Repository {
 		log.Fatalf("DB Connection failed with err: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	ctx := context.TODO()
 
 	err = dbClient.Connect(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defer dbClient.Disconnect(ctx)
 
 	db := dbClient.Database(config.Database)
 
@@ -52,6 +48,11 @@ func NewRepository(config config.DatabaseConfig) *Repository {
 		userRepo: userepo.NewUserRepo(db.Collection("users"), ctx),
 		urlRepo:  urlRepo.NewUrlRepo(db.Collection("urls"), ctx),
 	}
+}
+
+// Disconnect disconnects from the db client database connection
+func (r *Repository) Disconnect(ctx context.Context) error {
+	return r.dbClient.Disconnect(ctx)
 }
 
 func (r *Repository) GetUrlRepo() *urlRepo.UrlRepo {

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	registerRouteRe = regexp.MustCompile("^/api/v[0-9]+/curtz/auth/(register|login)$")
+	registerRouteRe = regexp.MustCompile("^(/health)|/api/v[0-9]+/curtz/auth/(register|login)$")
 )
 
 // NewAuthMiddleware creates a new auth middleware for authenticating requests

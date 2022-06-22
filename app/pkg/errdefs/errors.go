@@ -21,6 +21,7 @@ var (
 	ErrNoShortCode        = errors.New("short_code is not found")
 	ErrTokenRequired      = errors.New("auth token is required")
 	ErrTokenInvalid       = errors.New("auth token is invalid")
+	ErrUserExists         = errors.New("User already exists")
 )
 
 type Error struct {
