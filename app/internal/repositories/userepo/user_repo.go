@@ -6,6 +6,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -23,8 +24,7 @@ func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 }
 
 func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
-	filter := bson.E{"email", user.Email.Value}
-	if result := u.dbClient.FindOne(u.context, filter); result.Err().Error() != "ErrNoDocuments" {
+	if _, err := u.GetByEmail(user.Email.Value); err != nil {
 		return entities.User{}, errdefs.ErrUserExists
 	}
 
@@ -50,7 +50,35 @@ func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
 }
 
 func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
-	panic("implement me")
+	filter := bson.E{Key: "email", Value: email}
+	var result bson.E
+	err := u.dbClient.FindOne(u.context, filter).Decode(result)
+
+	if err.Error() == "ErrNoDocuments" {
+		return entities.User{}, errdefs.ErrUserDoestNotExist
+	}
+
+	document, err := bson.Marshal(result)
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	var user models.User
+	err = bson.Unmarshal(document, &user)
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	return entities.User{
+		ID:    identifier.New().FromString(user.Id),
+		Email: entities.Email{Value: user.Email},
+		BaseEntity: entities.BaseEntity{
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			DeletedAt: user.DeletedAt,
+		},
+		Verified: user.Verified,
+	}, nil
 }
 
 func (u *UserRepo) GetById(id string) (entities.User, error) {

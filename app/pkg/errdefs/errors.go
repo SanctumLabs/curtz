@@ -22,6 +22,7 @@ var (
 	ErrTokenRequired      = errors.New("auth token is required")
 	ErrTokenInvalid       = errors.New("auth token is invalid")
 	ErrUserExists         = errors.New("User already exists")
+	ErrUserDoestNotExist  = errors.New("User does not exist")
 )
 
 type Error struct {
