@@ -24,7 +24,7 @@ func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 }
 
 func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
-	if _, err := u.GetByEmail(user.Email.Value); err != nil {
+	if _, err := u.GetByEmail(user.Email.Value); err == nil {
 		return entities.User{}, errdefs.ErrUserExists
 	}
 
@@ -50,12 +50,11 @@ func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
 }
 
 func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
-	filter := bson.E{Key: "email", Value: email}
-	var result bson.E
-	err := u.dbClient.FindOne(u.context, filter).Decode(result)
+	filter := bson.D{{Key: "email", Value: email}}
 
-	if err.Error() == "ErrNoDocuments" {
-		return entities.User{}, errdefs.ErrUserDoestNotExist
+	var result bson.D
+	if err := u.dbClient.FindOne(u.context, filter).Decode(&result); err != nil {
+		return entities.User{}, err
 	}
 
 	document, err := bson.Marshal(result)
@@ -70,22 +69,19 @@ func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
 	}
 
 	return entities.User{
-		ID:    identifier.New().FromString(user.Id),
-		Email: entities.Email{Value: user.Email},
+		ID:       identifier.New().FromString(user.BaseModel.Id),
+		Email:    entities.Email{Value: user.Email},
+		Password: entities.Password{Value: user.Password},
 		BaseEntity: entities.BaseEntity{
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			DeletedAt: user.DeletedAt,
+			CreatedAt: user.BaseModel.CreatedAt,
+			UpdatedAt: user.BaseModel.UpdatedAt,
+			DeletedAt: user.BaseModel.DeletedAt,
 		},
 		Verified: user.Verified,
 	}, nil
 }
 
 func (u *UserRepo) GetById(id string) (entities.User, error) {
-	panic("implement me")
-}
-
-func (u *UserRepo) GetByUsername(username string) (entities.User, error) {
 	panic("implement me")
 }
 

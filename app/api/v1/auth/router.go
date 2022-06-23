@@ -33,6 +33,6 @@ func (hdl authRouter) Routes() []router.Route {
 func (hdl *authRouter) initRoutes() {
 	hdl.routes = []router.Route{
 		router.NewPostRoute(fmt.Sprintf("%s/auth/register", hdl.baseUri), hdl.register),
-		router.NewPostRoute(fmt.Sprintf("%s/auth/login", hdl.baseUri), hdl.login),
+		router.NewGetRoute(fmt.Sprintf("%s/auth/login", hdl.baseUri), hdl.login),
 	}
 }

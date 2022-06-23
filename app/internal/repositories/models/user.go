@@ -7,13 +7,12 @@ import (
 )
 
 type User struct {
-	BaseModel
-	Email                string         `gorm:"column:email,uniqueIndex"`
-	Password             string         `gorm:"column:password"`
-	ResetPasswordExpires *time.Time     `gorm:"column:reset_password_expires"`
-	ResetPasswordToken   *identifier.ID `gorm:"column:reset_password_token"`
-	VerificationExpires  time.Time      `gorm:"column:verification_expires"`
-	VerificationToken    identifier.ID  `gorm:"column:verification_token"`
-	Verified             bool           `gorm:"column:verified,omitempty"`
-	Urls                 []Url          `gorm:"foreignKey:Owner"`
+	BaseModel            BaseModel      `bson:"inline"`
+	Email                string         `bson:"email" gorm:"column:email,uniqueIndex"`
+	Password             string         `bson:"password" gorm:"column:password"`
+	ResetPasswordExpires *time.Time     `bson:"reset_password_expires" gorm:"column:reset_password_expires"`
+	ResetPasswordToken   *identifier.ID `bson:"reset_password_token" gorm:"column:reset_password_token"`
+	VerificationExpires  time.Time      `bson:"verification_expires" gorm:"column:verification_expires"`
+	VerificationToken    identifier.ID  `bson:"verification_token" gorm:"column:verification_token"`
+	Verified             bool           `bson:"verified" gorm:"column:verified,omitempty"`
 }

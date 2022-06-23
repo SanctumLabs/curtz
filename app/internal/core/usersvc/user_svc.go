@@ -3,6 +3,8 @@ package usersvc
 import (
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/curtz/app/pkg/utils"
 )
 
 type UserSvc struct {
@@ -24,18 +26,20 @@ func (svc UserSvc) CreateUser(email, password string) (entities.User, error) {
 }
 
 func (svc UserSvc) GetUserByEmail(email string) (entities.User, error) {
-	panic("implement me")
+	if utils.IsEmailValid(email) {
+		user, err := svc.repo.GetByEmail(email)
+
+		if err != nil {
+			return entities.User{}, err
+		}
+
+		return user, nil
+	}
+
+	return entities.User{}, errdefs.ErrEmailInvalid
 }
 
 func (svc UserSvc) GetUserByID(id string) (entities.User, error) {
-	panic("implement me")
-}
-
-func (svc UserSvc) GetUserByToken(token string) (entities.User, error) {
-	panic("implement me")
-}
-
-func (svc UserSvc) GetUserByUsername(username string) (entities.User, error) {
 	panic("implement me")
 }
 

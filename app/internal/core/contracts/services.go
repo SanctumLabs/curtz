@@ -28,8 +28,6 @@ type UserService interface {
 	CreateUser(email, password string) (entities.User, error)
 	GetUserByEmail(email string) (entities.User, error)
 	GetUserByID(id string) (entities.User, error)
-	GetUserByToken(token string) (entities.User, error)
-	GetUserByUsername(username string) (entities.User, error)
 	RemoveUser(id string) error
 }
 

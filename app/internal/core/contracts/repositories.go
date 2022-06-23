@@ -19,6 +19,5 @@ type UserRepository interface {
 	CreateUser(entities.User) (entities.User, error)
 	GetByEmail(email string) (entities.User, error)
 	GetById(id string) (entities.User, error)
-	GetByUsername(username string) (entities.User, error)
 	RemoveUser(id string) error
 }
