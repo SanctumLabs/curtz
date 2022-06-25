@@ -23,6 +23,7 @@ func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 	}
 }
 
+// CreateUser creates a single user
 func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
 	if _, err := u.GetByEmail(user.Email.Value); err == nil {
 		return entities.User{}, errdefs.ErrUserExists
@@ -49,21 +50,9 @@ func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
 	return user, nil
 }
 
+// GetByEmail gets a user given an email address
 func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
-	filter := bson.D{{Key: "email", Value: email}}
-
-	var result bson.D
-	if err := u.dbClient.FindOne(u.context, filter).Decode(&result); err != nil {
-		return entities.User{}, err
-	}
-
-	document, err := bson.Marshal(result)
-	if err != nil {
-		return entities.User{}, err
-	}
-
-	var user models.User
-	err = bson.Unmarshal(document, &user)
+	user, err := u.getSingleResult("email", email)
 	if err != nil {
 		return entities.User{}, err
 	}
@@ -81,10 +70,48 @@ func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
 	}, nil
 }
 
+// GetById returns a user record given the id
 func (u *UserRepo) GetById(id string) (entities.User, error) {
-	panic("implement me")
+	user, err := u.getSingleResult("id", id)
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	return entities.User{
+		ID:       identifier.New().FromString(user.BaseModel.Id),
+		Email:    entities.Email{Value: user.Email},
+		Password: entities.Password{Value: user.Password},
+		BaseEntity: entities.BaseEntity{
+			CreatedAt: user.BaseModel.CreatedAt,
+			UpdatedAt: user.BaseModel.UpdatedAt,
+			DeletedAt: user.BaseModel.DeletedAt,
+		},
+		Verified: user.Verified,
+	}, nil
 }
 
 func (u *UserRepo) RemoveUser(id string) error {
 	panic("implement me")
+}
+
+func (u *UserRepo) getSingleResult(key, value string) (models.User, error) {
+	filter := bson.D{{Key: key, Value: value}}
+
+	var result bson.D
+	if err := u.dbClient.FindOne(u.context, filter).Decode(&result); err != nil {
+		return models.User{}, err
+	}
+
+	document, err := bson.Marshal(result)
+	if err != nil {
+		return models.User{}, err
+	}
+
+	var user models.User
+	err = bson.Unmarshal(document, &user)
+	if err != nil {
+		return user, err
+	}
+
+	return user, nil
 }

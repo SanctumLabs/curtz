@@ -6,8 +6,8 @@ import (
 
 // BaseModel including other common fields
 type BaseModel struct {
-	Id        string    `bson:"id" gorm:"primary_key;column;column:id"`
-	CreatedAt time.Time `bson:"created_at" gorm:"column:created_at"`
-	UpdatedAt time.Time `bson:"updated_at" gorm:"column:updated_at"`
-	DeletedAt time.Time `bson:"deleted_at" gorm:"column:deleted_at"`
+	Id        string     `bson:"id" gorm:"primary_key;column;column:id"`
+	CreatedAt time.Time  `bson:"created_at" gorm:"column:created_at"`
+	UpdatedAt time.Time  `bson:"updated_at" gorm:"column:updated_at"`
+	DeletedAt *time.Time `bson:"deleted_at" gorm:"column:deleted_at"`
 }
