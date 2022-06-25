@@ -19,7 +19,7 @@ type UrlService interface {
 	GetByUserId(userId string) ([]entities.URL, error)
 	GetByKeyword(keyword string) ([]entities.URL, error)
 	GetByKeywords(keywords []string) ([]entities.URL, error)
-	GetByOriginalUrl(originalUrl string) ([]entities.URL, error)
+	GetByOriginalUrl(originalUrl string) (entities.URL, error)
 	GetById(id string) (entities.URL, error)
 	Remove(id string) error
 }

@@ -40,7 +40,13 @@ func (svc UserSvc) GetUserByEmail(email string) (entities.User, error) {
 }
 
 func (svc UserSvc) GetUserByID(id string) (entities.User, error) {
-	panic("implement me")
+	user, err := svc.repo.GetById(id)
+
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	return user, nil
 }
 
 func (svc UserSvc) RemoveUser(id string) error {

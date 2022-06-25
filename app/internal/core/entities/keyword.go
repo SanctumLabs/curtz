@@ -43,9 +43,9 @@ func createKeywords(keywords []string) ([]Keyword, error) {
 		return kws, errdefs.ErrKeywordsCount
 	}
 
-	for idx, kw := range keywords {
-		if kw, err := NewKeyword(kw); err != nil {
-			kws[idx] = kw
+	for _, kw := range keywords {
+		if keyword, err := NewKeyword(kw); err == nil {
+			kws = append(kws, keyword)
 		}
 	}
 
