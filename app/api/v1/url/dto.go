@@ -1,5 +1,7 @@
 package url
 
+import "time"
+
 //urlResponseDto is the response dto for the url service
 type urlResponseDto struct {
 	// Id is the id of the created url to shorten
@@ -18,16 +20,16 @@ type urlResponseDto struct {
 	ShortCode string `json:"short_code"`
 
 	// ExpiresOn is the expiration date for the url
-	ExpiresOn string `json:"expires_on" default:""`
+	ExpiresOn time.Time `json:"expires_on" default:""`
 
 	// Deletedat is the deleted at date for the url
-	DeletedAt string `json:"deleted_at" default:""`
+	DeletedAt *time.Time `json:"deleted_at" default:""`
 
 	// CreatedAt is the created date for the url
-	CreatedAt string `json:"created_at" default:""`
+	CreatedAt time.Time `json:"created_at" default:""`
 
 	// UpdatedAt is the updated date for the url
-	UpdatedAt string `json:"updated_at" default:""`
+	UpdatedAt time.Time `json:"updated_at" default:""`
 
 	// Keywords is the list of keywords to be attached to the url
 	Keywords []string `json:"keywords"`
@@ -45,7 +47,7 @@ type createShortUrlDto struct {
 	CustomAlias string `json:"custom_alias" default:""`
 
 	// ExpiresOn is the expiration date for the url
-	ExpiresOn string `json:"expires_on" default:""`
+	ExpiresOn string `json:"expires_on" binding:"required"`
 
 	// Keywords is the list of keywords to be attached to the url
 	Keywords []string `json:"keywords"`

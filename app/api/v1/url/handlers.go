@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/validators"
 )
 
@@ -12,9 +11,20 @@ import (
 func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 	payload := createShortUrlDto{}
 	err := c.BindJSON(&payload)
-
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userId, ok := c.Get("userId")
+	if !ok {
+		c.Status(http.StatusUnauthorized)
+		return
+	}
+
+	uid := userId.(string)
+	if _, err := hdl.userSvc.GetUserByID(uid); err != nil {
+		c.Status(http.StatusUnauthorized)
 		return
 	}
 
@@ -23,42 +33,55 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 		return
 	}
 
-	url, err := hdl.svc.CreateUrl("", payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
+	url, err := hdl.svc.CreateUrl(uid, payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	response := urlResponseDto{
-		Id:          url.ID.String(),
-		UserId:      url.UserId.String(),
-		OriginalUrl: url.OriginalUrl,
-		CustomAlias: url.CustomAlias,
-		ShortCode:   url.ShortCode,
-		Keywords:    payload.Keywords,
-		ExpiresOn:   url.ExpiresOn.Format(pkg.DateLayout),
-		DeletedAt:   url.DeletedAt.Format(pkg.DateLayout),
-		CreatedAt:   url.CreatedAt.Format(pkg.DateLayout),
-		UpdatedAt:   url.UpdatedAt.Format(pkg.DateLayout),
-		Hits:        url.Hits,
-	}
-
+	response := mapEntityToResponseDto(url)
 	c.JSON(http.StatusCreated, response)
 }
 
-func (hdl *urlRouter) getUrl(c *gin.Context) {
-	request := createShortUrlDto{}
-	err := c.BindJSON(&request)
+func (hdl *urlRouter) getUrlById(c *gin.Context) {
+	urlId := c.Param("id")
+
+	url, err := hdl.svc.GetById(urlId)
+
 	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	url, err := hdl.svc.GetByOriginalUrl(request.OriginalUrl)
+	response := mapEntityToResponseDto(url)
 
-	if err != nil {
-		c.AbortWithStatusJSON(500, gin.H{"error": err.Error()})
+	c.JSON(http.StatusOK, response)
+}
+
+func (hdl *urlRouter) getAllUrls(c *gin.Context) {
+	userId, ok := c.Get("userId")
+	if !ok {
+		c.Status(http.StatusUnauthorized)
 		return
 	}
-	c.JSON(200, url)
+
+	uid := userId.(string)
+	if _, err := hdl.userSvc.GetUserByID(uid); err != nil {
+		c.Status(http.StatusUnauthorized)
+		return
+	}
+
+	urls, err := hdl.svc.GetByUserId(uid)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := []urlResponseDto{}
+	for _, url := range urls {
+		response = append(response, mapEntityToResponseDto(url))
+	}
+
+	c.JSON(http.StatusOK, response)
 }

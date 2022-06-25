@@ -32,6 +32,9 @@ const (
 	EnvDatabaseUsername = "DATABASE_USERNAME"
 	EnvDatabasePassword = "DATABASE_PASSWORD"
 	EnvDatabasePort     = "DATABASE_PORT"
+	EnvAuthSecret       = "AUTH_SECRET"
+	EnvAuthExpireDelta  = "AUTH_EXPIRE_DELTA"
+	EnvAuthIssuer       = "AUTH_ISSUER"
 )
 
 func main() {
@@ -51,6 +54,14 @@ func main() {
 	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtzUser")
 	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPassword")
 	databasePort := env.EnvOr(EnvDatabasePort, "27017")
+	authSecret := env.EnvOr(EnvAuthSecret, "curtz-secret")
+	authExpireDelta := env.EnvOr(EnvAuthExpireDelta, "6")
+	authIssuer := env.EnvOr(EnvAuthIssuer, "curtz")
+
+	expireDelta, err := strconv.Atoi(authExpireDelta)
+	if err != nil {
+		expireDelta = 6
+	}
 
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
 	if err != nil {
@@ -63,6 +74,13 @@ func main() {
 		Logging: config.LoggingConfig{
 			Level:            logLevel,
 			EnableJSONOutput: enableJsonOutput,
+		},
+		Auth: config.AuthConfig{
+			Jwt: config.Jwt{
+				Secret:      authSecret,
+				ExpireDelta: expireDelta,
+				Issuer:      authIssuer,
+			},
 		},
 		Database: config.DatabaseConfig{
 			Host:     host,
@@ -91,7 +109,7 @@ func main() {
 
 	// setup routers
 	routers := []router.Router{
-		url.NewUrlRouter(baseUri, urlService),
+		url.NewUrlRouter(baseUri, urlService, userService),
 		authApi.NewRouter(baseUri, userService, notificationSvc, authService),
 		health.NewHealthRouter(),
 	}
