@@ -7,6 +7,7 @@ var (
 	ErrInvalidURL         = errors.New("url is invalid")
 	ErrInvalidURLLen      = errors.New("url is too short or too long, should be 15-2048 chars")
 	ErrFilteredURL        = errors.New("url matches filter pattern")
+	ErrURLAlreadyExists   = errors.New("url matches filter pattern")
 	ErrKeywordsCount      = errors.New("keywords must not be more than 10")
 	ErrKeywordLength      = errors.New("keyword must contain 2-25 characters")
 	ErrInvalidKeyword     = errors.New("keyword must be alphanumeric (dash/underscore allowed)")
