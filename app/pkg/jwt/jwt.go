@@ -19,6 +19,7 @@ func Encode(uid string, signingKey string, issuer string, expireDelta int) (stri
 			ExpiresAt: time.Now().Add(time.Minute * time.Duration(expireDelta)).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Issuer:    issuer,
+			Subject:   uid,
 		},
 		UserId: uid,
 	}
