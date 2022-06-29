@@ -27,7 +27,6 @@ func mapModelToEntity(url models.Url) entities.URL {
 		Keywords:    keywords,
 		BaseEntity: entities.BaseEntity{
 			CreatedAt: url.BaseModel.CreatedAt,
-			DeletedAt: url.BaseModel.DeletedAt,
 			UpdatedAt: url.BaseModel.UpdatedAt,
 		},
 	}

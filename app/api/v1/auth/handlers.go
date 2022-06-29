@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
 )
 
 func (hdl *authRouter) register(ctx *gin.Context) {
@@ -19,13 +18,6 @@ func (hdl *authRouter) register(ctx *gin.Context) {
 
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-
-	err = hdl.notificationSvc.SendNotification(user.Email.Value, "Welcome to Curtz", notifications.NotificationTypeEmail)
-
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 		return
 	}
 
@@ -76,5 +68,4 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, response)
-	return
 }

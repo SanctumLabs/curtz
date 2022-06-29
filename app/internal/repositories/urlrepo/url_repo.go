@@ -109,7 +109,31 @@ func (r *UrlRepo) GetById(id string) (entities.URL, error) {
 }
 
 func (r *UrlRepo) Delete(id string) error {
-	panic("implement me")
+	_, err := r.getSingleResult("id", id)
+
+	if err != nil {
+		return errdefs.ErrURLNotFound
+	}
+
+	filter := bson.D{{Key: "id", Value: id}}
+
+	var result bson.D
+	if err := r.dbClient.FindOneAndDelete(r.ctx, filter).Decode(&result); err != nil {
+		return err
+	}
+
+	document, err := bson.Marshal(result)
+	if err != nil {
+		return err
+	}
+
+	var url models.Url
+	err = bson.Unmarshal(document, &url)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *UrlRepo) getSingleResult(key, value string) (entities.URL, error) {

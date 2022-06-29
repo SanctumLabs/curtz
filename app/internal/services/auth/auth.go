@@ -20,6 +20,5 @@ func (svc *AuthService) Authenticate(tokenString string) (string, time.Time, err
 }
 
 func (svc *AuthService) GenerateToken(userId string) (string, error) {
-	// TODO: make expire delta configurable
-	return jwt.Encode(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, 6)
+	return jwt.Encode(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.ExpireDelta)
 }

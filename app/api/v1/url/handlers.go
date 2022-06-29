@@ -22,17 +22,12 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 		return
 	}
 
-	uid := userId.(string)
-	if _, err := hdl.userSvc.GetUserByID(uid); err != nil {
-		c.Status(http.StatusUnauthorized)
-		return
-	}
-
 	if err := validators.IsValidUrl(payload.OriginalUrl); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	uid := userId.(string)
 	url, err := hdl.svc.CreateUrl(uid, payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
 
 	if err != nil {
@@ -67,11 +62,6 @@ func (hdl *urlRouter) getAllUrls(c *gin.Context) {
 	}
 
 	uid := userId.(string)
-	if _, err := hdl.userSvc.GetUserByID(uid); err != nil {
-		c.Status(http.StatusUnauthorized)
-		return
-	}
-
 	urls, err := hdl.svc.GetByUserId(uid)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})

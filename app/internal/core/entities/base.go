@@ -4,9 +4,6 @@ import "time"
 
 // BaseEntity is a base model for all models
 type BaseEntity struct {
-	// DeletedAt is the date when the entity was deleted
-	DeletedAt *time.Time
-
 	// CreatedAt is the date when the entity was created
 	CreatedAt time.Time
 

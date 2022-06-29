@@ -20,7 +20,6 @@ func mapEntityToResponseDto(url entities.URL) urlResponseDto {
 		ShortCode:   url.ShortCode,
 		Keywords:    keywords,
 		ExpiresOn:   url.ExpiresOn,
-		DeletedAt:   url.DeletedAt,
 		CreatedAt:   url.CreatedAt,
 		UpdatedAt:   url.UpdatedAt,
 		Hits:        url.Hits,

@@ -6,7 +6,6 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -29,17 +28,7 @@ func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
 		return entities.User{}, errdefs.ErrUserExists
 	}
 
-	userModel := models.User{
-		BaseModel: models.BaseModel{
-			Id:        user.ID.String(),
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
-		Email:               user.Email.Value,
-		Password:            user.Password.Value,
-		VerificationToken:   user.VerificationToken,
-		VerificationExpires: user.VerificationExpires,
-	}
+	userModel := mapEntityToModel(user)
 
 	_, err := u.dbClient.InsertOne(u.context, userModel)
 
@@ -57,17 +46,7 @@ func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
 		return entities.User{}, err
 	}
 
-	return entities.User{
-		ID:       identifier.New().FromString(user.BaseModel.Id),
-		Email:    entities.Email{Value: user.Email},
-		Password: entities.Password{Value: user.Password},
-		BaseEntity: entities.BaseEntity{
-			CreatedAt: user.BaseModel.CreatedAt,
-			UpdatedAt: user.BaseModel.UpdatedAt,
-			DeletedAt: user.BaseModel.DeletedAt,
-		},
-		Verified: user.Verified,
-	}, nil
+	return mapModelToEntity(user), nil
 }
 
 // GetById returns a user record given the id
@@ -77,21 +56,33 @@ func (u *UserRepo) GetById(id string) (entities.User, error) {
 		return entities.User{}, err
 	}
 
-	return entities.User{
-		ID:       identifier.New().FromString(user.BaseModel.Id),
-		Email:    entities.Email{Value: user.Email},
-		Password: entities.Password{Value: user.Password},
-		BaseEntity: entities.BaseEntity{
-			CreatedAt: user.BaseModel.CreatedAt,
-			UpdatedAt: user.BaseModel.UpdatedAt,
-			DeletedAt: user.BaseModel.DeletedAt,
-		},
-		Verified: user.Verified,
-	}, nil
+	return mapModelToEntity(user), nil
 }
 
+// RemoveUser deletes a user record given its id
 func (u *UserRepo) RemoveUser(id string) error {
-	panic("implement me")
+	if _, err := u.GetById(id); err != nil {
+		return errdefs.ErrUserDoestNotExist
+	}
+
+	filter := bson.D{{Key: "id", Value: id}}
+
+	var result bson.D
+	if err := u.dbClient.FindOneAndDelete(u.context, filter).Decode(&result); err != nil {
+		return err
+	}
+
+	document, err := bson.Marshal(result)
+	if err != nil {
+		return err
+	}
+
+	var url models.Url
+	if err = bson.Unmarshal(document, &url); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u *UserRepo) getSingleResult(key, value string) (models.User, error) {

@@ -99,18 +99,19 @@ func main() {
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
 	authMiddleware := middleware.NewAuthMiddleware(configuration.Auth, authService)
 
-	repository := repositories.NewRepository(configuration.Database)
-	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo())
-	userService := usersvc.NewUserSvc(repository.GetUserRepo())
 	emailSvc := email.NewEmailSvc()
 	notificationSvc := notifications.NewNotificationSvc(emailSvc)
+
+	repository := repositories.NewRepository(configuration.Database)
+	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
+	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo(), userService)
 
 	baseUri := "/api/v1/curtz"
 
 	// setup routers
 	routers := []router.Router{
-		url.NewUrlRouter(baseUri, urlService, userService),
-		authApi.NewRouter(baseUri, userService, notificationSvc, authService),
+		url.NewUrlRouter(baseUri, urlService),
+		authApi.NewRouter(baseUri, userService, authService),
 		health.NewHealthRouter(),
 	}
 

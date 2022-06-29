@@ -22,9 +22,6 @@ type urlResponseDto struct {
 	// ExpiresOn is the expiration date for the url
 	ExpiresOn time.Time `json:"expires_on" default:""`
 
-	// Deletedat is the deleted at date for the url
-	DeletedAt *time.Time `json:"deleted_at" default:""`
-
 	// CreatedAt is the created date for the url
 	CreatedAt time.Time `json:"created_at" default:""`
 
