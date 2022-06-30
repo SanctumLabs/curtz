@@ -31,8 +31,8 @@ func (route *urlRouter) Routes() []router.Route {
 
 func (route *urlRouter) initRoutes() {
 	route.routes = []router.Route{
-		router.NewPostRoute(fmt.Sprintf("%s", route.baseUri), route.createShortUrl),
-		router.NewGetRoute(fmt.Sprintf("%s/urls/:id", route.baseUri), route.getUrlById),
+		router.NewPostRoute(fmt.Sprintf("%s/urls", route.baseUri), route.createShortUrl),
 		router.NewGetRoute(fmt.Sprintf("%s/urls", route.baseUri), route.getAllUrls),
+		router.NewGetRoute(fmt.Sprintf("%s/urls/:id", route.baseUri), route.getUrlById),
 	}
 }

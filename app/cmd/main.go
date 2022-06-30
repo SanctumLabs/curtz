@@ -7,6 +7,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/sanctumlabs/curtz/app/api/health"
 	authApi "github.com/sanctumlabs/curtz/app/api/v1/auth"
+	"github.com/sanctumlabs/curtz/app/api/v1/client"
 	"github.com/sanctumlabs/curtz/app/api/v1/url"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/core/urlsvc"
@@ -99,10 +100,10 @@ func main() {
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
 	authMiddleware := middleware.NewAuthMiddleware(configuration.Auth, authService)
 
+	repository := repositories.NewRepository(configuration.Database)
 	emailSvc := email.NewEmailSvc()
 	notificationSvc := notifications.NewNotificationSvc(emailSvc)
 
-	repository := repositories.NewRepository(configuration.Database)
 	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
 	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo(), userService)
 
@@ -113,6 +114,7 @@ func main() {
 		url.NewUrlRouter(baseUri, urlService),
 		authApi.NewRouter(baseUri, userService, authService),
 		health.NewHealthRouter(),
+		client.NewClientRouter(urlService),
 	}
 
 	// initialize routers

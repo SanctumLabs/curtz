@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	registerRouteRe = regexp.MustCompile("^(/health)|/api/v[0-9]+/curtz/auth/(register|login)$")
+	filterRegex = regexp.MustCompile("^/[a-zA-Z0-9]+|(/health)|/api/v[0-9]+/curtz/auth/(register|login)$")
 )
 
 // NewAuthMiddleware creates a new auth middleware for authenticating requests
@@ -28,7 +28,7 @@ func NewAuthMiddleware(config config.AuthConfig, authService *auth.AuthService) 
 		requestPath := requestUrl.Path
 
 		// if request path matches register url, then allow request through
-		if registerRouteRe.MatchString(requestPath) {
+		if filterRegex.MatchString(requestPath) {
 			context.Next()
 			return
 		}
