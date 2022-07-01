@@ -13,6 +13,7 @@ type UrlRepository interface {
 	GetByOriginalUrl(originalUrl string) (entities.URL, error)
 	GetById(id string) (entities.URL, error)
 	Delete(id string) error
+	IncrementHits(shortCode string) error
 }
 
 type UserRepository interface {

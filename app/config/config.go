@@ -8,4 +8,5 @@ type Config struct {
 	Version     string
 	Database    DatabaseConfig
 	Auth        AuthConfig
+	Cache       CacheConfig
 }

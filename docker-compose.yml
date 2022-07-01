@@ -55,9 +55,19 @@ services:
     volumes:
       - docdb:/data/db
 
+  cache:
+    image: redis:7.0.2
+    container_name: curtz-cache
+    hostname: cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - cache:/data
+
 volumes:
   db:
   db1:
   db2:
   db3:
   docdb:
+  cache:

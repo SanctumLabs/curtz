@@ -9,12 +9,12 @@ import (
 func (hdl *clientRouter) handleRedirect(c *gin.Context) {
 	shortCode := c.Param("shortCode")
 
-	url, err := hdl.svc.GetByShortCode(shortCode)
+	url, err := hdl.svc.LookupUrl(shortCode)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Redirect(http.StatusPermanentRedirect, url.OriginalUrl)
+	c.Redirect(http.StatusPermanentRedirect, url)
 }

@@ -78,7 +78,6 @@ func (srv *server) registerRouters(engine *gin.Engine) {
 
 	for _, apiRouter := range srv.routers {
 		for _, route := range apiRouter.Routes() {
-
 			srv.logger.Debugf("Registering %s, %s", route.Method(), route.Path())
 			engine.Handle(route.Method(), route.Path(), route.Handler())
 		}

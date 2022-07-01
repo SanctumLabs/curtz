@@ -14,6 +14,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/usersvc"
 	"github.com/sanctumlabs/curtz/app/internal/repositories"
 	"github.com/sanctumlabs/curtz/app/internal/services/auth"
+	"github.com/sanctumlabs/curtz/app/internal/services/cache"
 	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
 	"github.com/sanctumlabs/curtz/app/internal/services/notifications/email"
 	"github.com/sanctumlabs/curtz/app/server"
@@ -36,6 +37,11 @@ const (
 	EnvAuthSecret       = "AUTH_SECRET"
 	EnvAuthExpireDelta  = "AUTH_EXPIRE_DELTA"
 	EnvAuthIssuer       = "AUTH_ISSUER"
+	EnvCacheHost        = "CACHE_HOST"
+	EnvCacheUsername    = "CACHE_USERNAME"
+	EnvCachePassword    = "CACHE_PASSWORD"
+	EnvCachePort        = "CACHE_PORT"
+	EnvCacheRequireAuth = "CACHE_REQUIRE_AUTH"
 )
 
 func main() {
@@ -58,10 +64,20 @@ func main() {
 	authSecret := env.EnvOr(EnvAuthSecret, "curtz-secret")
 	authExpireDelta := env.EnvOr(EnvAuthExpireDelta, "6")
 	authIssuer := env.EnvOr(EnvAuthIssuer, "curtz")
+	cacheHost := env.EnvOr(EnvCacheHost, "localhost")
+	cachePort := env.EnvOr(EnvCachePort, "6379")
+	cacheUsername := env.EnvOr(EnvCacheUsername, "curtzUser")
+	cachePassword := env.EnvOr(EnvCachePassword, "curtzPassword")
+	cacheRequireAuth := env.EnvOr(EnvCacheRequireAuth, "false")
 
 	expireDelta, err := strconv.Atoi(authExpireDelta)
 	if err != nil {
 		expireDelta = 6
+	}
+
+	cacheNeedsAuth, err := strconv.ParseBool(cacheRequireAuth)
+	if err != nil {
+		cacheNeedsAuth = false
 	}
 
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
@@ -90,6 +106,13 @@ func main() {
 			Password: databasePass,
 			Port:     databasePort,
 		},
+		Cache: config.CacheConfig{
+			Host:        cacheHost,
+			Port:        cachePort,
+			Username:    cacheUsername,
+			Password:    cachePassword,
+			RequireAuth: cacheNeedsAuth,
+		},
 	}
 
 	srv := server.NewServer(&configuration)
@@ -103,9 +126,10 @@ func main() {
 	repository := repositories.NewRepository(configuration.Database)
 	emailSvc := email.NewEmailSvc()
 	notificationSvc := notifications.NewNotificationSvc(emailSvc)
+	cache := cache.New(configuration.Cache)
 
 	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
-	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo(), userService)
+	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo(), userService, cache)
 
 	baseUri := "/api/v1/curtz"
 

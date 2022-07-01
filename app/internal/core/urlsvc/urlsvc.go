@@ -12,11 +12,13 @@ type UrlSvc struct {
 	repo contracts.UrlRepository
 	// userSvc is an interface used to interact with the user service use cases
 	userSvc contracts.UserService
+	// cache is an interface used to interact with cache service
+	cache contracts.CacheService
 }
 
 // NewUrlSvc creates a new url service
-func NewUrlSvc(urlRepository contracts.UrlRepository, userSvc contracts.UserService) *UrlSvc {
-	return &UrlSvc{urlRepository, userSvc}
+func NewUrlSvc(urlRepository contracts.UrlRepository, userSvc contracts.UserService, cacheSvc contracts.CacheService) *UrlSvc {
+	return &UrlSvc{urlRepository, userSvc, cacheSvc}
 }
 
 // CreateUrl creates a new shorted url given a user id, original url, custom alias, when it should expire and slice of keywords
@@ -113,4 +115,24 @@ func (svc *UrlSvc) Remove(id string) error {
 		return err
 	}
 	return nil
+}
+
+// LookupUrl looks up the original url given the short code
+func (svc *UrlSvc) LookupUrl(shortCode string) (string, error) {
+	cachedOriginalUrl, err := svc.cache.LookupUrl(shortCode)
+
+	if err != nil || cachedOriginalUrl == "" {
+		url, err := svc.repo.GetByShortCode(shortCode)
+		if err != nil {
+			return "", err
+		}
+
+		go svc.cache.SaveUrl(shortCode, url.OriginalUrl)
+		go svc.repo.IncrementHits(shortCode)
+
+		return url.OriginalUrl, nil
+	}
+
+	go svc.repo.IncrementHits(shortCode)
+	return cachedOriginalUrl, nil
 }

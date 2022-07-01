@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	filterRegex = regexp.MustCompile("^/[a-zA-Z0-9]+|(/health)|/api/v[0-9]+/curtz/auth/(register|login)$")
+	healthRegex = regexp.MustCompile("^(/health)$")
+	authRegex   = regexp.MustCompile("^/api/v[0-9]+/curtz/auth/(register|login)$")
+	clientRegex = regexp.MustCompile("^/[a-zA-Z0-9]+$")
 )
 
 // NewAuthMiddleware creates a new auth middleware for authenticating requests
@@ -28,7 +30,17 @@ func NewAuthMiddleware(config config.AuthConfig, authService *auth.AuthService) 
 		requestPath := requestUrl.Path
 
 		// if request path matches register url, then allow request through
-		if filterRegex.MatchString(requestPath) {
+		if authRegex.MatchString(requestPath) {
+			context.Next()
+			return
+		}
+
+		if healthRegex.MatchString(requestPath) {
+			context.Next()
+			return
+		}
+
+		if clientRegex.MatchString(requestPath) {
 			context.Next()
 			return
 		}

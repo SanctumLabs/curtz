@@ -22,6 +22,7 @@ type UrlService interface {
 	GetByOriginalUrl(originalUrl string) (entities.URL, error)
 	GetById(id string) (entities.URL, error)
 	Remove(id string) error
+	LookupUrl(shortCode string) (string, error)
 }
 
 type UserService interface {
@@ -41,4 +42,10 @@ type EmailService interface {
 
 type SmsService interface {
 	SendSms(recipient, message string) error
+}
+
+// CacheService interface to be used by services that implement cache like functionality
+type CacheService interface {
+	LookupUrl(shortCode string) (string, error)
+	SaveUrl(shortCode, originalUrl string) (string, error)
 }

@@ -6,9 +6,13 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/curtz/app/tools/logger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var log = logger.NewLogger("urlRepo")
 
 type UrlRepo struct {
 	dbClient *mongo.Collection
@@ -134,6 +138,24 @@ func (r *UrlRepo) Delete(id string) error {
 	}
 
 	return nil
+}
+
+func (r *UrlRepo) IncrementHits(shortCode string) error {
+	if url, err := r.getSingleResult("short_code", shortCode); err == nil {
+		filter := bson.D{{Key: "short_code", Value: shortCode}}
+		update := bson.D{{Key: "$set", Value: bson.D{{Key: "visit_count", Value: url.Hits + 1}}}}
+		opts := options.Update().SetUpsert(false)
+
+		result, err := r.dbClient.UpdateOne(r.ctx, filter, update, opts)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("UrlShortCode %s incremented by 1. Result: %v", shortCode, result.ModifiedCount)
+		return nil
+	} else {
+		return err
+	}
 }
 
 func (r *UrlRepo) getSingleResult(key, value string) (entities.URL, error) {

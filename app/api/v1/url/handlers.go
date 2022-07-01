@@ -54,21 +54,6 @@ func (hdl *urlRouter) getUrlById(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (hdl *urlRouter) getUrlByShortCode(c *gin.Context) {
-	urlId := c.Param("id")
-
-	url, err := hdl.svc.GetById(urlId)
-
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-
-	response := mapEntityToResponseDto(url)
-
-	c.JSON(http.StatusOK, response)
-}
-
 func (hdl *urlRouter) getAllUrls(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
