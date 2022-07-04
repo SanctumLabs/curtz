@@ -3,8 +3,9 @@ package usersvc
 import (
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
+	"github.com/sanctumlabs/curtz/app/pkg/encoding"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 	"github.com/sanctumlabs/curtz/app/pkg/utils"
 )
 
@@ -24,14 +25,22 @@ func NewUserSvc(userRepo contracts.UserRepository, notificationSvc contracts.Not
 // CreateUser creates a new user record given their email and password and returns the user record or returns an error
 func (svc UserSvc) CreateUser(email, password string) (entities.User, error) {
 	user, err := entities.NewUser(email, password)
-
-	err = svc.notificationSvc.SendNotification(user.Email.Value, "Welcome to Curtz", notifications.NotificationTypeEmail)
-
 	if err != nil {
 		return entities.User{}, err
 	}
 
-	return svc.repo.CreateUser(user)
+	encodedToken := encoding.Encode(user.VerificationToken)
+
+	user, err = svc.repo.CreateUser(user)
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	if err := svc.notificationSvc.SendEmailVerificationNotification(user.Email.Value, encodedToken); err != nil {
+		return entities.User{}, err
+	}
+
+	return user, nil
 }
 
 // GetUserByEmail retrieve a user record given their email address or returns an error
@@ -63,6 +72,22 @@ func (svc UserSvc) GetUserByID(id string) (entities.User, error) {
 // RemoveUser remeves a user record
 func (svc UserSvc) RemoveUser(id string) error {
 	if err := svc.repo.RemoveUser(id); err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetByVerificationToken gets a user provided their verification token
+func (svc UserSvc) GetByVerificationToken(verificationToken string) (entities.User, error) {
+	user, err := svc.repo.GetByVerificationToken(verificationToken)
+	if err != nil {
+		return entities.User{}, err
+	}
+	return user, nil
+}
+
+func (svc UserSvc) SetVerified(id identifier.ID) error {
+	if err := svc.repo.SetVerified(id); err != nil {
 		return err
 	}
 	return nil

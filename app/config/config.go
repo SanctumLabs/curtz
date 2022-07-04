@@ -1,6 +1,7 @@
 package config
 
 type Config struct {
+	Host        string
 	Env         string
 	Port        string
 	Logging     LoggingConfig

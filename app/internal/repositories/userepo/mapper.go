@@ -15,7 +15,7 @@ func mapEntityToModel(user entities.User) models.User {
 		},
 		Email:               user.Email.Value,
 		Password:            user.Password.Value,
-		VerificationToken:   user.VerificationToken,
+		VerificationToken:   user.VerificationToken.String(),
 		VerificationExpires: user.VerificationExpires,
 	}
 }

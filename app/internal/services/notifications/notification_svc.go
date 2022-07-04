@@ -2,6 +2,8 @@ package notifications
 
 import (
 	"errors"
+	"fmt"
+	"os"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 )
@@ -13,13 +15,16 @@ const (
 )
 
 type NotificationService struct {
+	// baseUrl is used to include the host and port in messages for clickable links
+	baseUrl  string
 	emailSvc contracts.EmailService
 	// smsSvc   SmsService
 }
 
-func NewNotificationSvc(emailSvc contracts.EmailService) *NotificationService {
+func NewNotificationSvc(host string, emailSvc contracts.EmailService) *NotificationService {
 	return &NotificationService{
 		emailSvc: emailSvc,
+		baseUrl:  host,
 	}
 }
 
@@ -37,4 +42,18 @@ func (n *NotificationService) SendNotification(recipient, message, notifyType st
 	default:
 		return errors.New("unknown notification type")
 	}
+}
+
+func (n *NotificationService) SendEmailNotification(recipient, subject, message string) error {
+	return n.emailSvc.SendEmail(recipient, subject, message)
+}
+
+func (n *NotificationService) SendEmailVerificationNotification(recipient, token string) error {
+	baseUrl, err := os.Hostname()
+	if err != nil {
+		baseUrl = n.baseUrl
+	}
+	subject := "Welcome to Curtz, Kindly verify your account"
+	message := fmt.Sprintf("Click on link %s/auth/verify/?v=%s to verify account", baseUrl, token)
+	return n.emailSvc.SendEmail(recipient, subject, message)
 }

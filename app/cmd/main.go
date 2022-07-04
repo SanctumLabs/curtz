@@ -28,6 +28,7 @@ const (
 	Env                 = "ENV"
 	EnvLogLevel         = "LOG_LEVEL"
 	EnvLogJsonOutput    = "LOG_JSON_OUTPUT"
+	EnvHost             = "HOST"
 	EnvPort             = "PORT"
 	EnvDatabaseHost     = "DATABASE_HOST"
 	EnvDatabase         = "DATABASE"
@@ -55,8 +56,9 @@ func main() {
 	environment := env.EnvOr(Env, "development")
 	logLevel := env.EnvOr(EnvLogLevel, "debug")
 	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
+	host := env.EnvOr(EnvHost, "http://localhost")
 	port := env.EnvOr(EnvPort, "8085")
-	host := env.EnvOr(EnvDatabaseHost, "localhost")
+	databaseHost := env.EnvOr(EnvDatabaseHost, "localhost")
 	database := env.EnvOr(EnvDatabase, "curtzdb")
 	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtzUser")
 	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPassword")
@@ -87,6 +89,7 @@ func main() {
 
 	configuration := config.Config{
 		Env:  environment,
+		Host: host,
 		Port: port,
 		Logging: config.LoggingConfig{
 			Level:            logLevel,
@@ -100,7 +103,7 @@ func main() {
 			},
 		},
 		Database: config.DatabaseConfig{
-			Host:     host,
+			Host:     databaseHost,
 			Database: database,
 			User:     databaseUser,
 			Password: databasePass,
@@ -125,7 +128,7 @@ func main() {
 
 	repository := repositories.NewRepository(configuration.Database)
 	emailSvc := email.NewEmailSvc()
-	notificationSvc := notifications.NewNotificationSvc(emailSvc)
+	notificationSvc := notifications.NewNotificationSvc(configuration.Host, emailSvc)
 	cache := cache.New(configuration.Cache)
 
 	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
@@ -138,7 +141,7 @@ func main() {
 		url.NewUrlRouter(baseUri, urlService),
 		authApi.NewRouter(baseUri, userService, authService),
 		health.NewHealthRouter(),
-		client.NewClientRouter(urlService),
+		client.NewClientRouter(urlService, userService),
 	}
 
 	// initialize routers

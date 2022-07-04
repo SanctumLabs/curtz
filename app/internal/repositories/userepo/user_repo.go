@@ -6,9 +6,14 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
+	"github.com/sanctumlabs/curtz/app/tools/logger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var log = logger.NewLogger("userRepo")
 
 type UserRepo struct {
 	dbClient *mongo.Collection
@@ -83,6 +88,33 @@ func (u *UserRepo) RemoveUser(id string) error {
 	}
 
 	return nil
+}
+
+func (u *UserRepo) GetByVerificationToken(verificationToken string) (entities.User, error) {
+	user, err := u.getSingleResult("verification_token", verificationToken)
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	return mapModelToEntity(user), nil
+}
+
+func (u *UserRepo) SetVerified(id identifier.ID) error {
+	if _, err := u.getSingleResult("id", id.String()); err == nil {
+		filter := bson.D{{Key: "id", Value: id.String()}}
+		update := bson.D{{Key: "$set", Value: bson.D{{Key: "verified", Value: true}}}}
+		opts := options.Update().SetUpsert(false)
+
+		result, err := u.dbClient.UpdateOne(u.context, filter, update, opts)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("User %s set to verified. Result: %v", id, result.ModifiedCount)
+		return nil
+	} else {
+		return err
+	}
 }
 
 func (u *UserRepo) getSingleResult(key, value string) (models.User, error) {

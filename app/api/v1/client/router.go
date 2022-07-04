@@ -7,14 +7,16 @@ import (
 
 // clientRouter is a router for the url API.
 type clientRouter struct {
-	svc    contracts.UrlService
-	routes []router.Route
+	urlSvc  contracts.UrlService
+	userSvc contracts.UserService
+	routes  []router.Route
 }
 
 // NewUrlRouter initializes a new router
-func NewClientRouter(svc contracts.UrlService) router.Router {
+func NewClientRouter(urlSvc contracts.UrlService, userSvc contracts.UserService) router.Router {
 	r := &clientRouter{
-		svc: svc,
+		urlSvc:  urlSvc,
+		userSvc: userSvc,
 	}
 	r.initRoutes()
 	return r
@@ -28,5 +30,6 @@ func (route *clientRouter) Routes() []router.Route {
 func (route *clientRouter) initRoutes() {
 	route.routes = []router.Route{
 		router.NewGetRoute("/:shortCode", route.handleRedirect),
+		router.NewGetRoute("/auth/verify", route.handleVerification),
 	}
 }
