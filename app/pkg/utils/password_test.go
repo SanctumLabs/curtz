@@ -44,7 +44,7 @@ func BenchmarkHashPassword(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range hashPasswordTestCases {
-			HashPassword(tc.input)
+			_, _ = HashPassword(tc.input)
 		}
 	}
 }
@@ -92,7 +92,7 @@ func BenchmarkComparePassword(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, tc := range comparePasswordTestCases {
 			hash, _ := HashPassword(tc.input)
-			CompareHashAndPassword(hash, tc.input)
+			_, _ = CompareHashAndPassword(hash, tc.input)
 		}
 	}
 }

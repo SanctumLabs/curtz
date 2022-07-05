@@ -48,7 +48,7 @@ func BenchmarkNewKeyword(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range keywordTestCases {
-			NewKeyword(tc.input)
+			_, _ = NewKeyword(tc.input)
 		}
 	}
 }
@@ -95,7 +95,7 @@ func BenchmarkCreateKeywords(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range createKeywordsTestCases {
-			createKeywords(tc.input)
+			_, _ = createKeywords(tc.input)
 		}
 	}
 }

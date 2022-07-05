@@ -126,13 +126,16 @@ func (svc *UrlSvc) LookupUrl(shortCode string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-
+		// nolint
 		go svc.cache.SaveUrl(shortCode, url.OriginalUrl)
+
+		// nolint
 		go svc.repo.IncrementHits(shortCode)
 
 		return url.OriginalUrl, nil
 	}
 
+	// nolint
 	go svc.repo.IncrementHits(shortCode)
 	return cachedOriginalUrl, nil
 }

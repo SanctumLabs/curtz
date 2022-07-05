@@ -1,8 +1,6 @@
 package entities
 
 import (
-	"strings"
-
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/utils"
 )
@@ -20,8 +18,4 @@ func NewEmail(value string) (Email, error) {
 		}, nil
 	}
 	return Email{}, errdefs.ErrEmailInvalid
-}
-
-func (e Email) format() string {
-	return strings.ToLower(e.Value)
 }

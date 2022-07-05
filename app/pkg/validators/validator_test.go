@@ -48,7 +48,7 @@ func BenchmarkIsValidUrl(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range testCases {
-			IsValidUrl(tc.url)
+			_ = IsValidUrl(tc.url)
 		}
 	}
 }

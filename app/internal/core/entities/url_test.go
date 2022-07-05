@@ -111,7 +111,7 @@ func BenchmarkNewUrl(b *testing.B) {
 	for _, tc := range urlTestCases {
 		b.Run(tc.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				NewUrl(tc.userId, tc.url, tc.alias, tc.expiresOn, tc.keywords)
+				_, _ = NewUrl(tc.userId, tc.url, tc.alias, tc.expiresOn, tc.keywords)
 			}
 		})
 	}

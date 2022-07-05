@@ -65,8 +65,6 @@ type URL struct {
 
 // NewUrl creates a new URL entity
 func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, keywords []string) (*URL, error) {
-	kws := make([]Keyword, len(keywords))
-
 	if l := len(originalUrl); l < MinLength || l > MaxLength {
 		return nil, errdefs.ErrInvalidURLLen
 	}
@@ -105,7 +103,7 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 		return nil, err
 	}
 
-	kws, err = createKeywords(keywords)
+	kws, err := createKeywords(keywords)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ func NewCORSMiddleware(defaultHeaders string) Middleware {
 			corsHeaders = "*"
 		}
 
-		log.Warnf("CORS Header is enabled & set to: %s", corsHeaders)
+		log.Debugf("CORS Header is enabled & set to: %s", corsHeaders)
 		context.Header("Access-Control-Allow-Origin", corsHeaders)
 		context.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Registry-Auth, Authorization")
 		context.Header("Access-Control-Allow-Methods", "HEAD, GET, POST, DELETE, PUT, OPTIONS")
