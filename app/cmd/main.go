@@ -25,24 +25,28 @@ import (
 )
 
 const (
-	Env                 = "ENV"
-	EnvLogLevel         = "LOG_LEVEL"
-	EnvLogJsonOutput    = "LOG_JSON_OUTPUT"
-	EnvHost             = "HOST"
-	EnvPort             = "PORT"
-	EnvDatabaseHost     = "DATABASE_HOST"
-	EnvDatabase         = "DATABASE"
-	EnvDatabaseUsername = "DATABASE_USERNAME"
-	EnvDatabasePassword = "DATABASE_PASSWORD"
-	EnvDatabasePort     = "DATABASE_PORT"
-	EnvAuthSecret       = "AUTH_SECRET"
-	EnvAuthExpireDelta  = "AUTH_EXPIRE_DELTA"
-	EnvAuthIssuer       = "AUTH_ISSUER"
-	EnvCacheHost        = "CACHE_HOST"
-	EnvCacheUsername    = "CACHE_USERNAME"
-	EnvCachePassword    = "CACHE_PASSWORD"
-	EnvCachePort        = "CACHE_PORT"
-	EnvCacheRequireAuth = "CACHE_REQUIRE_AUTH"
+	Env                  = "ENV"
+	EnvLogLevel          = "LOG_LEVEL"
+	EnvLogJsonOutput     = "LOG_JSON_OUTPUT"
+	EnvHost              = "HOST"
+	EnvPort              = "PORT"
+	EnvDatabaseHost      = "DATABASE_HOST"
+	EnvDatabase          = "DATABASE"
+	EnvDatabaseUsername  = "DATABASE_USERNAME"
+	EnvDatabasePassword  = "DATABASE_PASSWORD"
+	EnvDatabasePort      = "DATABASE_PORT"
+	EnvAuthSecret        = "AUTH_SECRET"
+	EnvAuthExpireDelta   = "AUTH_EXPIRE_DELTA"
+	EnvAuthIssuer        = "AUTH_ISSUER"
+	EnvCacheHost         = "CACHE_HOST"
+	EnvCacheUsername     = "CACHE_USERNAME"
+	EnvCachePassword     = "CACHE_PASSWORD"
+	EnvCachePort         = "CACHE_PORT"
+	EnvCacheRequireAuth  = "CACHE_REQUIRE_AUTH"
+	EnvSentryDsn         = "SENTRY_DSN"
+	EnvSentryEnvironment = "SENTRY_ENV"
+	EnvSentrySampleRate  = "SENTRY_SAMPLE_RATE"
+	EnvSentryEnabled     = "SENTRY_ENABLED"
 )
 
 func main() {
@@ -71,6 +75,10 @@ func main() {
 	cacheUsername := env.EnvOr(EnvCacheUsername, "curtzUser")
 	cachePassword := env.EnvOr(EnvCachePassword, "curtzPassword")
 	cacheRequireAuth := env.EnvOr(EnvCacheRequireAuth, "false")
+	sentryEnabled := env.EnvOr(EnvSentryEnabled, "false")
+	sentryDsn := env.EnvOr(EnvSentryDsn, "")
+	sentryEnvironment := env.EnvOr(EnvSentryEnvironment, "development")
+	sentrySampleRate := env.EnvOr(EnvSentrySampleRate, "0.5")
 
 	expireDelta, err := strconv.Atoi(authExpireDelta)
 	if err != nil {
@@ -85,6 +93,16 @@ func main() {
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
 	if err != nil {
 		enableJsonOutput = true
+	}
+
+	enableSentry, err := strconv.ParseBool(sentryEnabled)
+	if err != nil {
+		enableSentry = false
+	}
+
+	sentryRate, err := strconv.ParseFloat(sentrySampleRate, 64)
+	if err != nil {
+		sentryRate = 0.5
 	}
 
 	configuration := config.Config{
@@ -116,6 +134,14 @@ func main() {
 			Password:    cachePassword,
 			RequireAuth: cacheNeedsAuth,
 		},
+		Monitoring: config.MonitoringConfig{
+			Sentry: config.Sentry{
+				DSN:              sentryDsn,
+				Environment:      sentryEnvironment,
+				Enabled:          enableSentry,
+				TracesSampleRate: sentryRate,
+			},
+		},
 	}
 
 	srv := server.NewServer(&configuration)
@@ -125,6 +151,7 @@ func main() {
 	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()
 	authMiddleware := middleware.NewAuthMiddleware(configuration.Auth, authService)
+	monitoringMiddleware := middleware.NewMonitoringMiddleware(configuration.Monitoring)
 
 	repository := repositories.NewRepository(configuration.Database)
 	emailSvc := email.NewEmailSvc()
@@ -152,6 +179,7 @@ func main() {
 	srv.UseMiddleware(corsMiddleware)
 	srv.UseMiddleware(recoveryMiddleware)
 	srv.UseMiddleware(authMiddleware)
+	srv.UseMiddleware(monitoringMiddleware)
 
 	appServer := srv.CreateServer()
 

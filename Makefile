@@ -82,6 +82,6 @@ lint:
 
 build:
 	@echo "Building application"
-	go build -o $(BIN_DIR) app/cmd/main.go
+	go build -o $(BIN_DIR)/curtz app/cmd/main.go
 
 all: install lint lint-docker test

@@ -10,4 +10,5 @@ type Config struct {
 	Database    DatabaseConfig
 	Auth        AuthConfig
 	Cache       CacheConfig
+	Monitoring  MonitoringConfig
 }

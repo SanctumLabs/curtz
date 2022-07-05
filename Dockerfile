@@ -9,10 +9,10 @@ WORKDIR /app
 
 COPY . .
 
-RUN make build
+RUN CGO_ENABLED=0 GOOS=linux go build -mod=mod -o curtz app/cmd/main.go
 
 # Distribution
-FROM alpine:3.14.0
+FROM alpine:3.15.4
 
 # hadolint ignore=DL3017,DL3018
 RUN apk update && apk upgrade && \
@@ -20,8 +20,8 @@ RUN apk update && apk upgrade && \
 
 WORKDIR /app
 
-EXPOSE 8080
+EXPOSE 8085
 
-COPY --from=builder /app/bin/main .
+COPY --from=builder /app/curtz .
 
-CMD [ "/app/main" ]
+CMD [ "/app/curtz" ]
