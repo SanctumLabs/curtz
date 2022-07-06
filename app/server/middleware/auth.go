@@ -52,7 +52,7 @@ func NewAuthMiddleware(config config.AuthConfig, authService *auth.AuthService) 
 		} else {
 			if len(authHeader) < 7 || strings.ToUpper(authHeader[:6]) != "BEARER" {
 				log.Error("Authorization header is not a bearer token")
-				context.AbortWithStatus(401)
+				context.AbortWithStatus(http.StatusUnauthorized)
 				return
 			}
 			token := authHeader[7:]

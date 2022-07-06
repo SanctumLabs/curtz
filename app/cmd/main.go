@@ -5,9 +5,9 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"github.com/sanctumlabs/curtz/app/api/client"
 	"github.com/sanctumlabs/curtz/app/api/health"
 	authApi "github.com/sanctumlabs/curtz/app/api/v1/auth"
-	"github.com/sanctumlabs/curtz/app/api/v1/client"
 	"github.com/sanctumlabs/curtz/app/api/v1/url"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/core/urlsvc"
@@ -22,6 +22,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/server/router"
 	"github.com/sanctumlabs/curtz/app/tools/env"
 	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"github.com/sanctumlabs/curtz/app/tools/monitoring"
 )
 
 const (
@@ -146,6 +147,10 @@ func main() {
 
 	srv := server.NewServer(&configuration)
 
+	if _, err := monitoring.New(configuration.Monitoring); err != nil {
+		log.Fatalf("Failed to configure Monitoring: %s", err)
+	}
+
 	authService := auth.NewService(configuration.Auth)
 	corsMiddleware := middleware.NewCORSMiddleware(configuration.CorsHeaders)
 	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
@@ -163,7 +168,6 @@ func main() {
 
 	baseUri := "/api/v1/curtz"
 
-	// setup routers
 	routers := []router.Router{
 		url.NewUrlRouter(baseUri, urlService),
 		authApi.NewRouter(baseUri, userService, authService),
@@ -171,19 +175,16 @@ func main() {
 		client.NewClientRouter(urlService, userService),
 	}
 
-	// initialize routers
 	srv.InitRouter(routers...)
 
-	// use middlewares
+	srv.UseMiddleware(monitoringMiddleware)
 	srv.UseMiddleware(loggingMiddleware)
 	srv.UseMiddleware(corsMiddleware)
 	srv.UseMiddleware(recoveryMiddleware)
 	srv.UseMiddleware(authMiddleware)
-	srv.UseMiddleware(monitoringMiddleware)
 
 	appServer := srv.CreateServer()
 
-	// start & run the server
 	err = appServer.Run(fmt.Sprintf(":%s", port))
 	if err != nil {
 		_, msg := fmt.Printf("Failed to start Server %s", err)

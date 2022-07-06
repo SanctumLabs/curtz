@@ -1,10 +1,13 @@
 package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/sanctumlabs/curtz/app/tools/monitoring"
+)
 
 func NewRecoveryMiddleware() Middleware {
-	// for custom recover, change can be made here
 	return func(c *gin.Context) {
+		defer monitoring.RecoverWithContext(c)
 		gin.Recovery()
 	}
 }

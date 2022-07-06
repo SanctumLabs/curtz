@@ -8,18 +8,23 @@ import (
 	"github.com/sanctumlabs/curtz/app/config"
 	urlRepo "github.com/sanctumlabs/curtz/app/internal/repositories/urlrepo"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/userepo"
+	"github.com/sanctumlabs/curtz/app/tools/monitoring"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
+// Repository represents a database repository
 type Repository struct {
 	dbClient *mongo.Client
 	userRepo *userepo.UserRepo
 	urlRepo  *urlRepo.UrlRepo
 }
 
+// NewRepository creates a new repository with provided config
 func NewRepository(config config.DatabaseConfig) *Repository {
+	defer monitoring.ErrorHandler()
+
 	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Host, config.Port)
 
 	dbClient, err := mongo.NewClient(options.Client().ApplyURI(uri))
@@ -52,13 +57,16 @@ func NewRepository(config config.DatabaseConfig) *Repository {
 
 // Disconnect disconnects from the db client database connection
 func (r *Repository) Disconnect(ctx context.Context) error {
+	defer monitoring.ErrorHandler()
 	return r.dbClient.Disconnect(ctx)
 }
 
+// GetUrlRepo returns the Url repository
 func (r *Repository) GetUrlRepo() *urlRepo.UrlRepo {
 	return r.urlRepo
 }
 
+// GetUserRepo returns configured user repository
 func (r *Repository) GetUserRepo() *userepo.UserRepo {
 	return r.userRepo
 }
