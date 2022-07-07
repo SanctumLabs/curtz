@@ -6,8 +6,11 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/curtz/app/tools/logger"
 	"github.com/sanctumlabs/curtz/app/tools/monitoring"
 )
+
+var log = logger.NewLogger("cache")
 
 // Cache represents a cache
 type Cache struct {
@@ -26,7 +29,7 @@ func New(config config.CacheConfig) *Cache {
 		options = redis.UniversalOptions{
 			Password: config.Password,
 			Username: config.Username,
-			Addrs:    []string{fmt.Sprintf(":%s", config.Port)},
+			Addrs:    []string{fmt.Sprintf("%s:%s", config.Host, config.Port)},
 		}
 	} else {
 		options = redis.UniversalOptions{
@@ -35,6 +38,13 @@ func New(config config.CacheConfig) *Cache {
 	}
 
 	redisClient := redis.NewUniversalClient(&options)
+
+	cmd := redisClient.Ping(ctx)
+	if cmd.Err() != nil {
+		log.Errorf("Failed to connect to cache", cmd.Err())
+	}
+
+	log.Infof("Connected to cache at host %s", config.Host)
 
 	return &Cache{
 		client: redisClient,

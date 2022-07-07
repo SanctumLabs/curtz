@@ -3,16 +3,18 @@ package repositories
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/sanctumlabs/curtz/app/config"
 	urlRepo "github.com/sanctumlabs/curtz/app/internal/repositories/urlrepo"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/userepo"
+	"github.com/sanctumlabs/curtz/app/tools/logger"
 	"github.com/sanctumlabs/curtz/app/tools/monitoring"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
+
+var log = logger.NewLogger("repository")
 
 // Repository represents a database repository
 type Repository struct {
@@ -25,19 +27,21 @@ type Repository struct {
 func NewRepository(config config.DatabaseConfig) *Repository {
 	defer monitoring.ErrorHandler()
 
-	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Host, config.Port)
+	uri := fmt.Sprintf("mongodb+srv://%s:%s@%s", config.User, config.Password, config.Host)
+	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions.SetRetryWrites(true)
 
-	dbClient, err := mongo.NewClient(options.Client().ApplyURI(uri))
+	dbClient, err := mongo.NewClient(clientOptions)
 
 	if err != nil {
-		log.Fatalf("DB Connection failed with err: %v", err)
+		log.Fatalf("DB Client configuration failed with err: %v", err)
 	}
 
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	err = dbClient.Connect(ctx)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to connect to database %s", err)
 	}
 
 	db := dbClient.Database(config.Database)
@@ -46,7 +50,7 @@ func NewRepository(config config.DatabaseConfig) *Repository {
 		log.Fatalf("DB Connection failed with err: %v", err)
 	}
 
-	log.Println("DB Connection successful")
+	log.Info("DB Connection successful")
 
 	return &Repository{
 		dbClient: dbClient,
