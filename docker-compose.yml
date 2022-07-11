@@ -1,45 +1,6 @@
 version: "3.8"
 
 services:
-  db:
-    image: postgres:12
-    container_name: curtzdb
-    environment:
-      POSTGRES_USER: curtz-user
-      POSTGRES_PASSWORD: curtz-pass
-      POSTGRES_DB: curtz-db
-    ports:
-      - "5432:5432"
-    volumes:
-      - db:/var/lib/postgresql/data
-
-  db1:
-    image: cockroachdb/cockroach:v21.1.3
-    container_name: curtzdb1
-    hostname: db1
-    ports:
-      - "26257:26257"
-      - "8080:8080"
-    command: start --insecure --join=db1,db2,db3 && ./cockroach init --insecure
-    volumes:
-      - db1:/cockroach/cockroach-data
-
-  db2:
-    image: cockroachdb/cockroach:v21.1.3
-    container_name: curtzdb2
-    hostname: db2
-    command: start --insecure --join=db1,db2,db3 && ./cockroach init --insecure
-    volumes:
-      - db2:/cockroach/cockroach-data
-
-  db3:
-    image: cockroachdb/cockroach:v21.1.3
-    container_name: curtzdb3
-    hostname: db3
-    command: start --insecure --join=db1,db2,db3 && ./cockroach init --insecure
-    volumes:
-      - db3:/cockroach/cockroach-data
-
   documentdb:
     image: mongo:4.4.14
     container_name: curtz-documentdb
@@ -65,9 +26,5 @@ services:
       - cache:/data
 
 volumes:
-  db:
-  db1:
-  db2:
-  db3:
   docdb:
   cache:
