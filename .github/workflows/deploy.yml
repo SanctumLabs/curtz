@@ -19,10 +19,26 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      # Ref: https://github.com/marketplace/actions/deploy-to-heroku
-      - uses: akhileshns/heroku-deploy@v3.12.12 
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          usedocker: true
+      # https://github.com/superfly/flyctl-actions
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: 
+          flyctl secrets set DATABASE_HOST=${{ secrets.DATABASE_HOST }}
+          flyctl secrets set DATABASE=${{ secrets.DATABASE }}
+          flyctl secrets set DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}
+          flyctl secrets set DATABASE_PASSWORD=${{ secrests.DATABASE_PASSWORD}}
+          flyctl secrets set DATABASE_PORT=${{ secrests.DATABASE_PORT }}
+          flyctl secrets set AUTH_SECRET=${{ secrets.AUTH_SECRET }}
+          flyctl secrets set AUTH_EXPIRE=${{ secrets.AUTH_EXPIRE }}
+          flyctl secrets set AUTH_ISSUER=${{ secrets.AUTH_ISSUER }}
+          flyctl secrets set CACHE_HOST=${{ secrets.CACHE_HOST }}
+          flyctl secrets set CACHE_PORT=${{ secrets.CACHE_PORT }}
+          flyctl secrets set CACHE_USERNAME=${{ secrets.CACHE_USERNAME }}
+          flyctl secrets set CACHE_PASSWORD=${{ secrets.CACHE_PASSWORD }}
+          flyctl secrets set CACHE_REQUIRE_AUTH=${{ secrets.CACHE_REQUIRE_AUTH }}
+          flyctl secrets set SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+          flyctl secrets set SENTRY_ENV=${{ secrets.SENTRY_ENV }}
+          flyctl secrets set SENTRY_SAMPLE_RATE=${{ secrets.SENTRY_SAMPLE_RATE }}
+          flyctl secrets set SENTRY_ENABLED=${{ secrets.SENTRY_ENABLED }}
+          flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
