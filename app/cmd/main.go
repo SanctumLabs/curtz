@@ -29,7 +29,6 @@ const (
 	Env                  = "ENV"
 	EnvLogLevel          = "LOG_LEVEL"
 	EnvLogJsonOutput     = "LOG_JSON_OUTPUT"
-	EnvHost              = "HOST"
 	EnvPort              = "PORT"
 	EnvDatabaseHost      = "DATABASE_HOST"
 	EnvDatabase          = "DATABASE"
@@ -61,7 +60,6 @@ func main() {
 	environment := env.EnvOr(Env, "development")
 	logLevel := env.EnvOr(EnvLogLevel, "debug")
 	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
-	host := env.EnvOr(EnvHost, "http://localhost")
 	port := env.EnvOr(EnvPort, "8085")
 	databaseHost := env.EnvOr(EnvDatabaseHost, "localhost")
 	database := env.EnvOr(EnvDatabase, "curtzdb")
@@ -108,7 +106,6 @@ func main() {
 
 	configuration := config.Config{
 		Env:  environment,
-		Host: host,
 		Port: port,
 		Logging: config.LoggingConfig{
 			Level:            logLevel,
