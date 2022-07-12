@@ -5,7 +5,7 @@
 [![Tests](https://github.com/sanctumlabs/curtz/actions/workflows/tests.yml/badge.svg)](https://github.com/sanctumlabs/curtz/actions/workflows/tests.yml)
 [![Lint](https://github.com/sanctumlabs/curtz/actions/workflows/lint.yml/badge.svg)](https://github.com/sanctumlabs/curtz/actions/workflows/lint.yml)
 [![Build](https://github.com/sanctumlabs/curtz/actions/workflows/build_app.yml/badge.svg)](https://github.com/sanctumlabs/curtz/actions/workflows/build_app.yml)
-[![codecov](https://codecov.io/gh/sanctumlabs/curtz/branch/main/graph/badge.svg?token=RNg0UoESug)](https://codecov.io/gh/sanctumlabs/curtz)
+[![codecov](https://codecov.io/gh/sanctumlabs/curtz/branch/develop/graph/badge.svg?token=RNg0UoESug)](https://codecov.io/gh/sanctumlabs/curtz)
 [![Go](https://img.shields.io/badge/Go-1.18-blue.svg)](https://go.dev/)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/be035defd2d44675bddf744a88d1a2d5)](https://www.codacy.com/gh/SanctumLabs/curtz/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=SanctumLabs/curtz&amp;utm_campaign=Badge_Grade)
 
@@ -99,3 +99,19 @@ make setup
 > This will run the `setup-linting` & `setup-trivy` make commands which will setuop golangci-lint and trivy binaries in the [bin](./bin) directory.
 
 Other useful commands can be found in the [Makefile](./Makefile).
+
+## Deployment
+
+Deployment instructions can be found [here](./docs/Deployment.md)
+
+## Architecture
+
+Architecture can be found [here](./docs/Architecture.md)
+
+## Versioning
+
+[SemVer](https://semver.org/) is used for versioning. For the versions available, see the [tags](https://github.com/SanctumLabs/curtz/tags) in this repository.
+
+## License
+
+View the project license [here](./LICENSE)
