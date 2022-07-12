@@ -68,3 +68,6 @@ fabric.properties
 .idea/
 bin/golangci-lint
 !bin
+!build
+__debug_bin
+bin/curtz

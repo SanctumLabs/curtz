@@ -1,0 +1,35 @@
+# fly.toml file generated for curtz on 2022-07-11T07:26:01+03:00
+# Ref: https://fly.io/docs/reference/configuration/
+
+app = "curtz"
+
+[deploy]
+  strategy = "bluegreen"
+
+[env]
+  ENV = "release"
+  LOG_JSON_OUTPUT = true
+  LOG_LEVEL = "info"
+  PORT = 8085
+
+[[services]]
+  internal_port = 8085
+
+  [[services.http_checks]]
+    grace_period = "5s"
+    interval = 10000
+    method = "get"
+    path = "/health"
+    protocol = "http"
+    restart_limit = 0
+    timeout = 2000
+    tls_skip_verify = false
+    [services.http_checks.headers]
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = "8085"
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = "443"
