@@ -34,6 +34,7 @@ const (
 	EnvDatabase          = "DATABASE"
 	EnvDatabaseUsername  = "DATABASE_USERNAME"
 	EnvDatabasePassword  = "DATABASE_PASSWORD"
+	EnvDatabaseUsesSRV   = "DATABASE_USES_SRV"
 	EnvDatabasePort      = "DATABASE_PORT"
 	EnvAuthSecret        = "AUTH_SECRET"
 	EnvAuthExpireDelta   = "AUTH_EXPIRE_DELTA"
@@ -66,6 +67,7 @@ func main() {
 	databaseUser := env.EnvOr(EnvDatabaseUsername, "curtzUser")
 	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPassword")
 	databasePort := env.EnvOr(EnvDatabasePort, "27017")
+	databaseUsesSRV := env.EnvOr(EnvDatabaseUsesSRV, "true")
 	authSecret := env.EnvOr(EnvAuthSecret, "curtz-secret")
 	authExpireDelta := env.EnvOr(EnvAuthExpireDelta, "6")
 	authIssuer := env.EnvOr(EnvAuthIssuer, "curtz")
@@ -87,6 +89,11 @@ func main() {
 	cacheNeedsAuth, err := strconv.ParseBool(cacheRequireAuth)
 	if err != nil {
 		cacheNeedsAuth = false
+	}
+
+	databaseUsesSrv, err := strconv.ParseBool(databaseUsesSRV)
+	if err != nil {
+		databaseUsesSrv = true
 	}
 
 	enableJsonOutput, err := strconv.ParseBool(logJsonOutput)
@@ -124,6 +131,7 @@ func main() {
 			User:     databaseUser,
 			Password: databasePass,
 			Port:     databasePort,
+			IsSRV: 	  databaseUsesSrv,
 		},
 		Cache: config.CacheConfig{
 			Host:        cacheHost,

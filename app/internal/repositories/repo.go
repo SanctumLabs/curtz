@@ -26,8 +26,14 @@ type Repository struct {
 // NewRepository creates a new repository with provided config
 func NewRepository(config config.DatabaseConfig) *Repository {
 	defer monitoring.ErrorHandler()
+	var uri string
 
-	uri := fmt.Sprintf("mongodb+srv://%s:%s@%s", config.User, config.Password, config.Host)
+	if config.IsSRV {
+		uri = fmt.Sprintf("mongodb+srv://%s:%s@%s", config.User, config.Password, config.Host)	
+	} else {
+		uri = fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Host, config.Port)
+	}
+
 	clientOptions := options.Client().ApplyURI(uri)
 	clientOptions.SetRetryWrites(true)
 

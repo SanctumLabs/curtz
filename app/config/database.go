@@ -6,4 +6,5 @@ type DatabaseConfig struct {
 	User     string
 	Password string
 	Port     string
+	IsSRV 	 bool
 }
