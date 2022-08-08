@@ -14,7 +14,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.0
-	go.mongodb.org/mongo-driver v1.10.0
+	go.mongodb.org/mongo-driver v1.10.1
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 )
 
