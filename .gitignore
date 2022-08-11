@@ -7,6 +7,9 @@
 *.so
 *.dylib
 
+# Ignore environment files
+.env
+
 # Test binary, build with `go test -c`
 *.test
 
