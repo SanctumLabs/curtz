@@ -12,6 +12,8 @@ type AuthService interface {
 	Authenticate(token string) (string, time.Time, error)
 	// GenerateToken generates a user token provided the user id
 	GenerateToken(userId string) (string, error)
+	// GenerateRefreshToken generates a new refresh token
+	GenerateRefreshToken(userId string) (string, error)
 }
 
 type UrlService interface {
