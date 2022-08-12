@@ -29,6 +29,23 @@ func Encode(uid string, signingKey string, issuer string, expireDelta int) (stri
 	return token.SignedString([]byte(signingKey))
 }
 
+// EncodeRefreshToken encodes claims into a refresh token
+func EncodeRefreshToken(uid string, signingKey string, issuer string, expireDelta int) (string, error) {
+	claims := Claims{
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour * time.Duration(expireDelta)).Unix(),
+			IssuedAt:  time.Now().Unix(),
+			Issuer:    issuer,
+			Subject:   uid,
+		},
+		UserId: uid,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	return token.SignedString([]byte(signingKey))
+}
+
 // Decode a jwt token and returns user id if valid
 func Decode(tokenString string, issuer string, signingKey string) (string, time.Time, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
