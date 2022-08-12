@@ -21,12 +21,12 @@ jobs:
 
       # https://github.com/superfly/flyctl-actions
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: 
+      - run: |
           flyctl secrets set DATABASE_HOST=${{ secrets.DATABASE_HOST }}
           flyctl secrets set DATABASE=${{ secrets.DATABASE }}
           flyctl secrets set DATABASE_USERNAME=${{ secrets.DATABASE_USERNAME }}
-          flyctl secrets set DATABASE_PASSWORD=${{ secrests.DATABASE_PASSWORD}}
-          flyctl secrets set DATABASE_PORT=${{ secrests.DATABASE_PORT }}
+          flyctl secrets set DATABASE_PASSWORD=${{ secrets.DATABASE_PASSWORD}}
+          flyctl secrets set DATABASE_PORT=${{ secrets.DATABASE_PORT }}
           flyctl secrets set AUTH_SECRET=${{ secrets.AUTH_SECRET }}
           flyctl secrets set AUTH_EXPIRE=${{ secrets.AUTH_EXPIRE }}
           flyctl secrets set AUTH_ISSUER=${{ secrets.AUTH_ISSUER }}
