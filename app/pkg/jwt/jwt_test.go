@@ -24,8 +24,10 @@ func TestJwtEncode(t *testing.T) {
 		},
 	}
 
+	jwt := New()
+
 	for _, tc := range testCases {
-		actualToken, actualErr := Encode(tc.uid, tc.signingKey, tc.issuer, tc.expireDelta)
+		actualToken, actualErr := jwt.Encode(tc.uid, tc.signingKey, tc.issuer, tc.expireDelta)
 
 		if actualErr != nil && tc.expectedErr == nil {
 			log.Fatalf("Encode(%s, %s, %s, %d) = (%s, %v), expected no error", tc.uid, tc.signingKey, tc.issuer, tc.expireDelta, actualToken, actualErr)
@@ -35,7 +37,7 @@ func TestJwtEncode(t *testing.T) {
 			log.Fatalf("Encode(%s, %s, %s, %d) = (%s, %v), expected error: %v", tc.uid, tc.signingKey, tc.issuer, tc.expireDelta, actualToken, actualErr, tc.expectedErr)
 		}
 
-		uid, _, err := Decode(actualToken, tc.issuer, tc.signingKey)
+		uid, _, err := jwt.Decode(actualToken, tc.issuer, tc.signingKey)
 		if uid != tc.uid {
 			log.Fatalf("expected user id to match %s != %s", uid, tc.uid)
 		}
@@ -65,8 +67,10 @@ func TestJwtEncodeRefreshToken(t *testing.T) {
 		},
 	}
 
+	jwt := New()
+
 	for _, tc := range testCases {
-		actualToken, actualErr := EncodeRefreshToken(tc.uid, tc.signingKey, tc.issuer, tc.expireDelta)
+		actualToken, actualErr := jwt.EncodeRefreshToken(tc.uid, tc.signingKey, tc.issuer, tc.expireDelta)
 
 		if actualErr != nil && tc.expectedErr == nil {
 			log.Fatalf("EncodeRefreshToken(%s, %s, %s, %d) = (%s, %v), expected no error", tc.uid, tc.signingKey, tc.issuer, tc.expireDelta, actualToken, actualErr)
@@ -76,7 +80,7 @@ func TestJwtEncodeRefreshToken(t *testing.T) {
 			log.Fatalf("EncodeRefreshToken(%s, %s, %s, %d) = (%s, %v), expected error: %v", tc.uid, tc.signingKey, tc.issuer, tc.expireDelta, actualToken, actualErr, tc.expectedErr)
 		}
 
-		uid, _, err := Decode(actualToken, tc.issuer, tc.signingKey)
+		uid, _, err := jwt.Decode(actualToken, tc.issuer, tc.signingKey)
 		if uid != tc.uid {
 			log.Fatalf("expected user id to match %s != %s", uid, tc.uid)
 		}

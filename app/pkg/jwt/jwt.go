@@ -6,14 +6,26 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+type JwtGen interface {
+	Encode(uid string, signingKey string, issuer string, expireDelta int) (string, error)
+	EncodeRefreshToken(uid string, signingKey string, issuer string, expireDelta int) (string, error)
+	Decode(tokenString string, issuer string, signingKey string) (string, time.Time, error)
+}
+
+type jwtGen struct{}
+
 // Claims is our custom metadata, which will be hashed and sent as the second segment in our JWT
 type Claims struct {
 	jwt.StandardClaims
 	UserId string `json:"id"`
 }
 
+func New() JwtGen {
+	return new(jwtGen)
+}
+
 // Encode a claim into a JWT token
-func Encode(uid string, signingKey string, issuer string, expireDelta int) (string, error) {
+func (j jwtGen) Encode(uid string, signingKey string, issuer string, expireDelta int) (string, error) {
 	claims := Claims{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Minute * time.Duration(expireDelta)).Unix(),
@@ -30,7 +42,7 @@ func Encode(uid string, signingKey string, issuer string, expireDelta int) (stri
 }
 
 // EncodeRefreshToken encodes claims into a refresh token
-func EncodeRefreshToken(uid string, signingKey string, issuer string, expireDelta int) (string, error) {
+func (j jwtGen) EncodeRefreshToken(uid string, signingKey string, issuer string, expireDelta int) (string, error) {
 	claims := Claims{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * time.Duration(expireDelta)).Unix(),
@@ -47,7 +59,7 @@ func EncodeRefreshToken(uid string, signingKey string, issuer string, expireDelt
 }
 
 // Decode a jwt token and returns user id if valid
-func Decode(tokenString string, issuer string, signingKey string) (string, time.Time, error) {
+func (j jwtGen) Decode(tokenString string, issuer string, signingKey string) (string, time.Time, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid

@@ -17,6 +17,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/services/cache"
 	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
 	"github.com/sanctumlabs/curtz/app/internal/services/notifications/email"
+	"github.com/sanctumlabs/curtz/app/pkg/jwt"
 	"github.com/sanctumlabs/curtz/app/server"
 	"github.com/sanctumlabs/curtz/app/server/middleware"
 	"github.com/sanctumlabs/curtz/app/server/router"
@@ -164,7 +165,7 @@ func main() {
 		log.Fatalf("Failed to configure Monitoring: %s", err)
 	}
 
-	authService := auth.NewService(configuration.Auth)
+	authService := auth.NewService(configuration.Auth, jwt.New())
 	corsMiddleware := middleware.NewCORSMiddleware(configuration.CorsHeaders)
 	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()

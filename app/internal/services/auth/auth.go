@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/config"
@@ -9,16 +10,29 @@ import (
 
 type AuthService struct {
 	config config.AuthConfig
+	jwt    jwt.JwtGen
 }
 
-func NewService(config config.AuthConfig) *AuthService {
-	return &AuthService{config}
+func NewService(config config.AuthConfig, jwtGen jwt.JwtGen) *AuthService {
+	return &AuthService{config, jwtGen}
 }
 
 func (svc *AuthService) Authenticate(tokenString string) (string, time.Time, error) {
-	return jwt.Decode(tokenString, svc.config.Jwt.Issuer, svc.config.Jwt.Secret)
+	return svc.jwt.Decode(tokenString, svc.config.Jwt.Issuer, svc.config.Jwt.Secret)
 }
 
 func (svc *AuthService) GenerateToken(userId string) (string, error) {
-	return jwt.Encode(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.ExpireDelta)
+	if token, err := svc.jwt.Encode(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.ExpireDelta); err != nil {
+		return "", errors.New("failed to create access token")
+	} else {
+		return token, nil
+	}
+}
+
+func (svc *AuthService) GenerateRefreshToken(userId string) (string, error) {
+	token, err := svc.jwt.EncodeRefreshToken(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.RefreshExpireDelta)
+	if err != nil {
+		return "", errors.New("failed to create refresh token")
+	}
+	return token, nil
 }
