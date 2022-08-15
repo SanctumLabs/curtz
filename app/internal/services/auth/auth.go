@@ -8,6 +8,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/pkg/jwt"
 )
 
+// AuthService represents underlying authentication implementation
 type AuthService struct {
 	config config.AuthConfig
 	jwt    jwt.JwtGen
