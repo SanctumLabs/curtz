@@ -8,7 +8,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/test/mocks"
+	"github.com/sanctumlabs/curtz/app/test/mocks"
 )
 
 type testCase struct {
@@ -34,7 +34,7 @@ func TestGenerateToken(t *testing.T) {
 	testCases := []testCase{
 		{
 			userId:        identifier.New().String(),
-			expectedToken: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NjAzMjgzMTIsImlhdCI6MTY2MDMyNDcxMiwiaXNzIjoiY3VydHoiLCJzdWIiOiJjYnI4bW1rYmN2NDVzaGRobWVpZyIsImlkIjoiY2JyOG1ta2JjdjQ1c2hkaG1laWcifQ.XmMzGatF8J6x9ocrUv_l1HD3czCgy2_lFYPl2SZwYk8",
+			expectedToken: "header.body.signature",
 			expectedErr:   nil,
 		},
 		{
