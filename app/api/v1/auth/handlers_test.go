@@ -12,87 +12,250 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/server/router"
+	"github.com/sanctumlabs/curtz/app/test/data"
 	"github.com/sanctumlabs/curtz/app/test/mocks"
 	"github.com/sanctumlabs/curtz/app/test/utils"
 	"github.com/stretchr/testify/assert"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-var baseUri = "/api/v1/curtz"
-
-func setupMocks(t *testing.T) (*mocks.MockUserService, *mocks.MockAuthService) {
-	mockCtrl := gomock.NewController(t)
-	mockUserSvc := mocks.NewMockUserService(mockCtrl)
-	mockAuthSvc := mocks.NewMockAuthService(mockCtrl)
-
-	return mockUserSvc, mockAuthSvc
+func TestAuthHandlers(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Auth Handler Suite")
 }
 
-func setupTestAuthRouter(mockUserSvc *mocks.MockUserService, mockAuthSvc *mocks.MockAuthService) *authRouter {
-	authRouter := &authRouter{
-		baseUri: baseUri,
-		svc:     mockUserSvc,
-		authSvc: mockAuthSvc,
-		routes:  []router.Route{},
-	}
+var _ = Describe("Auth Handler", func() {
+	var (
+		mockCtrl    *gomock.Controller
+		mockUserSvc *mocks.MockUserService
+		mockAuthSvc *mocks.MockAuthService
+	)
+	authRouter := &authRouter{}
 
-	routes := []router.Route{
-		router.NewPostRoute(fmt.Sprintf("%s/auth/register", baseUri), authRouter.register),
-		router.NewPostRoute(fmt.Sprintf("%s/auth/login", baseUri), authRouter.login),
-	}
+	BeforeEach(func() {
+		gin.SetMode(gin.TestMode)
 
-	authRouter.routes = append(authRouter.routes, routes...)
-	return authRouter
-}
+		mockCtrl = gomock.NewController(GinkgoT())
+		mockUserSvc = mocks.NewMockUserService(mockCtrl)
+		mockAuthSvc = mocks.NewMockAuthService(mockCtrl)
+		authRouter.baseUri = baseUri
+		authRouter.svc = mockUserSvc
+		authRouter.authSvc = mockAuthSvc
+		authRouter.routes = []router.Route{}
 
-func TestFailLoginOnNonExistentPayload(t *testing.T) {
-	mockUserSvc, mockAuthSvc := setupMocks(t)
-	authRouter := setupTestAuthRouter(mockUserSvc, mockAuthSvc)
+		routes := []router.Route{
+			router.NewPostRoute(fmt.Sprintf("%s/auth/register", baseUri), authRouter.register),
+			router.NewPostRoute(fmt.Sprintf("%s/auth/login", baseUri), authRouter.login),
+		}
 
-	resp := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(resp)
-
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/login", baseUri), nil)
-
-	ctx.Request = req
-
-	authRouter.login(ctx)
-
-	assert.Equal(t, http.StatusBadRequest, resp.Code)
-}
-
-func TestFailLoginOnNonExistentUser(t *testing.T) {
-	mockUserSvc, mockAuthSvc := setupMocks(t)
-	authRouter := setupTestAuthRouter(mockUserSvc, mockAuthSvc)
-
-	gin.SetMode(gin.TestMode)
-	resp := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(resp)
-
-	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/login", baseUri), nil)
-	ctx.Request = req
-
-	email := "johndoe@example.com"
-	password := "password"
-
-	requestBody := loginRequestDto{
-		Email:    email,
-		Password: password,
-	}
-
-	mockUserSvc.
-		EXPECT().
-		GetUserByEmail(email).
-		Return(entities.User{}, errors.New("user does not exist"))
-
-	utils.MockRequestBody(ctx, requestBody)
-	authRouter.login(ctx)
-
-	expectedRespBody, err := json.Marshal(gin.H{
-		"message": "Invalid Email or Password",
+		authRouter.routes = append(authRouter.routes, routes...)
 	})
 
-	assert.NoError(t, err)
+	When("logging in", func() {
+		httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/login", baseUri), nil)
 
-	assert.Equal(t, http.StatusUnauthorized, resp.Code)
-	assert.Equal(t, expectedRespBody, resp.Body.Bytes())
-}
+		Context("and payload is empty", func() {
+			responseRecorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(responseRecorder)
+			ctx.Request = httpRequest
+
+			It("should return 400 response code", func() {
+				authRouter.login(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
+			})
+		})
+
+		Context("and the user does not exist", func() {
+			responseRecorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(responseRecorder)
+			ctx.Request = httpRequest
+
+			It("should return a 401 response code", func() {
+				email := "johndoe@example.com"
+				password := "password"
+
+				requestBody := loginRequestDto{
+					Email:    email,
+					Password: password,
+				}
+
+				mockUserSvc.
+					EXPECT().
+					GetUserByEmail(email).
+					Return(entities.User{}, errors.New("user does not exist"))
+
+				utils.MockRequestBody(ctx, requestBody)
+
+				authRouter.login(ctx)
+
+				expectedRespBody, err := json.Marshal(gin.H{
+					"message": "Invalid Email or Password",
+				})
+
+				assert.NoError(GinkgoT(), err)
+				assert.Equal(GinkgoT(), http.StatusUnauthorized, responseRecorder.Code)
+				assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
+			})
+		})
+
+		Context("and the user exists", func() {
+			It("but the password supplied is invalid, should return a 401 response code", func() {
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+				ctx.Request = httpRequest
+
+				email := "johndoe@example.com"
+				password := "wrong-password"
+				correctPassword := "correct-password"
+
+				requestBody := loginRequestDto{
+					Email:    email,
+					Password: password,
+				}
+
+				user, err := data.MockUser(email, correctPassword)
+				assert.NoError(GinkgoT(), err)
+
+				mockUserSvc.
+					EXPECT().
+					GetUserByEmail(email).
+					Return(user, nil)
+
+				utils.MockRequestBody(ctx, requestBody)
+
+				authRouter.login(ctx)
+
+				expectedRespBody, err := json.Marshal(gin.H{
+					"message": "Invalid Email or Password",
+				})
+
+				assert.NoError(GinkgoT(), err)
+				assert.Equal(GinkgoT(), http.StatusUnauthorized, responseRecorder.Code)
+				assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
+			})
+
+			Context("and the password supplied is valid", func() {
+				email := "johndoe@example.com"
+				password := "password"
+				accessToken := "header.payload.signature"
+				refreshToken := "header.payload.signature"
+
+				requestBody := loginRequestDto{
+					Email:    email,
+					Password: password,
+				}
+
+				user, _ := data.MockUser(email, password)
+
+				When("there is a failure to generate", func() {
+
+					It("an access token, should return a 400 response code", func() {
+						responseRecorder := httptest.NewRecorder()
+						ctx, _ := gin.CreateTestContext(responseRecorder)
+						ctx.Request = httpRequest
+
+						err := errors.New("failed to supply access token")
+
+						mockUserSvc.
+							EXPECT().
+							GetUserByEmail(email).
+							Return(user, nil)
+
+						mockAuthSvc.
+							EXPECT().
+							GenerateToken(user.ID.String()).
+							Return("", err)
+
+						utils.MockRequestBody(ctx, requestBody)
+
+						authRouter.login(ctx)
+
+						expectedRespBody, err := json.Marshal(gin.H{
+							"message": err.Error(),
+						})
+
+						assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
+						assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
+					})
+
+					It("refresh token should return a 400 response code", func() {
+						responseRecorder := httptest.NewRecorder()
+						ctx, _ := gin.CreateTestContext(responseRecorder)
+						ctx.Request = httpRequest
+
+						err := errors.New("failed to supply refresh token")
+
+						mockUserSvc.
+							EXPECT().
+							GetUserByEmail(email).
+							Return(user, nil)
+
+						mockAuthSvc.
+							EXPECT().
+							GenerateToken(user.ID.String()).
+							Return(accessToken, nil)
+
+						mockAuthSvc.
+							EXPECT().
+							GenerateRefreshToken(user.ID.String()).
+							Return(refreshToken, err)
+
+						utils.MockRequestBody(ctx, requestBody)
+
+						authRouter.login(ctx)
+
+						expectedRespBody, err := json.Marshal(gin.H{
+							"message": err.Error(),
+						})
+
+						assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
+						assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
+					})
+				})
+
+				When("there is success generating both access and refresh tokens", func() {
+					It("should return 200 response code with user information and tokens", func() {
+						responseRecorder := httptest.NewRecorder()
+						ctx, _ := gin.CreateTestContext(responseRecorder)
+						ctx.Request = httpRequest
+						mockUserSvc.
+							EXPECT().
+							GetUserByEmail(email).
+							Return(user, nil)
+
+						mockAuthSvc.
+							EXPECT().
+							GenerateToken(user.ID.String()).
+							Return(accessToken, nil)
+
+						mockAuthSvc.
+							EXPECT().
+							GenerateRefreshToken(user.ID.String()).
+							Return(refreshToken, nil)
+
+						utils.MockRequestBody(ctx, requestBody)
+
+						authRouter.login(ctx)
+
+						expectedRespBody, err := json.Marshal(gin.H{
+							"id":            user.ID.String(),
+							"email":         user.Email.Value,
+							"created_at":    user.CreatedAt,
+							"updated_at":    user.UpdatedAt,
+							"access_token":  accessToken,
+							"refresh_token": refreshToken,
+						})
+
+						assert.NoError(GinkgoT(), err)
+
+						assert.Equal(GinkgoT(), http.StatusOK, responseRecorder.Code)
+						assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
+					})
+				})
+			})
+		})
+	})
+})
