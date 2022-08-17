@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	gin "github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
@@ -240,19 +241,48 @@ var _ = Describe("Auth Handler", func() {
 
 						authRouter.login(ctx)
 
-						expectedRespBody, err := json.Marshal(gin.H{
+						expectedRespBody := gin.H{
 							"id":            user.ID.String(),
 							"email":         user.Email.Value,
-							"created_at":    user.CreatedAt,
-							"updated_at":    user.UpdatedAt,
+							"created_at":    user.CreatedAt.Format(time.RFC3339Nano),
+							"updated_at":    user.UpdatedAt.Format(time.RFC3339Nano),
 							"access_token":  accessToken,
 							"refresh_token": refreshToken,
-						})
+						}
 
+						var actualResponse map[string]string
+						err := json.Unmarshal([]byte(responseRecorder.Body.String()), &actualResponse)
 						assert.NoError(GinkgoT(), err)
 
 						assert.Equal(GinkgoT(), http.StatusOK, responseRecorder.Code)
-						assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
+
+						if id, ok := actualResponse["id"]; ok {
+							assert.True(GinkgoT(), ok)
+							assert.Equal(GinkgoT(), expectedRespBody["id"], id)
+						}
+
+						if id, ok := actualResponse["email"]; ok {
+							assert.True(GinkgoT(), ok)
+							assert.Equal(GinkgoT(), expectedRespBody["email"], id)
+						}
+
+						if id, ok := actualResponse["created_at"]; ok {
+							assert.True(GinkgoT(), ok)
+							assert.Equal(GinkgoT(), expectedRespBody["created_at"], id)
+						}
+
+						if id, ok := actualResponse["updated_at"]; ok {
+							assert.True(GinkgoT(), ok)
+							assert.Equal(GinkgoT(), expectedRespBody["updated_at"], id)
+						}
+						if id, ok := actualResponse["access_token"]; ok {
+							assert.True(GinkgoT(), ok)
+							assert.Equal(GinkgoT(), expectedRespBody["access_token"], id)
+						}
+						if id, ok := actualResponse["refresh_token"]; ok {
+							assert.True(GinkgoT(), ok)
+							assert.Equal(GinkgoT(), expectedRespBody["refresh_token"], id)
+						}
 					})
 				})
 			})
