@@ -22,6 +22,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+var baseUri = "/api/v1/curtz"
+
 func TestAuthHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Auth Handler Suite")
@@ -177,6 +179,7 @@ var _ = Describe("Auth Handler", func() {
 						expectedRespBody, err := json.Marshal(gin.H{
 							"message": err.Error(),
 						})
+						assert.NoError(GinkgoT(), err)
 
 						assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
 						assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
@@ -212,6 +215,7 @@ var _ = Describe("Auth Handler", func() {
 							"message": err.Error(),
 						})
 
+						assert.NoError(GinkgoT(), err)
 						assert.Equal(GinkgoT(), expectedRespBody, responseRecorder.Body.Bytes())
 						assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
 					})
@@ -251,7 +255,7 @@ var _ = Describe("Auth Handler", func() {
 						}
 
 						var actualResponse map[string]string
-						err := json.Unmarshal([]byte(responseRecorder.Body.String()), &actualResponse)
+						err := json.Unmarshal([]byte(responseRecorder.Body.Bytes()), &actualResponse)
 						assert.NoError(GinkgoT(), err)
 
 						assert.Equal(GinkgoT(), http.StatusOK, responseRecorder.Code)
