@@ -17,6 +17,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/services/cache"
 	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
 	"github.com/sanctumlabs/curtz/app/internal/services/notifications/email"
+	"github.com/sanctumlabs/curtz/app/pkg/jwt"
 	"github.com/sanctumlabs/curtz/app/server"
 	"github.com/sanctumlabs/curtz/app/server/middleware"
 	"github.com/sanctumlabs/curtz/app/server/router"
@@ -26,28 +27,29 @@ import (
 )
 
 const (
-	Env                  = "ENV"
-	EnvLogLevel          = "LOG_LEVEL"
-	EnvLogJsonOutput     = "LOG_JSON_OUTPUT"
-	EnvPort              = "PORT"
-	EnvDatabaseHost      = "DATABASE_HOST"
-	EnvDatabase          = "DATABASE"
-	EnvDatabaseUsername  = "DATABASE_USERNAME"
-	EnvDatabasePassword  = "DATABASE_PASSWORD"
-	EnvDatabaseUsesSRV   = "DATABASE_USES_SRV"
-	EnvDatabasePort      = "DATABASE_PORT"
-	EnvAuthSecret        = "AUTH_SECRET"
-	EnvAuthExpireDelta   = "AUTH_EXPIRE_DELTA"
-	EnvAuthIssuer        = "AUTH_ISSUER"
-	EnvCacheHost         = "CACHE_HOST"
-	EnvCacheUsername     = "CACHE_USERNAME"
-	EnvCachePassword     = "CACHE_PASSWORD"
-	EnvCachePort         = "CACHE_PORT"
-	EnvCacheRequireAuth  = "CACHE_REQUIRE_AUTH"
-	EnvSentryDsn         = "SENTRY_DSN"
-	EnvSentryEnvironment = "SENTRY_ENV"
-	EnvSentrySampleRate  = "SENTRY_SAMPLE_RATE"
-	EnvSentryEnabled     = "SENTRY_ENABLED"
+	Env                       = "ENV"
+	EnvLogLevel               = "LOG_LEVEL"
+	EnvLogJsonOutput          = "LOG_JSON_OUTPUT"
+	EnvPort                   = "PORT"
+	EnvDatabaseHost           = "DATABASE_HOST"
+	EnvDatabase               = "DATABASE"
+	EnvDatabaseUsername       = "DATABASE_USERNAME"
+	EnvDatabasePassword       = "DATABASE_PASSWORD"
+	EnvDatabaseUsesSRV        = "DATABASE_USES_SRV"
+	EnvDatabasePort           = "DATABASE_PORT"
+	EnvAuthSecret             = "AUTH_SECRET"
+	EnvAuthExpireDelta        = "AUTH_EXPIRE_DELTA"
+	EnvAuthRefreshExpireDelta = "AUTH_REFRESH_EXPIRE_DELTA"
+	EnvAuthIssuer             = "AUTH_ISSUER"
+	EnvCacheHost              = "CACHE_HOST"
+	EnvCacheUsername          = "CACHE_USERNAME"
+	EnvCachePassword          = "CACHE_PASSWORD"
+	EnvCachePort              = "CACHE_PORT"
+	EnvCacheRequireAuth       = "CACHE_REQUIRE_AUTH"
+	EnvSentryDsn              = "SENTRY_DSN"
+	EnvSentryEnvironment      = "SENTRY_ENV"
+	EnvSentrySampleRate       = "SENTRY_SAMPLE_RATE"
+	EnvSentryEnabled          = "SENTRY_ENABLED"
 )
 
 func main() {
@@ -69,7 +71,8 @@ func main() {
 	databasePort := env.EnvOr(EnvDatabasePort, "27017")
 	databaseUsesSRV := env.EnvOr(EnvDatabaseUsesSRV, "true")
 	authSecret := env.EnvOr(EnvAuthSecret, "curtz-secret")
-	authExpireDelta := env.EnvOr(EnvAuthExpireDelta, "6")
+	authExpireDelta := env.EnvOr(EnvAuthExpireDelta, "15")
+	authRefreshExpireDelta := env.EnvOr(EnvAuthRefreshExpireDelta, "1")
 	authIssuer := env.EnvOr(EnvAuthIssuer, "curtz")
 	cacheHost := env.EnvOr(EnvCacheHost, "localhost")
 	cachePort := env.EnvOr(EnvCachePort, "6379")
@@ -83,7 +86,12 @@ func main() {
 
 	expireDelta, err := strconv.Atoi(authExpireDelta)
 	if err != nil {
-		expireDelta = 6
+		expireDelta = 15
+	}
+
+	refreshExpireDelta, err := strconv.Atoi(authRefreshExpireDelta)
+	if err != nil {
+		refreshExpireDelta = 1
 	}
 
 	cacheNeedsAuth, err := strconv.ParseBool(cacheRequireAuth)
@@ -120,9 +128,10 @@ func main() {
 		},
 		Auth: config.AuthConfig{
 			Jwt: config.Jwt{
-				Secret:      authSecret,
-				ExpireDelta: expireDelta,
-				Issuer:      authIssuer,
+				Secret:             authSecret,
+				ExpireDelta:        expireDelta,
+				RefreshExpireDelta: refreshExpireDelta,
+				Issuer:             authIssuer,
 			},
 		},
 		Database: config.DatabaseConfig{
@@ -131,7 +140,7 @@ func main() {
 			User:     databaseUser,
 			Password: databasePass,
 			Port:     databasePort,
-			IsSRV: 	  databaseUsesSrv,
+			IsSRV:    databaseUsesSrv,
 		},
 		Cache: config.CacheConfig{
 			Host:        cacheHost,
@@ -156,7 +165,7 @@ func main() {
 		log.Fatalf("Failed to configure Monitoring: %s", err)
 	}
 
-	authService := auth.NewService(configuration.Auth)
+	authService := auth.NewService(configuration.Auth, jwt.New())
 	corsMiddleware := middleware.NewCORSMiddleware(configuration.CorsHeaders)
 	loggingMiddleware := middleware.NewLoggingMiddleware(configuration.Logging)
 	recoveryMiddleware := middleware.NewRecoveryMiddleware()

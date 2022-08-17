@@ -52,19 +52,27 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := hdl.authSvc.GenerateToken(user.ID.String())
-
+	accessToken, err := hdl.authSvc.GenerateToken(user.ID.String())
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Invalid Email or Password"})
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	response := userResponseDto{
-		ID:          user.ID.String(),
-		Email:       user.Email.Value,
-		CreatedAt:   user.CreatedAt,
-		UpdatedAt:   user.UpdatedAt,
-		AccessToken: token,
+	refreshToken, err := hdl.authSvc.GenerateRefreshToken(user.ID.String())
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	response := loginResponseDto{
+		userResponseDto: userResponseDto{
+			ID:        user.ID.String(),
+			Email:     user.Email.Value,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		},
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}
 
 	ctx.JSON(http.StatusOK, response)
