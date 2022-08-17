@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var baseUri = "/api/v1/curtz"
+var baseURI = "/api/v1/curtz"
 
 func TestAuthHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -43,21 +43,21 @@ var _ = Describe("Auth Handler", func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		mockUserSvc = mocks.NewMockUserService(mockCtrl)
 		mockAuthSvc = mocks.NewMockAuthService(mockCtrl)
-		authRouter.baseUri = baseUri
+		authRouter.baseUri = baseURI
 		authRouter.svc = mockUserSvc
 		authRouter.authSvc = mockAuthSvc
 		authRouter.routes = []router.Route{}
 
 		routes := []router.Route{
-			router.NewPostRoute(fmt.Sprintf("%s/auth/register", baseUri), authRouter.register),
-			router.NewPostRoute(fmt.Sprintf("%s/auth/login", baseUri), authRouter.login),
+			router.NewPostRoute(fmt.Sprintf("%s/auth/register", baseURI), authRouter.register),
+			router.NewPostRoute(fmt.Sprintf("%s/auth/login", baseURI), authRouter.login),
 		}
 
 		authRouter.routes = append(authRouter.routes, routes...)
 	})
 
 	When("logging in", func() {
-		httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/login", baseUri), nil)
+		httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/login", baseURI), nil)
 
 		Context("and payload is empty", func() {
 			responseRecorder := httptest.NewRecorder()

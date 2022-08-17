@@ -6,6 +6,7 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+// JwtGen is an interface that contains method set on how to handle JWT
 type JwtGen interface {
 	Encode(uid string, signingKey string, issuer string, expireDelta int) (string, error)
 	EncodeRefreshToken(uid string, signingKey string, issuer string, expireDelta int) (string, error)
@@ -20,6 +21,7 @@ type Claims struct {
 	UserId string `json:"id"`
 }
 
+// New creates a new JwtGen
 func New() JwtGen {
 	return new(jwtGen)
 }

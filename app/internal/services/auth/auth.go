@@ -14,24 +14,28 @@ type AuthService struct {
 	jwt    jwt.JwtGen
 }
 
+// NewService creates a new authentication service with provided configuration
 func NewService(config config.AuthConfig, jwtGen jwt.JwtGen) *AuthService {
 	return &AuthService{config, jwtGen}
 }
 
-func (svc *AuthService) Authenticate(tokenString string) (string, time.Time, error) {
-	return svc.jwt.Decode(tokenString, svc.config.Jwt.Issuer, svc.config.Jwt.Secret)
+// Authenticate decodes token and returns user id expiry time and error if any
+func (svc *AuthService) Authenticate(token string) (string, time.Time, error) {
+	return svc.jwt.Decode(token, svc.config.Jwt.Issuer, svc.config.Jwt.Secret)
 }
 
-func (svc *AuthService) GenerateToken(userId string) (string, error) {
-	if token, err := svc.jwt.Encode(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.ExpireDelta); err != nil {
+// GenerateToken generates an access token for a provided user id
+func (svc *AuthService) GenerateToken(userID string) (string, error) {
+	token, err := svc.jwt.Encode(userID, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.ExpireDelta)
+	if err != nil {
 		return "", errors.New("failed to create access token")
-	} else {
-		return token, nil
 	}
+	return token, nil
 }
 
-func (svc *AuthService) GenerateRefreshToken(userId string) (string, error) {
-	token, err := svc.jwt.EncodeRefreshToken(userId, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.RefreshExpireDelta)
+// GenerateRefreshToken generates a refresh token for a provided user id
+func (svc *AuthService) GenerateRefreshToken(userID string) (string, error) {
+	token, err := svc.jwt.EncodeRefreshToken(userID, svc.config.Jwt.Secret, svc.config.Jwt.Issuer, svc.config.RefreshExpireDelta)
 	if err != nil {
 		return "", errors.New("failed to create refresh token")
 	}
