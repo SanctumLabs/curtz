@@ -61,8 +61,8 @@ func (j jwtGen) EncodeRefreshToken(uid string, signingKey string, issuer string,
 }
 
 // Decode a jwt token and returns user id if valid
-func (j jwtGen) Decode(tokenString string, issuer string, signingKey string) (string, time.Time, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+func (j jwtGen) Decode(token string, issuer string, signingKey string) (string, time.Time, error) {
+	decodedToken, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrSignatureInvalid
 		}
@@ -75,11 +75,11 @@ func (j jwtGen) Decode(tokenString string, issuer string, signingKey string) (st
 		return uid, time.Time{}, ErrParseTokenClaims
 	}
 
-	if !token.Valid {
+	if !decodedToken.Valid {
 		return uid, time.Time{}, ErrInvalidToken
 	}
 
-	claims, ok := token.Claims.(*Claims)
+	claims, ok := decodedToken.Claims.(*Claims)
 	if !ok {
 		return uid, time.Time{}, ErrMissingTokenClaims
 	}
@@ -94,6 +94,10 @@ func (j jwtGen) Decode(tokenString string, issuer string, signingKey string) (st
 
 	if claims.Issuer == "" || claims.Issuer != issuer {
 		return uid, time.Time{}, ErrInvalidIssuerClaim
+	}
+
+	if time.Now().Unix() > claims.ExpiresAt {
+		return uid, time.Time{}, ErrExpiredToken
 	}
 
 	return claims.UserId, time.Unix(claims.IssuedAt, 0), nil
