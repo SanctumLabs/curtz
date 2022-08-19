@@ -116,6 +116,7 @@ func (hdl *authRouter) oauthToken(ctx *gin.Context) {
 		response := oauthRefreshTokenResponseDto{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
+			TokenType:    "Bearer",
 		}
 
 		ctx.JSON(http.StatusOK, response)
