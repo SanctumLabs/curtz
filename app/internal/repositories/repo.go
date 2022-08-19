@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sanctumlabs/curtz/app/config"
 	urlRepo "github.com/sanctumlabs/curtz/app/internal/repositories/urlrepo"
@@ -26,15 +25,15 @@ type Repository struct {
 // NewRepository creates a new repository with provided config
 func NewRepository(config config.DatabaseConfig) *Repository {
 	defer monitoring.ErrorHandler()
-	var uri string
+	clientOptions := options.Client()
 
-	if config.IsSRV {
-		uri = fmt.Sprintf("mongodb+srv://%s:%s@%s", config.User, config.Password, config.Host)	
-	} else {
-		uri = fmt.Sprintf("mongodb://%s:%s@%s:%s", config.User, config.Password, config.Host, config.Port)
+	auth := options.Credential{
+		Username: config.User,
+		Password: config.Password,
 	}
 
-	clientOptions := options.Client().ApplyURI(uri)
+	clientOptions.Hosts = []string{config.Host}
+	clientOptions.SetAuth(auth)
 	clientOptions.SetRetryWrites(true)
 
 	dbClient, err := mongo.NewClient(clientOptions)
