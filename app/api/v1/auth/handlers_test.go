@@ -51,6 +51,7 @@ var _ = Describe("Auth Handler", func() {
 		routes := []router.Route{
 			router.NewPostRoute(fmt.Sprintf("%s/auth/register", baseURI), authRouter.register),
 			router.NewPostRoute(fmt.Sprintf("%s/auth/login", baseURI), authRouter.login),
+			router.NewPostRoute(fmt.Sprintf("%s/auth/oauth/token", baseURI), authRouter.oauthToken),
 		}
 
 		authRouter.routes = append(authRouter.routes, routes...)
@@ -289,6 +290,204 @@ var _ = Describe("Auth Handler", func() {
 						}
 					})
 				})
+			})
+		})
+	})
+
+	When("refreshing a token", func() {
+
+		Context("and grant_type is not refresh token", func() {
+			httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/oauth/token", baseURI), nil)
+			responseRecorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(responseRecorder)
+			ctx.Request = httpRequest
+
+			It("should return 401 response code", func() {
+				authRouter.oauthToken(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusUnauthorized, responseRecorder.Code)
+			})
+		})
+
+		Context("and refresh_token is missing from query params", func() {
+			httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/oauth/token", baseURI), nil)
+			responseRecorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(responseRecorder)
+
+			ctx.Params = append(ctx.Params, gin.Param{Key: "grant_type", Value: "refresh_token"})
+			ctx.Request = httpRequest
+
+			It("should return 401 response code", func() {
+				authRouter.oauthToken(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusUnauthorized, responseRecorder.Code)
+			})
+		})
+
+		Context("and both grant_type & refresh_token are in the query params", func() {
+			refreshToken := "header.payload.signature"
+			userID := "userId"
+			mockUser, err := data.MockUser("johndoe@curtz.com", "password")
+			assert.NoError(GinkgoT(), err)
+
+			httpRequest := httptest.NewRequest(http.MethodPost,
+				fmt.Sprintf("%s/auth/oauth/token?grant_type=%s&refresh_token=%s", baseURI, "refresh_token", refreshToken),
+				nil,
+			)
+
+			It("should return 401 response code when refresh token has expired or is invalid", func() {
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+
+				ctx.Request = httpRequest
+
+				err := errors.New("invalid refresh token")
+
+				mockAuthSvc.
+					EXPECT().
+					Authenticate(refreshToken).
+					Return("", time.Time{}, err)
+
+				authRouter.oauthToken(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusUnauthorized, responseRecorder.Code)
+			})
+
+			It("should return 401 response code when user does not exist", func() {
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+
+				ctx.Request = httpRequest
+
+				err := errors.New("user does not exist")
+
+				mockAuthSvc.
+					EXPECT().
+					Authenticate(refreshToken).
+					Return(userID, time.Time{}, nil)
+
+				mockUserSvc.
+					EXPECT().
+					GetUserByID(userID).
+					Return(entities.User{}, err)
+
+				authRouter.oauthToken(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusUnauthorized, responseRecorder.Code)
+			})
+
+			It("should return 500 response code when there is a failure to generate access token", func() {
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+
+				ctx.Request = httpRequest
+
+				err := errors.New("failed to generate access token")
+
+				mockAuthSvc.
+					EXPECT().
+					Authenticate(refreshToken).
+					Return(userID, time.Time{}, nil)
+
+				mockUserSvc.
+					EXPECT().
+					GetUserByID(userID).
+					Return(mockUser, nil)
+
+				mockAuthSvc.
+					EXPECT().
+					GenerateToken(userID).
+					Return("", err)
+
+				authRouter.oauthToken(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusInternalServerError, responseRecorder.Code)
+			})
+
+			It("should return 500 response code when there is a failure to generate new refresh token", func() {
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+
+				ctx.Request = httpRequest
+
+				err := errors.New("failed to generate refresh token")
+
+				mockAuthSvc.
+					EXPECT().
+					Authenticate(refreshToken).
+					Return(userID, time.Time{}, nil)
+
+				mockUserSvc.
+					EXPECT().
+					GetUserByID(userID).
+					Return(mockUser, nil)
+
+				mockAuthSvc.
+					EXPECT().
+					GenerateToken(userID).
+					Return("header.payload.signature", nil)
+
+				mockAuthSvc.
+					EXPECT().
+					GenerateRefreshToken(userID).
+					Return("", err)
+
+				authRouter.oauthToken(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusInternalServerError, responseRecorder.Code)
+			})
+
+			It("should return 200 response code when there is a success generating a new access token", func() {
+				newAccessToken := "header2.payload2.signature2"
+				newRefreshToken := "header2.payload2.signature2"
+
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+
+				ctx.Request = httpRequest
+
+				mockAuthSvc.
+					EXPECT().
+					Authenticate(refreshToken).
+					Return(userID, time.Time{}, nil)
+
+				mockUserSvc.
+					EXPECT().
+					GetUserByID(userID).
+					Return(mockUser, nil)
+
+				mockAuthSvc.
+					EXPECT().
+					GenerateToken(userID).
+					Return(newAccessToken, nil)
+
+				mockAuthSvc.
+					EXPECT().
+					GenerateRefreshToken(userID).
+					Return(newRefreshToken, nil)
+
+				authRouter.oauthToken(ctx)
+
+				expectedRespBody := gin.H{
+					"access_token":  newAccessToken,
+					"refresh_token": newRefreshToken,
+				}
+
+				var actualResponse map[string]string
+				err := json.Unmarshal([]byte(responseRecorder.Body.Bytes()), &actualResponse)
+				assert.NoError(GinkgoT(), err)
+
+				if accessToken, ok := actualResponse["access_token"]; ok {
+					assert.True(GinkgoT(), ok)
+					assert.Equal(GinkgoT(), expectedRespBody["access_token"], accessToken)
+				}
+
+				if refreshToken, ok := actualResponse["refresh_token"]; ok {
+					assert.True(GinkgoT(), ok)
+					assert.Equal(GinkgoT(), expectedRespBody["refresh_token"], refreshToken)
+				}
+
+				assert.Equal(GinkgoT(), http.StatusOK, responseRecorder.Code)
 			})
 		})
 	})
