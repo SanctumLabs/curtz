@@ -77,3 +77,50 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, response)
 }
+
+// oauthToken refreshes a token given a refresh token
+func (hdl *authRouter) oauthToken(ctx *gin.Context) {
+	grantType := ctx.Query("grant_type")
+	refreshToken := ctx.Query("refresh_token")
+
+	if grantType == "refresh_token" {
+		if len(refreshToken) == 0 {
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		uid, _, err := hdl.authSvc.Authenticate(refreshToken)
+
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": err.Error()})
+			return
+		}
+
+		if _, err := hdl.svc.GetUserByID(uid); err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": err.Error()})
+			return
+		}
+
+		accessToken, err := hdl.authSvc.GenerateToken(uid)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+
+		refreshToken, err := hdl.authSvc.GenerateRefreshToken(uid)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+
+		response := oauthRefreshTokenResponseDto{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			TokenType:    "Bearer",
+		}
+
+		ctx.JSON(http.StatusOK, response)
+	} else {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+	}
+}
