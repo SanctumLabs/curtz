@@ -28,6 +28,7 @@ import (
 
 const (
 	Env                       = "ENV"
+	EnvDocsEnabled            = "DOCS_ENABLED"
 	EnvLogLevel               = "LOG_LEVEL"
 	EnvLogJsonOutput          = "LOG_JSON_OUTPUT"
 	EnvPort                   = "PORT"
@@ -61,6 +62,7 @@ func main() {
 	}
 
 	environment := env.EnvOr(Env, "development")
+	docsEnabled := env.EnvOr(EnvDocsEnabled, "true")
 	logLevel := env.EnvOr(EnvLogLevel, "debug")
 	logJsonOutput := env.EnvOr(EnvLogJsonOutput, "true")
 	port := env.EnvOr(EnvPort, "8085")
@@ -83,6 +85,11 @@ func main() {
 	sentryDsn := env.EnvOr(EnvSentryDsn, "")
 	sentryEnvironment := env.EnvOr(EnvSentryEnvironment, "development")
 	sentrySampleRate := env.EnvOr(EnvSentrySampleRate, "0.5")
+
+	enableApiDocs, err := strconv.ParseBool(docsEnabled)
+	if err != nil {
+		enableApiDocs = true
+	}
 
 	expireDelta, err := strconv.Atoi(authExpireDelta)
 	if err != nil {
@@ -120,8 +127,9 @@ func main() {
 	}
 
 	configuration := config.Config{
-		Env:  environment,
-		Port: port,
+		Env:         environment,
+		DocsEnabled: enableApiDocs,
+		Port:        port,
 		Logging: config.LoggingConfig{
 			Level:            logLevel,
 			EnableJSONOutput: enableJsonOutput,

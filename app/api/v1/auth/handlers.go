@@ -6,6 +6,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Register godoc
+// @Summary     Register a new user account
+// @Description register user account
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} auth.userResponseDto
+// @Failure     400 {object} httputil.HTTPError
+// @Failure     404 {object} httputil.HTTPError
+// @Failure     500 {object} httputil.HTTPError
+// @Router      /auth/register/ [post]
 func (hdl *authRouter) register(ctx *gin.Context) {
 	var request registerRequestDto
 	err := ctx.BindJSON(&request)

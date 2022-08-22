@@ -1,0 +1,60 @@
+swagger: "2.0"
+info: 
+   description: URL Shortener Service
+   title: Curtz API
+   contact: {}
+   version: 1.0.0
+schemes: 
+  - http
+  - https   
+host: localhost:8085
+basePath: /api/v1/curtz
+paths:
+  /auth/register:
+    post:
+      description: Register a new user account
+      summary: Registers a new user account
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      tags:
+        - auth
+      parameters:
+        - description: new user
+          name: user
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/auth.registerRequestDto"
+      responses:
+          "200":
+            description: Successfully created user
+            schema:
+              $ref: "#/definitions/auth.userResponseDto"
+
+definitions:
+  auth.registerRequestDto:
+    type: object
+    properties:
+      email:
+        type: string
+        example: johndoe@example.com
+      password:
+        type: string
+        example: strong password
+  auth.userResponseDto:
+    type: object
+    properties:
+      id:
+        type: string
+        example: gciabeoaufbeoaurea
+      email:
+        type: string
+        example: johndoe@example.com
+      created_at:
+        type: string
+        example: johndoe@example.com
+      updated_at:
+        type: string
+        example: johndoe@example.com
