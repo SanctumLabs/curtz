@@ -6,16 +6,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// register is a handler that registers a new user account
 // Register godoc
 // @Summary     Register a new user account
 // @Description register user account
 // @Tags        auth
 // @Accept      json
 // @Produce     json
-// @Success     200 {object} auth.userResponseDto
-// @Failure     400 {object} httputil.HTTPError
-// @Failure     404 {object} httputil.HTTPError
-// @Failure     500 {object} httputil.HTTPError
+// @Success     201 {object} auth.userResponseDto
+// @Failure     400 {object} httpError
+// @Failure     422 {object} httpError
 // @Router      /auth/register/ [post]
 func (hdl *authRouter) register(ctx *gin.Context) {
 	var request registerRequestDto
@@ -39,9 +39,21 @@ func (hdl *authRouter) register(ctx *gin.Context) {
 		UpdatedAt: user.UpdatedAt,
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusCreated, response)
 }
 
+// login is a handler that logs in an existing user account
+// Login godoc
+// @Summary     Logs in a registered user account
+// @Description login user account
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} auth.loginResponseDto
+// @Failure     400 {object} httpError
+// @Failure     401 {object} httpError
+// @Failure     422 {object} httpError
+// @Router      /auth/register/ [post]
 func (hdl *authRouter) login(ctx *gin.Context) {
 	var request loginRequestDto
 	err := ctx.BindJSON(&request)
