@@ -43,12 +43,108 @@
               "schema": {
                 "$ref": "#/definitions/auth.userResponseDto"
               }
+            },
+            "422": {
+              "description": "Unprocessible entity",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
+            },
+            "400": {
+              "description": "Bad Request",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
+            }                        
+          }
+        }
+      },
+      "/auth/login": {
+        "post": {
+          "description": "Login into an already registered user account",
+          "summary": "Logs in a user into a registered account",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "tags": [
+            "auth"
+          ],
+          "parameters": [
+            {
+              "description": "registered user",
+              "name": "user",
+              "in": "body",
+              "required": true,
+              "schema": {
+                "$ref": "#/definitions/auth.registerRequestDto"
+              }
+            }
+          ],
+          "responses": {
+            "201": {
+              "description": "Successfully created user",
+              "schema": {
+                "$ref": "#/definitions/auth.userResponseDto"
+              }
+            },
+            "400": {
+              "description": "Bad Request",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
+            },
+            "401": {
+              "description": "Unauthorized request",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
+            },
+            "422": {
+              "description": "Unprocessible entity",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
             }
           }
         }
       }
     },
     "definitions": {
+      "Date": {
+        "type": "string",
+        "description": "Date record was updated or created",
+        "example": "2022-08-12T17:18:18.553Z"
+      },
+      "Email": {
+        "type": "string",
+        "description": "user email",
+        "example": "johndoe@example.com"
+      },
+      "ID": {
+        "type": "string",
+        "description": "unique id",
+        "example": "gciabeoaufbeoaurea"
+      },
+      "AccessToken": {
+        "type": "string",
+        "description": "JWT refresh token"
+      },
+      "RefreshToken": {
+        "type": "string",
+        "description": "JWT refresh token"
+      },
+      "httpError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "missing field"
+          }
+        }
+      },
       "auth.registerRequestDto": {
         "type": "object",
         "properties": {
@@ -66,20 +162,39 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "example": "gciabeoaufbeoaurea"
+            "$ref": "#/definitions/ID"
           },
           "email": {
-            "type": "string",
-            "example": "johndoe@example.com"
+            "$ref": "#/definitions/Email"
           },
           "created_at": {
-            "type": "string",
-            "example": "johndoe@example.com"
+            "$ref": "#/definitions/Date"
           },
           "updated_at": {
-            "type": "string",
-            "example": "johndoe@example.com"
+            "$ref": "#/definitions/Date"
+          }
+        }
+      },
+      "auth.loginResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/definitions/ID"
+          },
+          "email": {
+            "$ref": "#/definitions/Email"
+          },
+          "created_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "updated_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "access_token": {
+            "$ref": "#/definitions/AccessToken"
+          },
+          "refresh_token": {
+            "$ref": "#/definitions/RefreshToken"
           }
         }
       }

@@ -41,10 +41,76 @@ const docTemplate = `{
               }
             ],
             "responses": {
-              "200": {
+              "201": {
                 "description": "Successfully created user",
                 "schema": {
                   "$ref": "#/definitions/auth.userResponseDto"
+                }
+              },
+
+              "422": {
+                "description": "Unprocessible entity",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+
+              "400": {
+                "description": "Bad Request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              }                            
+            }
+          }
+        },
+        "/auth/login": {
+          "post": {
+            "description": "Login into an already registered user account",
+            "summary": "Logs in a user into a registered account",
+            "consumes": [
+              "application/json"
+            ],
+            "produces": [
+              "application/json"
+            ],
+            "tags": [
+              "auth"
+            ],
+            "parameters": [
+              {
+                "description": "registered user",
+                "name": "user",
+                "in": "body",
+                "required": true,
+                "schema": {
+                  "$ref": "#/definitions/auth.registerRequestDto"
+                }
+              }
+            ],
+            "responses": {
+              "201": {
+                "description": "Successfully created user",
+                "schema": {
+                  "$ref": "#/definitions/auth.userResponseDto"
+                }
+              },
+              "400": {
+                "description": "Bad Request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "401": {
+                "description": "Unauthorized request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "422": {
+                "description": "Unprocessible entity",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
                 }
               }
             }
@@ -52,41 +118,92 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "auth.registerRequestDto": {
-          "type": "object",
-          "properties": {
-            "email": {
-              "type": "string",
-              "example": "johndoe@example.com"
-            },
-            "password": {
-              "type": "string",
-              "example": "strong password"
-            }
-          }
-        },
-        "auth.userResponseDto": {
-          "type": "object",
-          "properties": {
-            "id": {
-              "type": "string",
-              "example": "gciabeoaufbeoaurea"
-            },
-            "email": {
-              "type": "string",
-              "example": "johndoe@example.com"
-            },
-            "created_at": {
-              "type": "string",
-              "example": "johndoe@example.com"
-            },
-            "updated_at": {
-              "type": "string",
-              "example": "johndoe@example.com"
-            }
+      "Date": {
+        "type": "string",
+        "description": "Date record was updated or created",
+        "example": "2022-08-12T17:18:18.553Z"
+      },
+      "Email": {
+        "type": "string",
+        "description": "user email",
+        "example": "johndoe@example.com"
+      },
+      "ID": {
+        "type": "string",
+        "description": "unique id",
+        "example": "gciabeoaufbeoaurea"
+      },
+      "AccessToken": {
+        "type": "string",
+        "description": "JWT refresh token"
+      },
+      "RefreshToken": {
+        "type": "string",
+        "description": "JWT refresh token"
+      },
+      "httpError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "missing field"
           }
         }
-      }    
+      },
+      "auth.registerRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "johndoe@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "strong password"
+          }
+        }
+      },
+      "auth.userResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/definitions/ID"
+          },
+          "email": {
+            "$ref": "#/definitions/Email"
+          },
+          "created_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "updated_at": {
+            "$ref": "#/definitions/Date"
+          }
+        }
+      },
+      "auth.loginResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/definitions/ID"
+          },
+          "email": {
+            "$ref": "#/definitions/Email"
+          },
+          "created_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "updated_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "access_token": {
+            "$ref": "#/definitions/AccessToken"
+          },
+          "refresh_token": {
+            "$ref": "#/definitions/RefreshToken"
+          }
+        }
+      }
+    }    
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
