@@ -178,7 +178,65 @@ const docTemplate = `{
               }
             }
           }
-        }        
+        },
+        "/urls": {
+          "post": {
+            "description": "creates a shortened URL for a user",
+            "summary": "Creates a short URL for a user",
+            "operationId": "createShortUrl",
+            "consumes": [
+              "application/json"
+            ],
+            "produces": [
+              "application/json"
+            ],
+            "tags": [
+              "URL"
+            ],
+            "security": [
+              {
+                "ApiKeyAuth": []
+              }
+            ],
+            "parameters": [
+              {
+                "description": "url request",
+                "name": "url",
+                "in": "body",
+                "required": true,
+                "schema": {
+                  "$ref": "#/definitions/url.createShortUrlDto"
+                }
+              }
+            ],
+            "responses": {
+              "201": {
+                "description": "Successfully created shortened url",
+                "schema": {
+                  "$ref": "#/definitions/url.urlResponseDto"
+                }
+              },
+              "400": {
+                "description": "Bad Request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "401": {
+                "description": "Unauthorized request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "422": {
+                "description": "Unprocessable entity",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              }
+            }
+          }
+        }             
     },
     "definitions": {
       "Date": {
@@ -209,6 +267,34 @@ const docTemplate = `{
         "description": "JWT refresh token",
         "example": "Bearer"
       },
+      "OriginalUrl": {
+        "type": "string",
+        "description": "Original long URL",
+        "example": "http://example.com/please/shortenme"
+      },
+      "CustomAlias": {
+        "type": "string",
+        "description": "Custom Alias the user provides for the shortening of the URL",
+        "example": "shortenme",
+        "default": ""
+      },
+      "Keywords": {
+        "type": "array",
+        "description": "An array of keywords for the url to shorten",
+        "items": {
+          "type": "string"
+        }
+      },
+      "ShortCode": {
+        "type": "string",
+        "description": "short code of the shortened url",
+        "example": "gcia"
+      },
+      "Hits": {
+        "type": "integer",
+        "description": "number of times the url has been visited",
+        "example": 1
+      },      
       "httpError": {
         "type": "object",
         "properties": {
@@ -284,14 +370,74 @@ const docTemplate = `{
             "$ref": "#/definitions/TokenType"
           }
         }
+      },
+      "url.createShortUrlDto": {
+        "type": "object",
+        "properties": {
+          "original_url": {
+            "$ref": "#/definitions/OriginalUrl"
+          },
+          "custom_alias": {
+            "$ref": "#/definitions/CustomAlias"
+          },
+          "expires_on": {
+            "$ref": "#/definitions/Date"
+          },
+          "keywords": {
+            "$ref": "#/definitions/Keywords"
+          }
+        }
+      },
+      "url.urlResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/definitions/ID"
+          },
+          "user_id": {
+            "$ref": "#/definitions/ID"
+          },
+          "short_code": {
+            "$ref": "#/definitions/ShortCode"
+          },
+          "created_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "updated_at": {
+            "$ref": "#/definitions/Date"
+          },
+          "original_url": {
+            "$ref": "#/definitions/OriginalUrl"
+          },
+          "custom_alias": {
+            "$ref": "#/definitions/CustomAlias"
+          },
+          "expires_on": {
+            "$ref": "#/definitions/Date"
+          },
+          "keywords": {
+            "$ref": "#/definitions/Keywords"
+          },
+          "hits": {
+            "$ref": "#/definitions/Hits"
+          }
+        }
       }      
+    },
+    "securityDefinitions": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "JWT Token retrieved from login request or from refreshing a token. Prefix with Bearer"
+      }
     }    
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0.0",
-	Host:             "http://localhost:8085",
+	Host:             "localhost:8085",
 	BasePath:         "/api/v1/curtz",
 	Schemes:          []string{"http", "https"},
 	Title:            "Curtz API",
