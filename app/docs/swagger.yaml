@@ -81,6 +81,50 @@ paths:
             schema:
               $ref: "#/definitions/httpError"
 
+  /auth/oauth/token:
+    post:
+      description: Used by clients to refresh expired access tokens from valid refresh tokens
+      summary: Used to get a new access token given a valid refresh token
+      operationId: oauthToken
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      tags:
+        - auth
+      parameters:
+        - in: query
+          description: grant type to use, required value is refresh_token
+          name: grant_type          
+          required: true
+          type: string
+          enum: [refresh_token]
+        - in: query
+          name: refresh_token
+          description: refresh token
+          required: true
+          type: string
+      responses:
+          "200":
+            description: Successfully refreshed access token
+            schema:
+              $ref: "#/definitions/auth.oauthRefreshTokenResponseDto"
+          
+          "400":
+            description: Bad Request
+            schema:
+              $ref: "#/definitions/httpError"
+
+          "401":
+            description: Unauthorized request
+            schema:
+              $ref: "#/definitions/httpError"
+
+          "500":
+            description: Internal Server Error
+            schema:
+              $ref: "#/definitions/httpError"
+
 definitions:
   Date:
     type: string
@@ -104,7 +148,12 @@ definitions:
   RefreshToken:
     type: string
     description: JWT refresh token
-      
+
+  TokenType:
+    type: string
+    description: JWT refresh token
+    example: Bearer
+
   httpError:
     type: object
     properties:
@@ -149,3 +198,14 @@ definitions:
         $ref: "#/definitions/AccessToken"
       refresh_token:
         $ref: "#/definitions/RefreshToken"      
+
+  auth.oauthRefreshTokenResponseDto:
+    type: object
+    properties:
+      access_token:
+        $ref: "#/definitions/AccessToken"
+      refresh_token:
+        $ref: "#/definitions/RefreshToken"
+      token_type:
+        $ref: "#/definitions/TokenType"        
+        

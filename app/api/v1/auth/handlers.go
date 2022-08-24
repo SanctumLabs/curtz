@@ -102,6 +102,16 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 }
 
 // oauthToken refreshes a token given a refresh token
+// OAuthToken godoc
+// @Summary     Used to get a new access token given a valid refresh token
+// @Description Used by clients to refresh expired access tokens from valid refresh tokens
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} auth.oauthRefreshTokenResponseDto
+// @Failure     400 {object} httpError
+// @Failure     401 {object} httpError
+// @Router      /auth/oauth/token [post]
 func (hdl *authRouter) oauthToken(ctx *gin.Context) {
 	grantType := ctx.Query("grant_type")
 	refreshToken := ctx.Query("refresh_token")

@@ -20,6 +20,7 @@ const docTemplate = `{
           "post": {
             "description": "Register a new user account",
             "summary": "Registers a new user account",
+            "operationId": "registerUser",
             "consumes": [
               "application/json"
             ],
@@ -68,6 +69,7 @@ const docTemplate = `{
           "post": {
             "description": "Login into an already registered user account",
             "summary": "Logs in a user into a registered account",
+            "operationId" : "loginUser",
             "consumes": [
               "application/json"
             ],
@@ -89,8 +91,8 @@ const docTemplate = `{
               }
             ],
             "responses": {
-              "201": {
-                "description": "Successfully created user",
+              "200": {
+                "description": "Successfully logged in user",
                 "schema": {
                   "$ref": "#/definitions/auth.userResponseDto"
                 }
@@ -108,14 +110,75 @@ const docTemplate = `{
                 }
               },
               "422": {
-                "description": "Unprocessible entity",
+                "description": "Unprocessable entity",
                 "schema": {
                   "$ref": "#/definitions/httpError"
                 }
               }
             }
           }
-        }
+        },
+        "/auth/oauth/token": {
+          "post": {
+            "description": "Used by clients to refresh expired access tokens from valid refresh tokens",
+            "summary": "Used to get a new access token given a valid refresh token",
+            "operationId": "oauthToken",
+            "consumes": [
+              "application/json"
+            ],
+            "produces": [
+              "application/json"
+            ],
+            "tags": [
+              "auth"
+            ],
+            "parameters": [
+              {
+                "in": "query",
+                "description": "grant type to use, required value is refresh_token",
+                "name": "grant_type",
+                "required": true,
+                "type": "string",
+                "enum": [
+                  "refresh_token"
+                ]
+              },
+              {
+                "in": "query",
+                "name": "refresh_token",
+                "description": "refresh token",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Successfully refreshed access token",
+                "schema": {
+                  "$ref": "#/definitions/auth.oauthRefreshTokenResponseDto"
+                }
+              },
+              "400": {
+                "description": "Bad Request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "401": {
+                "description": "Unauthorized request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "500": {
+                "description": "Internal Server Error",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              }
+            }
+          }
+        }        
     },
     "definitions": {
       "Date": {
@@ -140,6 +203,11 @@ const docTemplate = `{
       "RefreshToken": {
         "type": "string",
         "description": "JWT refresh token"
+      },
+      "TokenType": {
+        "type": "string",
+        "description": "JWT refresh token",
+        "example": "Bearer"
       },
       "httpError": {
         "type": "object",
@@ -202,7 +270,21 @@ const docTemplate = `{
             "$ref": "#/definitions/RefreshToken"
           }
         }
-      }
+      },
+      "auth.oauthRefreshTokenResponseDto": {
+        "type": "object",
+        "properties": {
+          "access_token": {
+            "$ref": "#/definitions/AccessToken"
+          },
+          "refresh_token": {
+            "$ref": "#/definitions/RefreshToken"
+          },
+          "token_type": {
+            "$ref": "#/definitions/TokenType"
+          }
+        }
+      }      
     }    
 }`
 
