@@ -65,6 +65,17 @@ make run
 
 > This will boot up the application with the provided environment variables.
 
+### Live reloading
+
+You can optionally run the application with live reloading set using [air](https://github.com/cosmtrek/air). First install Air following the instructions provided in the attached link.
+Then run with the below command in the root of the project:
+
+```bash
+air
+```
+
+That should be it.
+
 ## Testing the application
 
 Running tests can be done with:
