@@ -3,6 +3,7 @@ package config
 type Config struct {
 	Host        string
 	Env         string
+	DocsEnabled bool
 	Port        string
 	Logging     LoggingConfig
 	CorsHeaders string

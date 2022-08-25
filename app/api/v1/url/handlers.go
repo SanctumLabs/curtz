@@ -28,7 +28,7 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 	}
 
 	uid := userId.(string)
-	url, err := hdl.svc.CreateUrl(uid, payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
+	url, err := hdl.svc.CreateUrl(uid, payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn.String(), payload.Keywords)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

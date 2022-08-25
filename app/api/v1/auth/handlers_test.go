@@ -57,6 +57,100 @@ var _ = Describe("Auth Handler", func() {
 		authRouter.routes = append(authRouter.routes, routes...)
 	})
 
+	When("registering", func() {
+		httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/register", baseURI), nil)
+
+		email := "johndoe@example.com"
+		password := "password"
+
+		requestBody := registerRequestDto{
+			Email:    email,
+			Password: password,
+		}
+
+		Context("and payload is empty", func() {
+			responseRecorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(responseRecorder)
+			ctx.Request = httpRequest
+
+			It("should return 400 response code", func() {
+				authRouter.register(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
+			})
+		})
+
+		Context("and payload exists", func() {
+			responseRecorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(responseRecorder)
+			ctx.Request = httpRequest
+
+			It("but there is an error creating a user should return a 400 response code", func() {
+				mockUserSvc.
+					EXPECT().
+					CreateUser(email, password).
+					Return(entities.User{}, errors.New("user already exists"))
+
+				utils.MockRequestBody(ctx, requestBody)
+
+				authRouter.register(ctx)
+
+				assert.Equal(GinkgoT(), http.StatusBadRequest, responseRecorder.Code)
+			})
+
+			It("and there is a success creating a user, should return a 201 response code", func() {
+				responseRecorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(responseRecorder)
+				ctx.Request = httpRequest
+
+				mockUser, err := data.MockUser(email, password)
+				assert.NoError(GinkgoT(), err)
+
+				mockUserSvc.
+					EXPECT().
+					CreateUser(email, password).
+					Return(mockUser, nil)
+
+				utils.MockRequestBody(ctx, requestBody)
+
+				authRouter.register(ctx)
+
+				expectedRespBody := gin.H{
+					"id":         mockUser.ID.String(),
+					"email":      mockUser.Email.Value,
+					"created_at": mockUser.CreatedAt.Format(time.RFC3339Nano),
+					"updated_at": mockUser.UpdatedAt.Format(time.RFC3339Nano),
+				}
+
+				var actualResponse map[string]string
+				err = json.Unmarshal([]byte(responseRecorder.Body.Bytes()), &actualResponse)
+				assert.NoError(GinkgoT(), err)
+
+				assert.Equal(GinkgoT(), http.StatusCreated, responseRecorder.Code)
+
+				if id, ok := actualResponse["id"]; ok {
+					assert.True(GinkgoT(), ok)
+					assert.Equal(GinkgoT(), expectedRespBody["id"], id)
+				}
+
+				if id, ok := actualResponse["email"]; ok {
+					assert.True(GinkgoT(), ok)
+					assert.Equal(GinkgoT(), expectedRespBody["email"], id)
+				}
+
+				if id, ok := actualResponse["created_at"]; ok {
+					assert.True(GinkgoT(), ok)
+					assert.Equal(GinkgoT(), expectedRespBody["created_at"], id)
+				}
+
+				if id, ok := actualResponse["updated_at"]; ok {
+					assert.True(GinkgoT(), ok)
+					assert.Equal(GinkgoT(), expectedRespBody["updated_at"], id)
+				}
+			})
+		})
+	})
+
 	When("logging in", func() {
 		httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth/login", baseURI), nil)
 

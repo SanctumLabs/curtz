@@ -14,7 +14,7 @@ import (
 var (
 	healthRegex = regexp.MustCompile("^(/health)$")
 	authRegex   = regexp.MustCompile("^/api/v[0-9]+/curtz/auth/(register|login|oauth/token)$")
-	clientRegex = regexp.MustCompile(`^/[a-zA-Z0-9]+$|/auth/verify(/\?v=[a-zA-Z0-9]+)*`)
+	clientRegex = regexp.MustCompile(`^/[a-zA-Z0-9]+$|/auth/verify(/\?v=[a-zA-Z0-9]+)*|/docs/(/\?v=[a-zA-Z0-9]+)*`)
 )
 
 // NewAuthMiddleware creates a new auth middleware for authenticating requests

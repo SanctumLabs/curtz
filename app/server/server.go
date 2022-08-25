@@ -3,9 +3,12 @@ package server
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/sanctumlabs/curtz/app/config"
+	_ "github.com/sanctumlabs/curtz/app/docs"
 	"github.com/sanctumlabs/curtz/app/server/middleware"
 	"github.com/sanctumlabs/curtz/app/server/router"
 	"github.com/sanctumlabs/curtz/app/tools/logger"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type server struct {
@@ -66,7 +69,7 @@ func (srv *server) CreateServer() *gin.Engine {
 }
 
 func (srv *server) registerMiddlewares(engine *gin.Engine) {
-	srv.logger.Info("Registering middlewares...")
+	srv.logger.Debug("Registering middlewares...")
 	for _, mid := range srv.middlewares {
 		m := gin.HandlerFunc(mid)
 		engine.Use(m)
@@ -74,12 +77,16 @@ func (srv *server) registerMiddlewares(engine *gin.Engine) {
 }
 
 func (srv *server) registerRouters(engine *gin.Engine) {
-	srv.logger.Info("Registering routers...")
+	srv.logger.Debug("Registering routers...")
 
 	for _, apiRouter := range srv.routers {
 		for _, route := range apiRouter.Routes() {
 			srv.logger.Debugf("Registering %s, %s", route.Method(), route.Path())
 			engine.Handle(route.Method(), route.Path(), route.Handler())
 		}
+	}
+
+	if srv.config.DocsEnabled {
+		engine.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 }
