@@ -179,6 +179,48 @@ const docTemplate = `{
             }
           }
         },
+        "/auth/verify": {
+          "get": {
+            "description": "Used to verify user a verification token",
+            "summary": "Verifies a user verification token sent to them via email",
+            "operationId": "verifyToken",
+            "consumes": [
+              "application/json"
+            ],
+            "produces": [
+              "application/json"
+            ],
+            "tags": [
+              "auth"
+            ],
+            "parameters": [
+              {
+                "description": "Verification token",
+                "in": "query",
+                "name": "v",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Successfully verified token"
+              },
+              "400": {
+                "description": "Bad Request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "401": {
+                "description": "Unauthorized request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              }
+            }
+          }
+        },        
         "/urls": {
           "post": {
             "description": "creates a shortened URL for a user",
@@ -328,7 +370,43 @@ const docTemplate = `{
               }
             }
           }
-        }           
+        },
+        "/{shortCode}": {
+          "get": {
+            "description": "Redirects a client to original url from provided short code",
+            "summary": "Redirects a client from provided short code",
+            "operationId": "redirect",
+            "consumes": [
+              "application/json"
+            ],
+            "produces": [
+              "application/json"
+            ],
+            "tags": [
+              "Client"
+            ],
+            "parameters": [
+              {
+                "description": "Short code of URL to use",
+                "in": "path",
+                "name": "shortCode",
+                "required": true,
+                "type": "string"
+              }
+            ],
+            "responses": {
+              "308": {
+                "description": "Redirect to original url"
+              },
+              "404": {
+                "description": "URL cannot be found with given short code",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              }
+            }
+          }
+        }  
     },
     "definitions": {
       "Date": {
