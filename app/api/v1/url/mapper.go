@@ -13,15 +13,17 @@ func mapEntityToResponseDto(url entities.URL) urlResponseDto {
 	}
 
 	return urlResponseDto{
-		Id:          url.ID.String(),
-		UserId:      url.UserId.String(),
-		OriginalUrl: url.OriginalUrl,
-		CustomAlias: url.CustomAlias,
-		ShortCode:   url.ShortCode,
-		Keywords:    keywords,
-		ExpiresOn:   url.ExpiresOn,
-		CreatedAt:   url.CreatedAt,
-		UpdatedAt:   url.UpdatedAt,
-		Hits:        url.Hits,
+		Id:     url.ID.String(),
+		UserId: url.UserId.String(),
+		urlDto: urlDto{
+			OriginalUrl: url.OriginalUrl,
+			CustomAlias: url.CustomAlias,
+			Keywords:    keywords,
+			ExpiresOn:   url.ExpiresOn,
+		},
+		ShortCode: url.ShortCode,
+		CreatedAt: url.CreatedAt,
+		UpdatedAt: url.UpdatedAt,
+		Hits:      url.Hits,
 	}
 }

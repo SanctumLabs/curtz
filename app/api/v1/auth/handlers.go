@@ -6,6 +6,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// register is a handler that registers a new user account
+// Register godoc
+// @Summary     Register a new user account
+// @Description register user account
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Success     201 {object} auth.userResponseDto
+// @Failure     400 {object} httpError
+// @Failure     422 {object} httpError
+// @Router      /auth/register/ [post]
 func (hdl *authRouter) register(ctx *gin.Context) {
 	var request registerRequestDto
 	err := ctx.BindJSON(&request)
@@ -28,9 +39,21 @@ func (hdl *authRouter) register(ctx *gin.Context) {
 		UpdatedAt: user.UpdatedAt,
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusCreated, response)
 }
 
+// login is a handler that logs in an existing user account
+// Login godoc
+// @Summary     Logs in a registered user account
+// @Description login user account
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} auth.loginResponseDto
+// @Failure     400 {object} httpError
+// @Failure     401 {object} httpError
+// @Failure     422 {object} httpError
+// @Router      /auth/register/ [post]
 func (hdl *authRouter) login(ctx *gin.Context) {
 	var request loginRequestDto
 	err := ctx.BindJSON(&request)
@@ -79,6 +102,16 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 }
 
 // oauthToken refreshes a token given a refresh token
+// OAuthToken godoc
+// @Summary     Used to get a new access token given a valid refresh token
+// @Description Used by clients to refresh expired access tokens from valid refresh tokens
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Success     200 {object} auth.oauthRefreshTokenResponseDto
+// @Failure     400 {object} httpError
+// @Failure     401 {object} httpError
+// @Router      /auth/oauth/token [post]
 func (hdl *authRouter) oauthToken(ctx *gin.Context) {
 	grantType := ctx.Query("grant_type")
 	refreshToken := ctx.Query("refresh_token")
