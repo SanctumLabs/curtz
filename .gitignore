@@ -74,3 +74,5 @@ bin/golangci-lint
 !build
 __debug_bin
 bin/curtz
+tmp/
+*.log
