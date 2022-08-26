@@ -2,6 +2,7 @@ package entities
 
 import (
 	"testing"
+	"time"
 
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
@@ -12,7 +13,7 @@ type urlTestCase struct {
 	userId        identifier.ID
 	url           string
 	alias         string
-	expiresOn     string
+	expiresOn     time.Time
 	keywords      []string
 	expectedError error
 }
@@ -23,7 +24,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://google",
 		alias:         "",
-		expiresOn:     "",
+		expiresOn:     time.Now().Add(time.Hour * 2),
 		keywords:      []string{},
 		expectedError: errdefs.ErrInvalidURLLen,
 	},
@@ -32,7 +33,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://localhost:8080",
 		alias:         "",
-		expiresOn:     "",
+		expiresOn:     time.Now().Add(time.Hour * 2),
 		keywords:      []string{},
 		expectedError: errdefs.ErrFilteredURL,
 	},
@@ -41,7 +42,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://127.0.0.1:8080",
 		alias:         "",
-		expiresOn:     "",
+		expiresOn:     time.Now().Add(time.Hour * 2),
 		keywords:      []string{},
 		expectedError: errdefs.ErrFilteredURL,
 	},
@@ -50,7 +51,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "xyz://xyx/xyz/z",
 		alias:         "",
-		expiresOn:     "",
+		expiresOn:     time.Now().Add(time.Hour * 2),
 		keywords:      []string{},
 		expectedError: errdefs.ErrInvalidURL,
 	},
@@ -59,7 +60,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://localhost/xxx",
 		alias:         "",
-		expiresOn:     "",
+		expiresOn:     time.Now().Add(time.Hour * 2),
 		keywords:      []string{},
 		expectedError: errdefs.ErrFilteredURL,
 	},
@@ -68,7 +69,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://example.com",
 		alias:         "",
-		expiresOn:     "2030x01x01x00x00x00",
+		expiresOn:     time.Now().Add(time.Hour - 1),
 		keywords:      []string{},
 		expectedError: errdefs.ErrInvalidDate,
 	},
@@ -77,7 +78,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://example.com",
 		alias:         "",
-		expiresOn:     "2030-01-01",
+		expiresOn:     time.Now().Add(time.Hour * 1),
 		keywords:      []string{},
 		expectedError: errdefs.ErrInvalidDate,
 	},
@@ -86,7 +87,7 @@ var urlTestCases = []urlTestCase{
 		userId:        identifier.New(),
 		url:           "http://example.com",
 		alias:         "",
-		expiresOn:     "2030-01-01 00:00:00",
+		expiresOn:     time.Now().Add(time.Hour * 1),
 		keywords:      []string{},
 		expectedError: nil,
 	},

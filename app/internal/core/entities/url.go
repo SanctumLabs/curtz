@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/encoding"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
@@ -64,7 +63,7 @@ type URL struct {
 }
 
 // NewUrl creates a new URL entity
-func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, keywords []string) (*URL, error) {
+func NewUrl(userId identifier.ID, originalUrl string, customAlias string, expiresOn time.Time, keywords []string) (*URL, error) {
 	if l := len(originalUrl); l < MinLength || l > MaxLength {
 		return nil, errdefs.ErrInvalidURLLen
 	}
@@ -82,17 +81,11 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 		return nil, errdefs.ErrInvalidURL
 	}
 
-	if len(expiresOn) != len(pkg.DateLayout) {
-		return nil, errdefs.ErrInvalidDate
-	}
-
-	expiry, err := parseExpiresOn(expiresOn)
-
 	if err != nil {
 		return nil, errdefs.ErrInvalidDate
 	}
 
-	if expiry.In(time.UTC).Before(time.Now().In(time.UTC)) {
+	if expiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
 		return nil, errdefs.ErrPastExpiration
 	}
 
@@ -116,7 +109,7 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 		ShortCode:   shortCode,
 		CustomAlias: customAlias,
 		Keywords:    kws,
-		ExpiresOn:   expiry,
+		ExpiresOn:   expiresOn,
 	}, nil
 }
 
@@ -124,14 +117,6 @@ func NewUrl(userId identifier.ID, originalUrl, customAlias, expiresOn string, ke
 // It returns true if url is not marked deleted or expired, false otherwise.
 func (url URL) IsActive() bool {
 	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
-}
-
-func parseExpiresOn(expiresOn string) (time.Time, error) {
-	if expiresOn == "" {
-		return time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), nil
-	}
-
-	return time.ParseInLocation(pkg.DateLayout, expiresOn, time.UTC)
 }
 
 // Prefix returns the url prefix for logging

@@ -106,7 +106,7 @@ func (m *MockUrlService) EXPECT() *MockUrlServiceMockRecorder {
 }
 
 // CreateUrl mocks base method.
-func (m *MockUrlService) CreateUrl(userId, originalUrl, customAlias, expiresOn string, keywords []string) (entities.URL, error) {
+func (m *MockUrlService) CreateUrl(userId string, originalUrl string, customAlias string, expiresOn time.Time, keywords []string) (entities.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateUrl", userId, originalUrl, customAlias, expiresOn, keywords)
 	ret0, _ := ret[0].(entities.URL)

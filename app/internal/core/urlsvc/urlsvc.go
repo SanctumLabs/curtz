@@ -1,6 +1,8 @@
 package urlsvc
 
 import (
+	"time"
+
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
@@ -22,7 +24,7 @@ func NewUrlSvc(urlRepository contracts.UrlRepository, userSvc contracts.UserServ
 }
 
 // CreateUrl creates a new shorted url given a user id, original url, custom alias, when it should expire and slice of keywords
-func (svc *UrlSvc) CreateUrl(userId, originalUrl, customAlias, expiresOn string, keywords []string) (entities.URL, error) {
+func (svc *UrlSvc) CreateUrl(userId string, originalUrl string, customAlias string, expiresOn time.Time, keywords []string) (entities.URL, error) {
 	if _, err := svc.userSvc.GetUserByID(userId); err != nil {
 		return entities.URL{}, err
 	}

@@ -17,7 +17,7 @@ type AuthService interface {
 }
 
 type UrlService interface {
-	CreateUrl(userID, originalUrl, customAlias, expiresOn string, keywords []string) (entities.URL, error)
+	CreateUrl(userID string, originalUrl string, customAlias string, expiresOn time.Time, keywords []string) (entities.URL, error)
 	GetByShortCode(shortCode string) (entities.URL, error)
 	GetByUserId(userID string) ([]entities.URL, error)
 	GetByKeyword(keyword string) ([]entities.URL, error)
