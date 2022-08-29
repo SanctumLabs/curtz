@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 	"github.com/sanctumlabs/curtz/app/test/utils"
@@ -110,7 +111,7 @@ func TestCreateShortUrlReturnsBadRequestWhenCreateUrlReturnsError(t *testing.T) 
 
 	mockUrlSvc.
 		EXPECT().
-		CreateUrl(userId, originalUrl, customAlias, expiresOn, keywords).
+		CreateUrl(userId, originalUrl, customAlias, gomock.Any(), keywords).
 		Return(entities.URL{}, errors.New("failed to shorten url"))
 
 	utils.MockRequestBody(ctx, requestBody)
@@ -121,7 +122,7 @@ func TestCreateShortUrlReturnsBadRequestWhenCreateUrlReturnsError(t *testing.T) 
 }
 
 func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T) {
-	userId := "user-id"
+	userId := identifier.New()
 	urlRouter, mockUrlSvc := createUrlRouter(t)
 
 	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
@@ -144,10 +145,10 @@ func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T)
 		},
 	}
 
-	ctx.Set("userId", userId)
+	ctx.Set("userId", userId.String())
 
 	mockUrl := entities.URL{
-		UserId:      identifier.New().FromString(userId),
+		UserId:      userId,
 		OriginalUrl: originalUrl,
 		CustomAlias: customAlias,
 		ExpiresOn:   expiresOn,
@@ -161,14 +162,14 @@ func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T)
 
 	mockUrlSvc.
 		EXPECT().
-		CreateUrl(userId, originalUrl, customAlias, expiresOn, keywords).
+		CreateUrl(userId.String(), originalUrl, customAlias, gomock.Any(), keywords).
 		Return(mockUrl, nil)
 
 	utils.MockRequestBody(ctx, requestBody)
 
 	urlRouter.createShortUrl(ctx)
 
-	var actualResponse map[string]string
+	var actualResponse map[string]any
 	err := json.Unmarshal([]byte(responseRecorder.Body.Bytes()), &actualResponse)
 	assert.NoError(t, err)
 
@@ -194,7 +195,7 @@ func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T)
 
 	if _, ok := actualResponse["user_id"]; ok {
 		assert.True(t, ok)
-		assert.Equal(t, expectedRespBody["user_id"], userId)
+		assert.Equal(t, expectedRespBody["user_id"], userId.String())
 	}
 
 	if _, ok := actualResponse["original_url"]; ok {
@@ -224,15 +225,15 @@ func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T)
 
 	if _, ok := actualResponse["updated_at"]; ok {
 		assert.True(t, ok)
-		assert.Equal(t, expectedRespBody["updated_at"], mockUrl.UpdatedAt)
+		assert.Equal(t, expectedRespBody["updated_at"], mockUrl.UpdatedAt.Format(time.RFC3339Nano))
 	}
 	if _, ok := actualResponse["created_at"]; ok {
 		assert.True(t, ok)
-		assert.Equal(t, expectedRespBody["created_at"], mockUrl.CreatedAt)
+		assert.Equal(t, expectedRespBody["created_at"], mockUrl.CreatedAt.Format(time.RFC3339Nano))
 	}
 
 	if _, ok := actualResponse["expires_on"]; ok {
 		assert.True(t, ok)
-		assert.Equal(t, expectedRespBody["expires_on"], expiresOn)
+		assert.Equal(t, expectedRespBody["expires_on"], expiresOn.Format(time.RFC3339Nano))
 	}
 }

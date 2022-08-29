@@ -39,6 +39,7 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
+// getUrlById returns a url that is attached to a user
 func (hdl *urlRouter) getUrlById(c *gin.Context) {
 	urlId := c.Param("id")
 
