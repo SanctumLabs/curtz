@@ -17,7 +17,7 @@ import (
 )
 
 func TestGetAllUrlsReturnsUnauthorizedForMissingUserId(t *testing.T) {
-	urlRouter, _ := createUrlRouter(t)
+	urlRouter, _, _, _ := createUrlRouter(t)
 
 	httpRequest := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s/urls", baseURI), nil)
 	responseRecorder := httptest.NewRecorder()
@@ -31,7 +31,7 @@ func TestGetAllUrlsReturnsUnauthorizedForMissingUserId(t *testing.T) {
 }
 
 func TestGetAllUrlsReturnsErrorWhenFailureToGetUrls(t *testing.T) {
-	urlRouter, mockUrlSvc := createUrlRouter(t)
+	urlRouter, _, mockUrlReadSvc, _ := createUrlRouter(t)
 
 	userID := identifier.New()
 	httpRequest := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s/urls", baseURI), nil)
@@ -41,7 +41,7 @@ func TestGetAllUrlsReturnsErrorWhenFailureToGetUrls(t *testing.T) {
 	ctx.Request = httpRequest
 	ctx.Set("userId", userID.String())
 
-	mockUrlSvc.
+	mockUrlReadSvc.
 		EXPECT().
 		GetByUserId(userID.String()).
 		Return([]entities.URL{}, errors.New("Failed to find all urls for user"))
@@ -52,7 +52,8 @@ func TestGetAllUrlsReturnsErrorWhenFailureToGetUrls(t *testing.T) {
 }
 
 func TestGetAllUrlsReturnsOkWhenSuccessGettingUrls(t *testing.T) {
-	urlRouter, mockUrlSvc := createUrlRouter(t)
+	urlRouter, _, mockUrlReadSvc, _ := createUrlRouter(t)
+
 	httpRequest := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s/urls", baseURI), nil)
 	responseRecorder := httptest.NewRecorder()
 
@@ -79,7 +80,7 @@ func TestGetAllUrlsReturnsOkWhenSuccessGettingUrls(t *testing.T) {
 		mockUrlTwo,
 	}
 
-	mockUrlSvc.
+	mockUrlReadSvc.
 		EXPECT().
 		GetByUserId(userID.String()).
 		Return(mockUrls, nil)

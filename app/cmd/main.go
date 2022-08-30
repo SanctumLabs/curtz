@@ -187,11 +187,13 @@ func main() {
 
 	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
 	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo(), userService, cache)
+	urlReadService := urlsvc.NewUrlReadSvc(repository.GetUrlRepo(), userService, cache)
+	urlWriteService := urlsvc.NewUrlWriteSvc(repository.GetUrlRepo(), userService)
 
 	baseUri := "/api/v1/curtz"
 
 	routers := []router.Router{
-		url.NewUrlRouter(baseUri, urlService),
+		url.NewUrlRouter(baseUri, urlService, urlReadService, urlWriteService),
 		authApi.NewRouter(baseUri, userService, authService),
 		health.NewHealthRouter(),
 		client.NewClientRouter(urlService, userService),

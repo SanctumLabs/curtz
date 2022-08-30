@@ -18,7 +18,8 @@ import (
 )
 
 func TestCreateShortUrlReturnsBadRequestForInvalidJson(t *testing.T) {
-	urlRouter, _ := createUrlRouter(t)
+	urlRouter, _, _, _ := createUrlRouter(t)
+
 	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
 
 	responseRecorder := httptest.NewRecorder()
@@ -31,7 +32,7 @@ func TestCreateShortUrlReturnsBadRequestForInvalidJson(t *testing.T) {
 }
 
 func TestCreateShortUrlReturnsUnauthorizedRequestForMissingUserInCtx(t *testing.T) {
-	urlRouter, _ := createUrlRouter(t)
+	urlRouter, _, _, _ := createUrlRouter(t)
 
 	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
 
@@ -57,7 +58,7 @@ func TestCreateShortUrlReturnsUnauthorizedRequestForMissingUserInCtx(t *testing.
 
 func TestCreateShortUrlReturnsBadRequestForInvalidUrl(t *testing.T) {
 	userId := "user-id"
-	urlRouter, _ := createUrlRouter(t)
+	urlRouter, _, _, _ := createUrlRouter(t)
 
 	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
 
@@ -85,7 +86,7 @@ func TestCreateShortUrlReturnsBadRequestForInvalidUrl(t *testing.T) {
 
 func TestCreateShortUrlReturnsBadRequestWhenCreateUrlReturnsError(t *testing.T) {
 	userId := "user-id"
-	urlRouter, mockUrlSvc := createUrlRouter(t)
+	urlRouter, _, _, mockUrlWriteSvc := createUrlRouter(t)
 
 	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
 
@@ -109,7 +110,7 @@ func TestCreateShortUrlReturnsBadRequestWhenCreateUrlReturnsError(t *testing.T) 
 
 	ctx.Set("userId", userId)
 
-	mockUrlSvc.
+	mockUrlWriteSvc.
 		EXPECT().
 		CreateUrl(userId, originalUrl, customAlias, gomock.Any(), keywords).
 		Return(entities.URL{}, errors.New("failed to shorten url"))
@@ -123,7 +124,7 @@ func TestCreateShortUrlReturnsBadRequestWhenCreateUrlReturnsError(t *testing.T) 
 
 func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T) {
 	userId := identifier.New()
-	urlRouter, mockUrlSvc := createUrlRouter(t)
+	urlRouter, _, _, mockUrlWriteSvc := createUrlRouter(t)
 
 	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
 
@@ -160,7 +161,7 @@ func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T)
 		ShortCode: "3nfoiu",
 	}
 
-	mockUrlSvc.
+	mockUrlWriteSvc.
 		EXPECT().
 		CreateUrl(userId.String(), originalUrl, customAlias, gomock.Any(), keywords).
 		Return(mockUrl, nil)

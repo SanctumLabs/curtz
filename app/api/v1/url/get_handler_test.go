@@ -16,7 +16,7 @@ import (
 )
 
 func TestGetUrlByIdReturnsNotFoundForMissingUrl(t *testing.T) {
-	urlRouter, mockUrlSvc := createUrlRouter(t)
+	urlRouter, _, mockUrlReadSvc, _ := createUrlRouter(t)
 
 	urlID := identifier.New()
 	httpRequest := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s/urls/%s", baseURI, urlID.String()), nil)
@@ -26,7 +26,7 @@ func TestGetUrlByIdReturnsNotFoundForMissingUrl(t *testing.T) {
 	ctx.Request = httpRequest
 	ctx.Params = append(ctx.Params, gin.Param{Key: "id", Value: urlID.String()})
 
-	mockUrlSvc.
+	mockUrlReadSvc.
 		EXPECT().
 		GetById(urlID.String()).
 		Return(entities.URL{}, errors.New("Failed to find url"))
@@ -37,7 +37,7 @@ func TestGetUrlByIdReturnsNotFoundForMissingUrl(t *testing.T) {
 }
 
 func TestGetByIdReturnsStatusOkForFoundUrl(t *testing.T) {
-	urlRouter, mockUrlSvc := createUrlRouter(t)
+	urlRouter, _, mockUrlReadSvc, _ := createUrlRouter(t)
 
 	userId := identifier.New()
 	urlID := identifier.New()
@@ -66,7 +66,7 @@ func TestGetByIdReturnsStatusOkForFoundUrl(t *testing.T) {
 		ShortCode: "3nfoiu",
 	}
 
-	mockUrlSvc.
+	mockUrlReadSvc.
 		EXPECT().
 		GetById(urlID.String()).
 		Return(mockUrl, nil)

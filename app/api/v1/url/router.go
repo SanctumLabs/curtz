@@ -9,16 +9,20 @@ import (
 
 // urlRouter is a router for the url API.
 type urlRouter struct {
-	svc     contracts.UrlService
-	routes  []router.Route
-	baseUri string
+	urlSvc      contracts.UrlService
+	urlReadSvc  contracts.UrlReadService
+	urlWriteSvc contracts.UrlWriteService
+	routes      []router.Route
+	baseUri     string
 }
 
 // NewUrlRouter initializes a new router
-func NewUrlRouter(baseUri string, s contracts.UrlService) router.Router {
+func NewUrlRouter(baseUri string, urlSvc contracts.UrlService, urlReadSvc contracts.UrlReadService, urlWriteSvc contracts.UrlWriteService) router.Router {
 	r := &urlRouter{
-		svc:     s,
-		baseUri: baseUri,
+		urlSvc:      urlSvc,
+		urlReadSvc:  urlReadSvc,
+		urlWriteSvc: urlWriteSvc,
+		baseUri:     baseUri,
 	}
 	r.initRoutes()
 	return r

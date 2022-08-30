@@ -11,14 +11,18 @@ import (
 
 var baseURI = "/api/v1/curtz"
 
-func createUrlRouter(t *testing.T) (*urlRouter, mocks.MockUrlService) {
+func createUrlRouter(t *testing.T) (*urlRouter, mocks.MockUrlService, mocks.MockUrlReadService, mocks.MockUrlWriteService) {
 	mockCtrl := gomock.NewController(t)
 	mockUrlSvc := mocks.NewMockUrlService(mockCtrl)
+	mockUrlReadSvc := mocks.NewMockUrlReadService(mockCtrl)
+	mockUrlWriteSvc := mocks.NewMockUrlWriteService(mockCtrl)
 
 	urlRouter := &urlRouter{
-		svc:     mockUrlSvc,
-		baseUri: baseURI,
-		routes:  []router.Route{},
+		urlSvc:      mockUrlSvc,
+		urlReadSvc:  mockUrlReadSvc,
+		urlWriteSvc: mockUrlWriteSvc,
+		baseUri:     baseURI,
+		routes:      []router.Route{},
 	}
 
 	routes := []router.Route{
@@ -29,5 +33,5 @@ func createUrlRouter(t *testing.T) (*urlRouter, mocks.MockUrlService) {
 
 	urlRouter.routes = append(urlRouter.routes, routes...)
 
-	return urlRouter, *mockUrlSvc
+	return urlRouter, *mockUrlSvc, *mockUrlReadSvc, *mockUrlWriteSvc
 }

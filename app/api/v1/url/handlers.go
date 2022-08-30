@@ -28,7 +28,7 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 	}
 
 	uid := userId.(string)
-	url, err := hdl.svc.CreateUrl(uid, payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
+	url, err := hdl.urlWriteSvc.CreateUrl(uid, payload.OriginalUrl, payload.CustomAlias, payload.ExpiresOn, payload.Keywords)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -43,7 +43,7 @@ func (hdl *urlRouter) createShortUrl(c *gin.Context) {
 func (hdl *urlRouter) getUrlById(c *gin.Context) {
 	urlId := c.Param("id")
 
-	url, err := hdl.svc.GetById(urlId)
+	url, err := hdl.urlReadSvc.GetById(urlId)
 
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -63,7 +63,7 @@ func (hdl *urlRouter) getAllUrls(c *gin.Context) {
 	}
 
 	uid := userId.(string)
-	urls, err := hdl.svc.GetByUserId(uid)
+	urls, err := hdl.urlReadSvc.GetByUserId(uid)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
