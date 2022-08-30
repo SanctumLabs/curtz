@@ -45,7 +45,7 @@ func TestGetByIdReturnsStatusOkForFoundUrl(t *testing.T) {
 	customAlias := ""
 	expiresOn := time.Now().Add(time.Hour * 1)
 
-	httpRequest := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/urls", baseURI), nil)
+	httpRequest := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s/urls", baseURI), nil)
 	responseRecorder := httptest.NewRecorder()
 
 	ctx, _ := gin.CreateTestContext(responseRecorder)

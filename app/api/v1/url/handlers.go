@@ -58,7 +58,7 @@ func (hdl *urlRouter) getUrlById(c *gin.Context) {
 func (hdl *urlRouter) getAllUrls(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
-		c.Status(http.StatusUnauthorized)
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
