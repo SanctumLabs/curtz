@@ -9,8 +9,6 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	entities "github.com/sanctumlabs/curtz/app/internal/core/entities"
-	identifier "github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
 // MockAuthService is a mock of AuthService interface.
@@ -80,117 +78,6 @@ func (m *MockAuthService) GenerateToken(userID string) (string, error) {
 func (mr *MockAuthServiceMockRecorder) GenerateToken(userID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateToken", reflect.TypeOf((*MockAuthService)(nil).GenerateToken), userID)
-}
-
-// MockUserService is a mock of UserService interface.
-type MockUserService struct {
-	ctrl     *gomock.Controller
-	recorder *MockUserServiceMockRecorder
-}
-
-// MockUserServiceMockRecorder is the mock recorder for MockUserService.
-type MockUserServiceMockRecorder struct {
-	mock *MockUserService
-}
-
-// NewMockUserService creates a new mock instance.
-func NewMockUserService(ctrl *gomock.Controller) *MockUserService {
-	mock := &MockUserService{ctrl: ctrl}
-	mock.recorder = &MockUserServiceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
-	return m.recorder
-}
-
-// CreateUser mocks base method.
-func (m *MockUserService) CreateUser(email, password string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateUser", email, password)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateUser indicates an expected call of CreateUser.
-func (mr *MockUserServiceMockRecorder) CreateUser(email, password interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUser", reflect.TypeOf((*MockUserService)(nil).CreateUser), email, password)
-}
-
-// GetByVerificationToken mocks base method.
-func (m *MockUserService) GetByVerificationToken(verificationToken string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByVerificationToken", verificationToken)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByVerificationToken indicates an expected call of GetByVerificationToken.
-func (mr *MockUserServiceMockRecorder) GetByVerificationToken(verificationToken interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByVerificationToken", reflect.TypeOf((*MockUserService)(nil).GetByVerificationToken), verificationToken)
-}
-
-// GetUserByEmail mocks base method.
-func (m *MockUserService) GetUserByEmail(email string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByEmail", email)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserByEmail indicates an expected call of GetUserByEmail.
-func (mr *MockUserServiceMockRecorder) GetUserByEmail(email interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByEmail", reflect.TypeOf((*MockUserService)(nil).GetUserByEmail), email)
-}
-
-// GetUserByID mocks base method.
-func (m *MockUserService) GetUserByID(id string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByID", id)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserByID indicates an expected call of GetUserByID.
-func (mr *MockUserServiceMockRecorder) GetUserByID(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByID", reflect.TypeOf((*MockUserService)(nil).GetUserByID), id)
-}
-
-// RemoveUser mocks base method.
-func (m *MockUserService) RemoveUser(id string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUser", id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUser indicates an expected call of RemoveUser.
-func (mr *MockUserServiceMockRecorder) RemoveUser(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUser", reflect.TypeOf((*MockUserService)(nil).RemoveUser), id)
-}
-
-// SetVerified mocks base method.
-func (m *MockUserService) SetVerified(id identifier.ID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetVerified", id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetVerified indicates an expected call of SetVerified.
-func (mr *MockUserServiceMockRecorder) SetVerified(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVerified", reflect.TypeOf((*MockUserService)(nil).SetVerified), id)
 }
 
 // MockNotificationService is a mock of NotificationService interface.

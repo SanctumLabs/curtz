@@ -2,9 +2,6 @@ package contracts
 
 import (
 	"time"
-
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
 type AuthService interface {
@@ -14,15 +11,6 @@ type AuthService interface {
 	GenerateToken(userID string) (string, error)
 	// GenerateRefreshToken generates a new refresh token
 	GenerateRefreshToken(userID string) (string, error)
-}
-
-type UserService interface {
-	CreateUser(email, password string) (entities.User, error)
-	GetUserByEmail(email string) (entities.User, error)
-	GetUserByID(id string) (entities.User, error)
-	GetByVerificationToken(verificationToken string) (entities.User, error)
-	SetVerified(id identifier.ID) error
-	RemoveUser(id string) error
 }
 
 type NotificationService interface {

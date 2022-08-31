@@ -10,14 +10,14 @@ import (
 
 //UrlSvc represents a url service use case
 type UrlWriteSvc struct {
-	// repo is an interface used to perform CRUD operations on URL records
-	repo contracts.UrlRepository
+	// repo is an interface used to perform CUD operations on URL records. Does not perform write operations
+	repo contracts.UrlWriteRepository
 	// userSvc is an interface used to interact with the user service use cases
 	userSvc contracts.UserService
 }
 
 // NewUrlSvc creates a new url service
-func NewUrlWriteSvc(urlRepository contracts.UrlRepository, userSvc contracts.UserService) *UrlWriteSvc {
+func NewUrlWriteSvc(urlRepository contracts.UrlWriteRepository, userSvc contracts.UserService) *UrlWriteSvc {
 	return &UrlWriteSvc{urlRepository, userSvc}
 }
 
