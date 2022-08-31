@@ -8,7 +8,7 @@ import (
 //UrlReadSvc represents a url service use case
 type UrlReadSvc struct {
 	// repo is an interface used to perform CRUD operations on URL records
-	repo contracts.UrlRepository
+	repo contracts.UrlReadRepository
 	// userSvc is an interface used to interact with the user service use cases
 	userSvc contracts.UserService
 	// cache is an interface used to interact with cache service
@@ -16,7 +16,7 @@ type UrlReadSvc struct {
 }
 
 // NewUrlSvc creates a new url service
-func NewUrlReadSvc(urlRepository contracts.UrlRepository, userSvc contracts.UserService, cacheSvc contracts.CacheService) *UrlReadSvc {
+func NewUrlReadSvc(urlRepository contracts.UrlReadRepository, userSvc contracts.UserService, cacheSvc contracts.CacheService) *UrlReadSvc {
 	return &UrlReadSvc{urlRepository, userSvc, cacheSvc}
 }
 

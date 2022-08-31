@@ -186,9 +186,9 @@ func main() {
 	cache := cache.New(configuration.Cache)
 
 	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
-	urlService := urlsvc.NewUrlSvc(repository.GetUrlRepo(), userService, cache)
-	urlReadService := urlsvc.NewUrlReadSvc(repository.GetUrlRepo(), userService, cache)
-	urlWriteService := urlsvc.NewUrlWriteSvc(repository.GetUrlRepo(), userService)
+	urlService := urlsvc.NewUrlSvc(repository.GetUrlReadRepo(), repository.GetUrlWriteRepo(), userService, cache)
+	urlReadService := urlsvc.NewUrlReadSvc(repository.GetUrlReadRepo(), userService, cache)
+	urlWriteService := urlsvc.NewUrlWriteSvc(repository.GetUrlWriteRepo(), userService)
 
 	baseUri := "/api/v1/curtz"
 
