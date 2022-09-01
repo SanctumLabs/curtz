@@ -1,6 +1,7 @@
 package url
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -75,4 +76,16 @@ func (hdl *urlRouter) getAllUrls(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (hdl *urlRouter) deleteUrl(c *gin.Context) {
+	urlId := c.Param("id")
+
+	err := hdl.urlWriteSvc.Remove(urlId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Url with ID %s has been deleted", urlId)})
 }

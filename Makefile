@@ -55,6 +55,9 @@ tidy:
 run:
 	go run app/cmd/main.go
 
+run-dev:
+	air
+
 test:
 	go test ./...
 
