@@ -81,10 +81,6 @@ func NewUrl(userId identifier.ID, originalUrl string, customAlias string, expire
 		return nil, errdefs.ErrInvalidURL
 	}
 
-	if err != nil {
-		return nil, errdefs.ErrInvalidDate
-	}
-
 	if expiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
 		return nil, errdefs.ErrPastExpiration
 	}
