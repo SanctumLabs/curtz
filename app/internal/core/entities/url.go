@@ -115,6 +115,43 @@ func (url URL) IsActive() bool {
 	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
 }
 
+func (url URL) GetKeywords() []Keyword {
+	return url.Keywords
+}
+
+func (url URL) SetKeywords(keywords []string) error {
+	kws, err := createKeywords(keywords)
+	if err != nil {
+		return err
+	}
+
+	url.Keywords = append(url.Keywords, kws...)
+	return nil
+}
+
+func (url URL) GetExpiresOn() time.Time {
+	return url.ExpiresOn
+}
+
+func (url URL) SetExpiresOn(expiresOn time.Time) {
+	url.ExpiresOn = expiresOn
+}
+
+// UpdateExpiresOn updates the expiresOn field on a URL
+func (url URL) UpdateExpiresOn(expiresOn time.Time) error {
+	url.ExpiresOn = expiresOn
+	return nil
+}
+
+func (url URL) GetCustomAlias() string {
+	return url.CustomAlias
+}
+
+func (url URL) SetCustomAlias(customAlias string) error {
+	url.CustomAlias = customAlias
+	return nil
+}
+
 // Prefix returns the url prefix for logging
 func (url URL) Prefix() string {
 	return fmt.Sprintf("url-%s-%s", url.ID, url.ShortCode)

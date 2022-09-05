@@ -5,6 +5,7 @@ import (
 
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
@@ -35,6 +36,35 @@ func (svc *UrlWriteSvc) CreateUrl(userId string, originalUrl string, customAlias
 	}
 
 	return svc.repo.Save(*url)
+}
+
+// UpdateUrl performs an update on an existing shortened URL
+func (svc *UrlWriteSvc) UpdateUrl(userID, urlID, customAlias string, keywords []string, expiresOn time.Time) (entities.URL, error) {
+	if _, err := svc.userSvc.GetUserByID(userID); err != nil {
+		return entities.URL{}, err
+	}
+
+	if expiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
+		return entities.URL{}, errdefs.ErrPastExpiration
+	}
+
+	kws := make([]entities.Keyword, len(keywords))
+	if len(keywords) != 0 {
+		for i, keyword := range keywords {
+			if kw, err := entities.NewKeyword(keyword); err == nil {
+				kws[i] = kw
+			} else {
+				return entities.URL{}, err
+			}
+		}
+	}
+
+	updatedUrl, err := svc.repo.Update(urlID, customAlias, kws, expiresOn)
+	if err != nil {
+		return entities.URL{}, err
+	}
+
+	return updatedUrl, nil
 }
 
 // Remove removes a saved shortened url given its ID

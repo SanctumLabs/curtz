@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/pkg/validators"
 )
 
@@ -88,4 +89,47 @@ func (hdl *urlRouter) deleteUrl(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Url with ID %s has been deleted", urlId)})
+}
+
+// updateUrl is a handler to update an existing short url
+func (hdl *urlRouter) updateUrl(c *gin.Context) {
+	userId, ok := c.Get("userId")
+	if !ok {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	urlId := c.Param("id")
+
+	if _, err := hdl.urlReadSvc.GetById(urlId); err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, map[string]any{"message": err.Error()})
+		return
+	}
+
+	payload := updateShortUrlDto{}
+	err := c.BindJSON(&payload)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	customAlias := payload.CustomAlias
+	keywords := payload.Keywords
+	expiresOn := payload.ExpiresOn
+
+	updateCmd, err := contracts.NewUpdateUrlCommand(userId.(string), urlId, customAlias, keywords, expiresOn)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, map[string]any{"message": err.Error()})
+		return
+	}
+
+	updatedUrl, err := hdl.urlWriteSvc.UpdateUrl(updateCmd)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := mapEntityToResponseDto(updatedUrl)
+
+	c.JSON(http.StatusAccepted, response)
 }

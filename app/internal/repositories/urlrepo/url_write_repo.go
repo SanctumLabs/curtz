@@ -2,6 +2,7 @@ package urlRepo
 
 import (
 	"context"
+	"time"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
@@ -41,6 +42,44 @@ func (r *UrlWriteRepo) Save(url entities.URL) (entities.URL, error) {
 	}
 
 	return url, nil
+}
+
+// Update performs an update on an existing shortened URL given urlID, customAlias, keywords & expiresOn
+func (r *UrlWriteRepo) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn time.Time) (entities.URL, error) {
+	existingUrl, err := r.getSingleResult("id", urlID)
+	if err != nil {
+		return entities.URL{}, errdefs.ErrURLAlreadyExists
+	}
+
+	existingUrl.CustomAlias = customAlias
+	existingUrl.Keywords = append(existingUrl.Keywords, entities.Keyword{})
+	existingUrl.ExpiresOn = expiresOn
+
+	kws := make([]models.Keyword, len(keywords))
+	if len(keywords) != 0 {
+		for i, keyword := range keywords {
+			kws[i] = models.Keyword{
+				UrlId: urlID,
+				Value: keyword.Value,
+			}
+		}
+	}
+
+	filter := bson.D{{Key: "id", Value: urlID}}
+	update := bson.D{
+		{Key: "$set", Value: bson.D{{Key: "custom_alias", Value: customAlias}}},
+		{Key: "$set", Value: bson.D{{Key: "expires_on", Value: expiresOn}}},
+		{Key: "$addToSet", Value: bson.D{{Key: "keywords", Value: kws}}},
+	}
+
+	opts := options.Update().SetUpsert(false)
+
+	_, err = r.dbClient.UpdateOne(r.ctx, filter, update, opts)
+	if err != nil {
+		return entities.URL{}, err
+	}
+
+	return existingUrl, nil
 }
 
 // Delete deletes a url given its ID
