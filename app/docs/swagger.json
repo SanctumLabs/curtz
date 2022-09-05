@@ -366,6 +366,61 @@
               }
             }
           }
+        },
+        "delete": {
+          "description": "deletes shortened URL for a user given its unique id",
+          "summary": "Deletes shortened URL for a user given its id",
+          "operationId": "deleteUrl",
+          "consumes": [
+            "application/json"
+          ],
+          "produces": [
+            "application/json"
+          ],
+          "tags": [
+            "URL"
+          ],
+          "security": [
+            {
+              "ApiKeyAuth": []
+            }
+          ],
+          "parameters": [
+            {
+              "description": "ID of URL to use",
+              "in": "path",
+              "name": "id",
+              "required": true,
+              "type": "string"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "All Shortened URLs for the user",
+              "schema": {
+                "type": "object",
+                "description": "Success response",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "example": "Url with ID 1234 has been deleted"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Bad Request",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
+            },
+            "401": {
+              "description": "Unauthorized request",
+              "schema": {
+                "$ref": "#/definitions/httpError"
+              }
+            }
+          }
         }
       },
 

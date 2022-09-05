@@ -16,7 +16,7 @@ var (
 	ErrInvalidPasswordLen = errors.New("password length is invalid")
 	ErrPasswordMissmatch  = errors.New("passwords don't match")
 	ErrInvalidDate        = errors.New("expires_on should be in 'yyyy-mm-dd hh:mm:ss' format")
-	ErrPastExpiration     = errors.New("expires_on can not be date in past")
+	ErrPastExpiration     = errors.New("expires_on can not be a date in the past")
 	ErrURLAlreadyShort    = errors.New("url is already shortened")
 	ErrNoMatchingData     = errors.New("no data matching given criteria")
 	ErrShortCodeEmpty     = errors.New("short_code must not be empty")

@@ -9,8 +9,6 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	entities "github.com/sanctumlabs/curtz/app/internal/core/entities"
-	identifier "github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
 // MockAuthService is a mock of AuthService interface.
@@ -53,301 +51,33 @@ func (mr *MockAuthServiceMockRecorder) Authenticate(token interface{}) *gomock.C
 }
 
 // GenerateRefreshToken mocks base method.
-func (m *MockAuthService) GenerateRefreshToken(userId string) (string, error) {
+func (m *MockAuthService) GenerateRefreshToken(userID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateRefreshToken", userId)
+	ret := m.ctrl.Call(m, "GenerateRefreshToken", userID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GenerateRefreshToken indicates an expected call of GenerateRefreshToken.
-func (mr *MockAuthServiceMockRecorder) GenerateRefreshToken(userId interface{}) *gomock.Call {
+func (mr *MockAuthServiceMockRecorder) GenerateRefreshToken(userID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateRefreshToken", reflect.TypeOf((*MockAuthService)(nil).GenerateRefreshToken), userId)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateRefreshToken", reflect.TypeOf((*MockAuthService)(nil).GenerateRefreshToken), userID)
 }
 
 // GenerateToken mocks base method.
-func (m *MockAuthService) GenerateToken(userId string) (string, error) {
+func (m *MockAuthService) GenerateToken(userID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateToken", userId)
+	ret := m.ctrl.Call(m, "GenerateToken", userID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GenerateToken indicates an expected call of GenerateToken.
-func (mr *MockAuthServiceMockRecorder) GenerateToken(userId interface{}) *gomock.Call {
+func (mr *MockAuthServiceMockRecorder) GenerateToken(userID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateToken", reflect.TypeOf((*MockAuthService)(nil).GenerateToken), userId)
-}
-
-// MockUrlService is a mock of UrlService interface.
-type MockUrlService struct {
-	ctrl     *gomock.Controller
-	recorder *MockUrlServiceMockRecorder
-}
-
-// MockUrlServiceMockRecorder is the mock recorder for MockUrlService.
-type MockUrlServiceMockRecorder struct {
-	mock *MockUrlService
-}
-
-// NewMockUrlService creates a new mock instance.
-func NewMockUrlService(ctrl *gomock.Controller) *MockUrlService {
-	mock := &MockUrlService{ctrl: ctrl}
-	mock.recorder = &MockUrlServiceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUrlService) EXPECT() *MockUrlServiceMockRecorder {
-	return m.recorder
-}
-
-// CreateUrl mocks base method.
-func (m *MockUrlService) CreateUrl(userId, originalUrl, customAlias, expiresOn string, keywords []string) (entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateUrl", userId, originalUrl, customAlias, expiresOn, keywords)
-	ret0, _ := ret[0].(entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateUrl indicates an expected call of CreateUrl.
-func (mr *MockUrlServiceMockRecorder) CreateUrl(userId, originalUrl, customAlias, expiresOn, keywords interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUrl", reflect.TypeOf((*MockUrlService)(nil).CreateUrl), userId, originalUrl, customAlias, expiresOn, keywords)
-}
-
-// GetById mocks base method.
-func (m *MockUrlService) GetById(id string) (entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetById", id)
-	ret0, _ := ret[0].(entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetById indicates an expected call of GetById.
-func (mr *MockUrlServiceMockRecorder) GetById(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetById", reflect.TypeOf((*MockUrlService)(nil).GetById), id)
-}
-
-// GetByKeyword mocks base method.
-func (m *MockUrlService) GetByKeyword(keyword string) ([]entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByKeyword", keyword)
-	ret0, _ := ret[0].([]entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByKeyword indicates an expected call of GetByKeyword.
-func (mr *MockUrlServiceMockRecorder) GetByKeyword(keyword interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByKeyword", reflect.TypeOf((*MockUrlService)(nil).GetByKeyword), keyword)
-}
-
-// GetByKeywords mocks base method.
-func (m *MockUrlService) GetByKeywords(keywords []string) ([]entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByKeywords", keywords)
-	ret0, _ := ret[0].([]entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByKeywords indicates an expected call of GetByKeywords.
-func (mr *MockUrlServiceMockRecorder) GetByKeywords(keywords interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByKeywords", reflect.TypeOf((*MockUrlService)(nil).GetByKeywords), keywords)
-}
-
-// GetByOriginalUrl mocks base method.
-func (m *MockUrlService) GetByOriginalUrl(originalUrl string) (entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByOriginalUrl", originalUrl)
-	ret0, _ := ret[0].(entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByOriginalUrl indicates an expected call of GetByOriginalUrl.
-func (mr *MockUrlServiceMockRecorder) GetByOriginalUrl(originalUrl interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByOriginalUrl", reflect.TypeOf((*MockUrlService)(nil).GetByOriginalUrl), originalUrl)
-}
-
-// GetByShortCode mocks base method.
-func (m *MockUrlService) GetByShortCode(shortCode string) (entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByShortCode", shortCode)
-	ret0, _ := ret[0].(entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByShortCode indicates an expected call of GetByShortCode.
-func (mr *MockUrlServiceMockRecorder) GetByShortCode(shortCode interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByShortCode", reflect.TypeOf((*MockUrlService)(nil).GetByShortCode), shortCode)
-}
-
-// GetByUserId mocks base method.
-func (m *MockUrlService) GetByUserId(userId string) ([]entities.URL, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByUserId", userId)
-	ret0, _ := ret[0].([]entities.URL)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByUserId indicates an expected call of GetByUserId.
-func (mr *MockUrlServiceMockRecorder) GetByUserId(userId interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByUserId", reflect.TypeOf((*MockUrlService)(nil).GetByUserId), userId)
-}
-
-// LookupUrl mocks base method.
-func (m *MockUrlService) LookupUrl(shortCode string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LookupUrl", shortCode)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LookupUrl indicates an expected call of LookupUrl.
-func (mr *MockUrlServiceMockRecorder) LookupUrl(shortCode interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupUrl", reflect.TypeOf((*MockUrlService)(nil).LookupUrl), shortCode)
-}
-
-// Remove mocks base method.
-func (m *MockUrlService) Remove(id string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Remove indicates an expected call of Remove.
-func (mr *MockUrlServiceMockRecorder) Remove(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockUrlService)(nil).Remove), id)
-}
-
-// MockUserService is a mock of UserService interface.
-type MockUserService struct {
-	ctrl     *gomock.Controller
-	recorder *MockUserServiceMockRecorder
-}
-
-// MockUserServiceMockRecorder is the mock recorder for MockUserService.
-type MockUserServiceMockRecorder struct {
-	mock *MockUserService
-}
-
-// NewMockUserService creates a new mock instance.
-func NewMockUserService(ctrl *gomock.Controller) *MockUserService {
-	mock := &MockUserService{ctrl: ctrl}
-	mock.recorder = &MockUserServiceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
-	return m.recorder
-}
-
-// CreateUser mocks base method.
-func (m *MockUserService) CreateUser(email, password string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateUser", email, password)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateUser indicates an expected call of CreateUser.
-func (mr *MockUserServiceMockRecorder) CreateUser(email, password interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUser", reflect.TypeOf((*MockUserService)(nil).CreateUser), email, password)
-}
-
-// GetByVerificationToken mocks base method.
-func (m *MockUserService) GetByVerificationToken(verificationToken string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetByVerificationToken", verificationToken)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetByVerificationToken indicates an expected call of GetByVerificationToken.
-func (mr *MockUserServiceMockRecorder) GetByVerificationToken(verificationToken interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByVerificationToken", reflect.TypeOf((*MockUserService)(nil).GetByVerificationToken), verificationToken)
-}
-
-// GetUserByEmail mocks base method.
-func (m *MockUserService) GetUserByEmail(email string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByEmail", email)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserByEmail indicates an expected call of GetUserByEmail.
-func (mr *MockUserServiceMockRecorder) GetUserByEmail(email interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByEmail", reflect.TypeOf((*MockUserService)(nil).GetUserByEmail), email)
-}
-
-// GetUserByID mocks base method.
-func (m *MockUserService) GetUserByID(id string) (entities.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByID", id)
-	ret0, _ := ret[0].(entities.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserByID indicates an expected call of GetUserByID.
-func (mr *MockUserServiceMockRecorder) GetUserByID(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByID", reflect.TypeOf((*MockUserService)(nil).GetUserByID), id)
-}
-
-// RemoveUser mocks base method.
-func (m *MockUserService) RemoveUser(id string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUser", id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUser indicates an expected call of RemoveUser.
-func (mr *MockUserServiceMockRecorder) RemoveUser(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUser", reflect.TypeOf((*MockUserService)(nil).RemoveUser), id)
-}
-
-// SetVerified mocks base method.
-func (m *MockUserService) SetVerified(id identifier.ID) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetVerified", id)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetVerified indicates an expected call of SetVerified.
-func (mr *MockUserServiceMockRecorder) SetVerified(id interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVerified", reflect.TypeOf((*MockUserService)(nil).SetVerified), id)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateToken", reflect.TypeOf((*MockAuthService)(nil).GenerateToken), userID)
 }
 
 // MockNotificationService is a mock of NotificationService interface.
