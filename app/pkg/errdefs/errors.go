@@ -3,6 +3,9 @@ package errdefs
 import "errors"
 
 var (
+	ErrInvalidUserId      = errors.New("user id is invalid")
+	ErrInvalidUrlId       = errors.New("url id is invalid")
+	ErrInvalidCustomAlias = errors.New("custom alias is invalid")
 	ErrServerError        = errors.New("unexpected error encountered in server side")
 	ErrInvalidURL         = errors.New("url is invalid")
 	ErrInvalidURLLen      = errors.New("url is too short or too long, should be 15-2048 chars")

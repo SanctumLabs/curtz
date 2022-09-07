@@ -125,7 +125,7 @@ func (hdl *urlRouter) updateUrl(c *gin.Context) {
 
 	updatedUrl, err := hdl.urlWriteSvc.UpdateUrl(updateCmd)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.AbortWithStatusJSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
 		return
 	}
 

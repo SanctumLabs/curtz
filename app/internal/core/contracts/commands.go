@@ -1,6 +1,10 @@
 package contracts
 
-import "time"
+import (
+	"time"
+
+	"github.com/sanctumlabs/curtz/app/pkg/validators"
+)
 
 type CreateUrlCommand struct {
 	userID      string
@@ -11,20 +15,35 @@ type CreateUrlCommand struct {
 }
 
 type UpdateUrlCommand struct {
-	userId      string
-	urlId       string
-	customAlias string
-	keywords    []string
-	expiresOn   time.Time
+	UserId      string
+	UrlId       string
+	CustomAlias string
+	Keywords    []string
+	ExpiresOn   time.Time
 }
 
 func NewUpdateUrlCommand(userId, urlId, customAlias string, keywords []string, expiresOn time.Time) (UpdateUrlCommand, error) {
+	if err := validators.IsValidUserId(userId); err != nil {
+		return UpdateUrlCommand{}, err
+	}
+
+	if err := validators.IsValidUrlId(urlId); err != nil {
+		return UpdateUrlCommand{}, err
+	}
+
+	if err := validators.IsValidCustomAlias(customAlias); err != nil {
+		return UpdateUrlCommand{}, err
+	}
+
+	if err := validators.IsValidExpirationTime(expiresOn); err != nil {
+		return UpdateUrlCommand{}, err
+	}
 
 	return UpdateUrlCommand{
-		userId:      userId,
-		urlId:       urlId,
-		customAlias: customAlias,
-		keywords:    keywords,
-		expiresOn:   expiresOn,
+		UserId:      userId,
+		UrlId:       urlId,
+		CustomAlias: customAlias,
+		Keywords:    keywords,
+		ExpiresOn:   expiresOn,
 	}, nil
 }

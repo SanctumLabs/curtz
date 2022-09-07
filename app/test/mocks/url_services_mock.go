@@ -9,6 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	contracts "github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	entities "github.com/sanctumlabs/curtz/app/internal/core/entities"
 )
 
@@ -213,4 +214,19 @@ func (m *MockUrlWriteService) Remove(id string) error {
 func (mr *MockUrlWriteServiceMockRecorder) Remove(id interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockUrlWriteService)(nil).Remove), id)
+}
+
+// UpdateUrl mocks base method.
+func (m *MockUrlWriteService) UpdateUrl(url contracts.UpdateUrlCommand) (entities.URL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateUrl", url)
+	ret0, _ := ret[0].(entities.URL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateUrl indicates an expected call of UpdateUrl.
+func (mr *MockUrlWriteServiceMockRecorder) UpdateUrl(url interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateUrl", reflect.TypeOf((*MockUrlWriteService)(nil).UpdateUrl), url)
 }

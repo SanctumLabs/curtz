@@ -39,7 +39,13 @@ func (svc *UrlWriteSvc) CreateUrl(userId string, originalUrl string, customAlias
 }
 
 // UpdateUrl performs an update on an existing shortened URL
-func (svc *UrlWriteSvc) UpdateUrl(userID, urlID, customAlias string, keywords []string, expiresOn time.Time) (entities.URL, error) {
+func (svc *UrlWriteSvc) UpdateUrl(command contracts.UpdateUrlCommand) (entities.URL, error) {
+	userID := command.UserId
+	expiresOn := command.ExpiresOn
+	keywords := command.Keywords
+	customAlias := command.CustomAlias
+	urlID := command.UrlId
+
 	if _, err := svc.userSvc.GetUserByID(userID); err != nil {
 		return entities.URL{}, err
 	}
