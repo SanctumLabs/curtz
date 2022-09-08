@@ -6,6 +6,7 @@ package mocks
 
 import (
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	entities "github.com/sanctumlabs/curtz/app/internal/core/entities"
@@ -167,6 +168,21 @@ func (mr *MockUrlRepositoryMockRecorder) Save(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockUrlRepository)(nil).Save), arg0)
 }
 
+// Update mocks base method.
+func (m *MockUrlRepository) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", urlID, customAlias, keywords, expiresOn)
+	ret0, _ := ret[0].(entities.URL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockUrlRepositoryMockRecorder) Update(urlID, customAlias, keywords, expiresOn interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockUrlRepository)(nil).Update), urlID, customAlias, keywords, expiresOn)
+}
+
 // MockUrlWriteRepository is a mock of UrlWriteRepository interface.
 type MockUrlWriteRepository struct {
 	ctrl     *gomock.Controller
@@ -231,6 +247,21 @@ func (m *MockUrlWriteRepository) Save(arg0 entities.URL) (entities.URL, error) {
 func (mr *MockUrlWriteRepositoryMockRecorder) Save(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockUrlWriteRepository)(nil).Save), arg0)
+}
+
+// Update mocks base method.
+func (m *MockUrlWriteRepository) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", urlID, customAlias, keywords, expiresOn)
+	ret0, _ := ret[0].(entities.URL)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockUrlWriteRepositoryMockRecorder) Update(urlID, customAlias, keywords, expiresOn interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockUrlWriteRepository)(nil).Update), urlID, customAlias, keywords, expiresOn)
 }
 
 // MockUrlReadRepository is a mock of UrlReadRepository interface.

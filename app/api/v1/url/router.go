@@ -39,5 +39,6 @@ func (route *urlRouter) initRoutes() {
 		router.NewGetRoute(fmt.Sprintf("%s/urls", route.baseUri), route.getAllUrls),
 		router.NewGetRoute(fmt.Sprintf("%s/urls/:id", route.baseUri), route.getUrlById),
 		router.NewDeleteRoute(fmt.Sprintf("%s/urls/:id", route.baseUri), route.deleteUrl),
+		router.NewPatchRoute(fmt.Sprintf("%s/urls/:id", route.baseUri), route.updateUrl),
 	}
 }

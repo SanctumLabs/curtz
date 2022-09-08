@@ -29,6 +29,8 @@ func createUrlRouter(t *testing.T) (*urlRouter, mocks.MockUrlService, mocks.Mock
 		router.NewPostRoute(fmt.Sprintf("%s/urls", baseURI), urlRouter.createShortUrl),
 		router.NewGetRoute(fmt.Sprintf("%s/urls", baseURI), urlRouter.getAllUrls),
 		router.NewGetRoute(fmt.Sprintf("%s/urls/:id", baseURI), urlRouter.getUrlById),
+		router.NewDeleteRoute(fmt.Sprintf("%s/urls/:id", baseURI), urlRouter.deleteUrl),
+		router.NewPatchRoute(fmt.Sprintf("%s/urls/:id", baseURI), urlRouter.updateUrl),
 	}
 
 	urlRouter.routes = append(urlRouter.routes, routes...)

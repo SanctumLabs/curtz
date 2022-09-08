@@ -424,7 +424,64 @@ const docTemplate = `{
                 }
               }
             }
-          }          
+          },
+          "patch": {
+            "summary": "Updates shortened URL for a user given its id.",
+            "description": "Updates a shortened URL for a user given its unique id. Not all fields in the payload are required. But at least one field needs to be set.",
+            "operationId": "updateUrl",
+            "consumes": [
+              "application/json"
+            ],
+            "produces": [
+              "application/json"
+            ],
+            "tags": [
+              "URL"
+            ],
+            "security": [
+              {
+                "ApiKeyAuth": []
+              }
+            ],
+            "parameters": [
+              {
+                "description": "ID of URL to use",
+                "in": "path",
+                "name": "id",
+                "required": true,
+                "type": "string"
+              },
+              {
+                "description": "url request",
+                "name": "url",
+                "in": "body",
+                "required": true,
+                "schema": {
+                  "$ref": "#/definitions/url.updateShortUrlDto"
+                }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Updated Shortened URL for the user",
+                "schema": {
+                  "$ref": "#/definitions/url.urlResponseDto"
+                }
+              },
+              "400": {
+                "description": "Bad Request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              },
+              "401": {
+                "description": "Unauthorized request",
+                "schema": {
+                  "$ref": "#/definitions/httpError"
+                }
+              }
+            }
+          }                
         },
         "/{shortCode}": {
           "get": {
@@ -647,7 +704,21 @@ const docTemplate = `{
             "$ref": "#/definitions/Hits"
           }
         }
-      }      
+      },
+      "url.updateShortUrlDto": {
+        "type": "object",
+        "properties": {
+          "custom_alias": {
+            "$ref": "#/definitions/CustomAlias"
+          },
+          "expires_on": {
+            "$ref": "#/definitions/Date"
+          },
+          "keywords": {
+            "$ref": "#/definitions/Keywords"
+          }
+        }
+      }  
     },
     "securityDefinitions": {
       "ApiKeyAuth": {

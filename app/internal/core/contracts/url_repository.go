@@ -1,6 +1,10 @@
 package contracts
 
-import "github.com/sanctumlabs/curtz/app/internal/core/entities"
+import (
+	"time"
+
+	"github.com/sanctumlabs/curtz/app/internal/core/entities"
+)
 
 type UrlRepository interface {
 	UrlReadRepository
@@ -9,6 +13,7 @@ type UrlRepository interface {
 
 type UrlWriteRepository interface {
 	Save(entities.URL) (entities.URL, error)
+	Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error)
 	Delete(id string) error
 	IncrementHits(shortCode string) error
 }

@@ -62,3 +62,8 @@ func NewOptionsRoute(path string, handler func(ctx *gin.Context), opts ...RouteW
 func NewHeadRoute(path string, handler func(ctx *gin.Context), opts ...RouteWrapper) Route {
 	return NewRoute(http.MethodHead, path, handler, opts...)
 }
+
+// NewPatchRoute initializes a new route with the http method PATCH.
+func NewPatchRoute(path string, handler func(ctx *gin.Context), opts ...RouteWrapper) Route {
+	return NewRoute(http.MethodPatch, path, handler, opts...)
+}
