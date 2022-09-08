@@ -169,7 +169,7 @@ func (mr *MockUrlRepositoryMockRecorder) Save(arg0 interface{}) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockUrlRepository) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn time.Time) (entities.URL, error) {
+func (m *MockUrlRepository) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", urlID, customAlias, keywords, expiresOn)
 	ret0, _ := ret[0].(entities.URL)
@@ -250,7 +250,7 @@ func (mr *MockUrlWriteRepositoryMockRecorder) Save(arg0 interface{}) *gomock.Cal
 }
 
 // Update mocks base method.
-func (m *MockUrlWriteRepository) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn time.Time) (entities.URL, error) {
+func (m *MockUrlWriteRepository) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", urlID, customAlias, keywords, expiresOn)
 	ret0, _ := ret[0].(entities.URL)

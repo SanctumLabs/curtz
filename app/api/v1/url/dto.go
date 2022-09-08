@@ -47,11 +47,11 @@ type createShortUrlDto struct {
 // updateUrlDto is the request body for creating a url
 type updateShortUrlDto struct {
 	// CustomAlias is the custom alias for the url provided for by the user
-	CustomAlias string `json:"custom_alias" default:""`
+	CustomAlias string `json:"custom_alias,omitempty"`
 
 	// ExpiresOn is the expiration date for the url
-	ExpiresOn time.Time `json:"expires_on" default:""`
+	ExpiresOn *time.Time `json:"expires_on,omitempty"`
 
 	// Keywords is the list of keywords to be attached to the url
-	Keywords []string `json:"keywords"`
+	Keywords []string `json:"keywords,omitempty"`
 }

@@ -19,10 +19,10 @@ type UpdateUrlCommand struct {
 	UrlId       string
 	CustomAlias string
 	Keywords    []string
-	ExpiresOn   time.Time
+	ExpiresOn   *time.Time
 }
 
-func NewUpdateUrlCommand(userId, urlId, customAlias string, keywords []string, expiresOn time.Time) (UpdateUrlCommand, error) {
+func NewUpdateUrlCommand(userId, urlId, customAlias string, keywords []string, expiresOn *time.Time) (UpdateUrlCommand, error) {
 	if err := validators.IsValidUserId(userId); err != nil {
 		return UpdateUrlCommand{}, err
 	}
@@ -31,12 +31,16 @@ func NewUpdateUrlCommand(userId, urlId, customAlias string, keywords []string, e
 		return UpdateUrlCommand{}, err
 	}
 
-	if err := validators.IsValidCustomAlias(customAlias); err != nil {
-		return UpdateUrlCommand{}, err
+	if len(customAlias) != 0 {
+		if err := validators.IsValidCustomAlias(customAlias); err != nil {
+			return UpdateUrlCommand{}, err
+		}
 	}
 
-	if err := validators.IsValidExpirationTime(expiresOn); err != nil {
-		return UpdateUrlCommand{}, err
+	if expiresOn != nil {
+		if err := validators.IsValidExpirationTime(*expiresOn); err != nil {
+			return UpdateUrlCommand{}, err
+		}
 	}
 
 	return UpdateUrlCommand{

@@ -3,11 +3,15 @@ package urlsvc
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
+	"github.com/sanctumlabs/curtz/app/internal/core/entities"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
+	"github.com/sanctumlabs/curtz/app/test/data"
 	"github.com/sanctumlabs/curtz/app/test/mocks"
 	"github.com/stretchr/testify/assert"
 )
@@ -62,6 +66,129 @@ var _ = Describe("UrlWriteSvc", func() {
 			actual := urlWriteSvc.Remove(urlID)
 
 			assert.NoError(GinkgoT(), actual)
+		})
+	})
+
+	When("Updating a url", func() {
+		It("should return error if we can't get a user by the specified id", func() {
+			userId := identifier.New()
+			urlId := identifier.New()
+			customAlias := "fnsoaks"
+			keywords := []string{}
+			expiresOn := time.Now().Add(time.Hour + 1)
+
+			request := contracts.UpdateUrlCommand{
+				UserId:      userId.String(),
+				UrlId:       urlId.String(),
+				CustomAlias: customAlias,
+				Keywords:    keywords,
+				ExpiresOn:   &expiresOn,
+			}
+
+			mockUserSvc.
+				EXPECT().
+				GetUserByID(userId.String()).
+				Return(entities.User{}, errors.New("Failed to get user by id"))
+
+			_, actualErr := urlWriteSvc.UpdateUrl(request)
+			assert.Error(GinkgoT(), actualErr)
+		})
+
+		It("should return error if the expiration date is in the past", func() {
+			userId := identifier.New()
+			urlId := identifier.New()
+			customAlias := "fnsoaks"
+			keywords := []string{}
+			expiresOn := time.Now().Add(-10)
+
+			request := contracts.UpdateUrlCommand{
+				UserId:      userId.String(),
+				UrlId:       urlId.String(),
+				CustomAlias: customAlias,
+				Keywords:    keywords,
+				ExpiresOn:   &expiresOn,
+			}
+
+			mockUser, err := data.MockUser("johndoe@example.com", "johndoe")
+			assert.NoError(GinkgoT(), err)
+
+			mockUserSvc.
+				EXPECT().
+				GetUserByID(userId.String()).
+				Return(mockUser, nil)
+
+			_, actualErr := urlWriteSvc.UpdateUrl(request)
+			assert.Error(GinkgoT(), actualErr)
+		})
+
+		It("should return error if there is a failure in updating url", func() {
+			userId := identifier.New()
+			urlId := identifier.New()
+			customAlias := "fnsoaks"
+			keywords := []string{}
+			expiresOn := time.Now().Add(time.Hour + 10)
+
+			request := contracts.UpdateUrlCommand{
+				UserId:      userId.String(),
+				UrlId:       urlId.String(),
+				CustomAlias: customAlias,
+				Keywords:    keywords,
+				ExpiresOn:   &expiresOn,
+			}
+
+			mockUser, err := data.MockUser("johndoe@example.com", "johndoe")
+			assert.NoError(GinkgoT(), err)
+
+			mockUserSvc.
+				EXPECT().
+				GetUserByID(userId.String()).
+				Return(mockUser, nil)
+
+			mockUrlWriteRepo.
+				EXPECT().
+				Update(urlId.String(), customAlias, gomock.Any(), &expiresOn).
+				Return(entities.URL{}, errors.New("failed to update url"))
+
+			_, actualErr := urlWriteSvc.UpdateUrl(request)
+			assert.Error(GinkgoT(), actualErr)
+		})
+
+		It("should return updated url on success", func() {
+			userId := identifier.New()
+			urlId := identifier.New()
+			customAlias := "fnsoaks"
+			keywords := []string{}
+			expiresOn := time.Now().Add(time.Hour + 10)
+
+			request := contracts.UpdateUrlCommand{
+				UserId:      userId.String(),
+				UrlId:       urlId.String(),
+				CustomAlias: customAlias,
+				Keywords:    keywords,
+				ExpiresOn:   &expiresOn,
+			}
+
+			mockUser, err := data.MockUser("johndoe@example.com", "johndoe")
+			assert.NoError(GinkgoT(), err)
+
+			originalUrl := "http://example.com"
+			shortCode := "feampimf"
+			mockUrl := data.MockUrl(userId.String(), originalUrl, customAlias, shortCode, expiresOn, keywords)
+
+			mockUserSvc.
+				EXPECT().
+				GetUserByID(userId.String()).
+				Return(mockUser, nil)
+
+			mockUrlWriteRepo.
+				EXPECT().
+				Update(urlId.String(), customAlias, gomock.Any(), &expiresOn).
+				Return(mockUrl, nil)
+
+			actual, actualErr := urlWriteSvc.UpdateUrl(request)
+			assert.NoError(GinkgoT(), actualErr)
+
+			assert.Equal(GinkgoT(), mockUrl, actual)
 		})
 	})
 })

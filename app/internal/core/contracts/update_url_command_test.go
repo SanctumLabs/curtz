@@ -60,7 +60,7 @@ var testCases = []testCase{
 func TestNewUpdateUrlCommand(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual, err := NewUpdateUrlCommand(tc.userId, tc.urlId, tc.customAlias, tc.keywords, tc.expiresOn)
+			actual, err := NewUpdateUrlCommand(tc.userId, tc.urlId, tc.customAlias, tc.keywords, &tc.expiresOn)
 			if err != tc.expectedErr {
 				t.Errorf("NewUpdateUrlCommand(%s, %s, %s, %s, %v) = %v expected error %v, got %v", tc.userId, tc.urlId, tc.customAlias, tc.keywords, tc.expiresOn, tc.expectedErr, tc.expectedErr, err)
 			} else if tc.expectedErr == nil {
@@ -81,7 +81,7 @@ func BenchmarkNewUpdateUrlCommand(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range testCases {
-			_, _ = NewUpdateUrlCommand(tc.userId, tc.urlId, tc.customAlias, tc.keywords, tc.expiresOn)
+			_, _ = NewUpdateUrlCommand(tc.userId, tc.urlId, tc.customAlias, tc.keywords, &tc.expiresOn)
 		}
 	}
 }

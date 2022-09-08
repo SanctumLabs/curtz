@@ -126,9 +126,10 @@ var _ = Describe("Update URL Handler", func() {
 				GetById(urlID.String()).
 				Return(mockUrl, nil)
 
+			expiresOnField := time.Now().Add(time.Hour + 1)
 			requestBody := updateShortUrlDto{
 				CustomAlias: "bofeoubnojnoauear",
-				ExpiresOn:   time.Now().Add(time.Hour + 1),
+				ExpiresOn:   &expiresOnField,
 				Keywords:    []string{},
 			}
 
@@ -164,9 +165,10 @@ var _ = Describe("Update URL Handler", func() {
 				GetById(urlID.String()).
 				Return(mockUrl, nil)
 
+			expiresOnField := time.Now().Add(-10)
 			requestBody := updateShortUrlDto{
 				CustomAlias: "123456",
-				ExpiresOn:   time.Now().Add(-10),
+				ExpiresOn:   &expiresOnField,
 				Keywords:    []string{},
 			}
 
@@ -224,9 +226,11 @@ var _ = Describe("Update URL Handler", func() {
 			GetById(urlID.String()).
 			Return(mockUrl, nil)
 
+		expiresOnField := time.Now().Add(time.Hour + 10)
+
 		requestBody := updateShortUrlDto{
 			CustomAlias: "123456",
-			ExpiresOn:   time.Now().Add(time.Hour + 10),
+			ExpiresOn:   &expiresOnField,
 			Keywords:    []string{},
 		}
 
@@ -288,9 +292,10 @@ var _ = Describe("Update URL Handler", func() {
 			GetById(urlID.String()).
 			Return(mockUrl, nil)
 
+		expiresOnField := time.Now().Add(time.Hour + 10)
 		requestBody := updateShortUrlDto{
 			CustomAlias: "123456",
-			ExpiresOn:   time.Now().Add(time.Hour + 10),
+			ExpiresOn:   &expiresOnField,
 			Keywords:    []string{},
 		}
 
@@ -298,7 +303,7 @@ var _ = Describe("Update URL Handler", func() {
 			UserId:      identifier.New().FromString(userId),
 			OriginalUrl: originalUrl,
 			CustomAlias: requestBody.CustomAlias,
-			ExpiresOn:   requestBody.ExpiresOn,
+			ExpiresOn:   *requestBody.ExpiresOn,
 			BaseEntity: entities.BaseEntity{
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),

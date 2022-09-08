@@ -5,8 +5,8 @@ import (
 
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
 	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
+	"github.com/sanctumlabs/curtz/app/pkg/validators"
 )
 
 //UrlSvc represents a url service use case
@@ -50,8 +50,10 @@ func (svc *UrlWriteSvc) UpdateUrl(command contracts.UpdateUrlCommand) (entities.
 		return entities.URL{}, err
 	}
 
-	if expiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
-		return entities.URL{}, errdefs.ErrPastExpiration
+	if expiresOn != nil {
+		if err := validators.IsValidExpirationTime(*expiresOn); err != nil {
+			return entities.URL{}, err
+		}
 	}
 
 	kws := make([]entities.Keyword, len(keywords))

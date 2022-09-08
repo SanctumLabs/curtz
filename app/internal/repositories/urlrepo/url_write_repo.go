@@ -45,33 +45,37 @@ func (r *UrlWriteRepo) Save(url entities.URL) (entities.URL, error) {
 }
 
 // Update performs an update on an existing shortened URL given urlID, customAlias, keywords & expiresOn
-func (r *UrlWriteRepo) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn time.Time) (entities.URL, error) {
+func (r *UrlWriteRepo) Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error) {
 	existingUrl, err := r.getSingleResult("id", urlID)
 	if err != nil {
 		return entities.URL{}, errdefs.ErrURLAlreadyExists
 	}
 
-	existingUrl.CustomAlias = customAlias
-	existingUrl.Keywords = append(existingUrl.Keywords, entities.Keyword{})
-	existingUrl.ExpiresOn = expiresOn
+	update := bson.D{}
 
-	kws := make([]models.Keyword, len(keywords))
+	if len(customAlias) != 0 && existingUrl.CustomAlias != customAlias {
+		existingUrl.CustomAlias = customAlias
+		update = append(update, bson.E{Key: "$set", Value: bson.D{{Key: "custom_alias", Value: customAlias}}})
+	}
+
+	if expiresOn != nil {
+		existingUrl.ExpiresOn = *expiresOn
+		update = append(update, bson.E{Key: "$set", Value: bson.D{{Key: "expires_on", Value: expiresOn}}})
+	}
+
 	if len(keywords) != 0 {
-		for i, keyword := range keywords {
-			kws[i] = models.Keyword{
+		existingUrl.Keywords = append(existingUrl.Keywords, keywords...)
+
+		for _, keyword := range keywords {
+			kw := models.Keyword{
 				UrlId: urlID,
 				Value: keyword.Value,
 			}
+			update = append(update, bson.E{Key: "$addToSet", Value: bson.D{{Key: "keywords", Value: kw}}})
 		}
 	}
 
 	filter := bson.D{{Key: "id", Value: urlID}}
-	update := bson.D{
-		{Key: "$set", Value: bson.D{{Key: "custom_alias", Value: customAlias}}},
-		{Key: "$set", Value: bson.D{{Key: "expires_on", Value: expiresOn}}},
-		{Key: "$addToSet", Value: bson.D{{Key: "keywords", Value: kws}}},
-	}
-
 	opts := options.Update().SetUpsert(false)
 
 	_, err = r.dbClient.UpdateOne(r.ctx, filter, update, opts)

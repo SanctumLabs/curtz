@@ -58,6 +58,10 @@ run:
 run-dev:
 	air
 
+# run dev in debug mode
+run-dev-d:
+	air -d
+
 test:
 	go test ./...
 

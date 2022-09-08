@@ -13,7 +13,7 @@ type UrlRepository interface {
 
 type UrlWriteRepository interface {
 	Save(entities.URL) (entities.URL, error)
-	Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn time.Time) (entities.URL, error)
+	Update(urlID, customAlias string, keywords []entities.Keyword, expiresOn *time.Time) (entities.URL, error)
 	Delete(id string) error
 	IncrementHits(shortCode string) error
 }
