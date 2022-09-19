@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"bou.ke/monkey"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
@@ -95,6 +96,45 @@ func BenchmarkNewUrl(b *testing.B) {
 		b.Run(tc.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				_, _ = NewUrl(tc.userId, tc.url, tc.alias, tc.expiresOn, tc.keywords)
+			}
+		})
+	}
+}
+
+type urlExpiryTestCase struct {
+	urlTestCase
+	duration time.Duration
+}
+
+func TestGetExpiryDuration(t *testing.T) {
+	monkey.Patch(time.Now, func() time.Time {
+		return time.Date(2022, 9, 19, 16, 20, 00, 651387237, time.UTC)
+	})
+
+	urlExpiryTestCases := []urlExpiryTestCase{
+		{
+			urlTestCase: urlTestCase{
+				name:          "should return duration expiry for given URL",
+				userId:        identifier.New(),
+				url:           "http://example.com",
+				alias:         "",
+				expiresOn:     time.Now().Add(time.Hour * 1),
+				keywords:      []string{},
+				expectedError: nil,
+			},
+			duration: time.Now().Add(time.Hour * 1).Sub(time.Now()),
+		},
+	}
+
+	for _, tc := range urlExpiryTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			url, err := NewUrl(tc.userId, tc.url, tc.alias, tc.expiresOn, tc.keywords)
+			if err != tc.expectedError {
+				t.Errorf("NewUrl(%v, %s, %s, %s, %v) = (%v, %v) expected error: %v, got: %v", tc.userId, tc.url, tc.alias, tc.expiresOn, tc.keywords, url, err, tc.expectedError, err)
+			}
+			actualExpiry := url.GetExpiryDuration()
+			if tc.duration != actualExpiry {
+				t.Errorf("url.GetExpiryDuration() = %d expected = %d", actualExpiry, tc.duration)
 			}
 		})
 	}

@@ -109,8 +109,7 @@ func NewUrl(userId identifier.ID, originalUrl string, customAlias string, expire
 	}, nil
 }
 
-// IsActive checks if the url model is active
-// It returns true if url is not marked deleted or expired, false otherwise.
+// IsActive checks if the url is active or not expired.
 func (url URL) IsActive() bool {
 	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
 }
@@ -150,6 +149,16 @@ func (url URL) GetCustomAlias() string {
 func (url URL) SetCustomAlias(customAlias string) error {
 	url.CustomAlias = customAlias
 	return nil
+}
+
+// GetExpiryDuration returns as a time.Duration how long before the url expires
+// This returns an absolute value after subtracting time.Now()
+func (url URL) GetExpiryDuration() time.Duration {
+	duration := url.ExpiresOn.Sub(time.Now())
+	if duration >= 0 {
+		return duration
+	}
+	return -duration
 }
 
 // Prefix returns the url prefix for logging
