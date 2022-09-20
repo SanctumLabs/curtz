@@ -2,6 +2,7 @@ package urlsvc
 
 import (
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 )
 
 //UrlSvc represents a url service use case
@@ -30,8 +31,16 @@ func (svc *UrlSvc) LookupUrl(shortCode string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		if !url.IsActive() {
+			return "", errdefs.ErrURLExpired
+		}
+
+		// indicates how long we should keep the URL in cache
+		duration := url.GetExpiryDuration()
+
 		// nolint
-		go svc.cache.SaveUrl(shortCode, url.OriginalUrl)
+		go svc.cache.SaveURL(shortCode, url.OriginalUrl, duration)
 
 		// nolint
 		go svc.urlWriteRepo.IncrementHits(shortCode)

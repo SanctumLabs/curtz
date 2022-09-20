@@ -11,6 +11,8 @@ import (
 	"github.com/sanctumlabs/curtz/app/api/v1/url"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/core/urlsvc"
+	urlReadSvc "github.com/sanctumlabs/curtz/app/internal/core/urlsvc/read"
+	urlWriteSvc "github.com/sanctumlabs/curtz/app/internal/core/urlsvc/write"
 	"github.com/sanctumlabs/curtz/app/internal/core/usersvc"
 	"github.com/sanctumlabs/curtz/app/internal/repositories"
 	"github.com/sanctumlabs/curtz/app/internal/services/auth"
@@ -187,8 +189,8 @@ func main() {
 
 	userService := usersvc.NewUserSvc(repository.GetUserRepo(), notificationSvc)
 	urlService := urlsvc.NewUrlSvc(repository.GetUrlReadRepo(), repository.GetUrlWriteRepo(), userService, cache)
-	urlReadService := urlsvc.NewUrlReadSvc(repository.GetUrlReadRepo(), userService, cache)
-	urlWriteService := urlsvc.NewUrlWriteSvc(repository.GetUrlWriteRepo(), userService)
+	urlReadService := urlReadSvc.NewUrlReadSvc(repository.GetUrlReadRepo(), userService, cache)
+	urlWriteService := urlWriteSvc.NewUrlWriteSvc(repository.GetUrlWriteRepo(), userService)
 
 	baseUri := "/api/v1/curtz"
 

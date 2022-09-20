@@ -24,6 +24,6 @@ type UrlReadService interface {
 // UrlWriteService performs write operations on URLs
 type UrlWriteService interface {
 	CreateUrl(userID string, originalUrl string, customAlias string, expiresOn time.Time, keywords []string) (entities.URL, error)
-	UpdateUrl(url UpdateUrlCommand) (entities.URL, error)
+	UpdateUrl(url UpdateUrlRequest) (entities.URL, error)
 	Remove(id string) error
 }

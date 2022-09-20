@@ -217,7 +217,7 @@ func (mr *MockUrlWriteServiceMockRecorder) Remove(id interface{}) *gomock.Call {
 }
 
 // UpdateUrl mocks base method.
-func (m *MockUrlWriteService) UpdateUrl(url contracts.UpdateUrlCommand) (entities.URL, error) {
+func (m *MockUrlWriteService) UpdateUrl(url contracts.UpdateUrlRequest) (entities.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUrl", url)
 	ret0, _ := ret[0].(entities.URL)

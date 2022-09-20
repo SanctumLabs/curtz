@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/sanctumlabs/curtz/app/config"
@@ -65,11 +66,11 @@ func (c *Cache) LookupUrl(shortCode string) (string, error) {
 	return originalUrl, nil
 }
 
-// SaveUrl saves a new url in the cache with the short code as the key and original url value
-func (c *Cache) SaveUrl(shortCode, originalUrl string) (string, error) {
+// SaveURL saves a new url in the cache with the short code as the key and original url value
+func (c *Cache) SaveURL(shortCode, originalUrl string, expiryTime time.Duration) (string, error) {
 	defer monitoring.ErrorHandler()
 
-	cmd, err := c.client.Set(c.ctx, shortCode, originalUrl, 0).Result()
+	cmd, err := c.client.Set(c.ctx, shortCode, originalUrl, expiryTime).Result()
 
 	if err != nil {
 		return "", err

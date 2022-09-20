@@ -1,4 +1,4 @@
-package urlsvc
+package write
 
 import (
 	"time"
@@ -39,7 +39,7 @@ func (svc *UrlWriteSvc) CreateUrl(userId string, originalUrl string, customAlias
 }
 
 // UpdateUrl performs an update on an existing shortened URL
-func (svc *UrlWriteSvc) UpdateUrl(command contracts.UpdateUrlCommand) (entities.URL, error) {
+func (svc *UrlWriteSvc) UpdateUrl(command contracts.UpdateUrlRequest) (entities.URL, error) {
 	userID := command.UserId
 	expiresOn := command.ExpiresOn
 	keywords := command.Keywords

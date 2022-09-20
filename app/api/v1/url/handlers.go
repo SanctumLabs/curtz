@@ -117,7 +117,7 @@ func (hdl *urlRouter) updateUrl(c *gin.Context) {
 	keywords := payload.Keywords
 	expiresOn := payload.ExpiresOn
 
-	updateCmd, err := contracts.NewUpdateUrlCommand(userId.(string), urlId, customAlias, keywords, expiresOn)
+	updateCmd, err := contracts.NewUpdateUrlRequest(userId.(string), urlId, customAlias, keywords, expiresOn)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, map[string]any{"message": err.Error()})
 		return
