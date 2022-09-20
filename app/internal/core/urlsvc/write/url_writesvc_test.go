@@ -1,4 +1,4 @@
-package urlsvc
+package write
 
 import (
 	"errors"

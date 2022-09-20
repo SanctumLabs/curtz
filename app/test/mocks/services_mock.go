@@ -244,16 +244,16 @@ func (mr *MockCacheServiceMockRecorder) LookupUrl(shortCode interface{}) *gomock
 }
 
 // SaveURL mocks base method.
-func (m *MockCacheService) SaveURL(shortCode, originalUrl string) (string, error) {
+func (m *MockCacheService) SaveURL(shortCode, originalUrl string, expiryTime time.Duration) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveURL", shortCode, originalUrl)
+	ret := m.ctrl.Call(m, "SaveURL", shortCode, originalUrl, expiryTime)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SaveURL indicates an expected call of SaveURL.
-func (mr *MockCacheServiceMockRecorder) SaveURL(shortCode, originalUrl interface{}) *gomock.Call {
+func (mr *MockCacheServiceMockRecorder) SaveURL(shortCode, originalUrl, expiryTime interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveURL", reflect.TypeOf((*MockCacheService)(nil).SaveURL), shortCode, originalUrl)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveURL", reflect.TypeOf((*MockCacheService)(nil).SaveURL), shortCode, originalUrl, expiryTime)
 }
