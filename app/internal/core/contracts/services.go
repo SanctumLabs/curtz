@@ -29,5 +29,5 @@ type SmsService interface {
 // CacheService interface to be used by services that implement cache like functionality
 type CacheService interface {
 	LookupUrl(shortCode string) (string, error)
-	SaveUrl(shortCode, originalUrl string, expiryTime time.Duration) (string, error)
+	SaveURL(shortCode, originalUrl string, expiryTime time.Duration) (string, error)
 }

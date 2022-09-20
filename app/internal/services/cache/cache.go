@@ -66,8 +66,8 @@ func (c *Cache) LookupUrl(shortCode string) (string, error) {
 	return originalUrl, nil
 }
 
-// SaveUrl saves a new url in the cache with the short code as the key and original url value
-func (c *Cache) SaveUrl(shortCode, originalUrl string, expiryTime time.Duration) (string, error) {
+// SaveURL saves a new url in the cache with the short code as the key and original url value
+func (c *Cache) SaveURL(shortCode, originalUrl string, expiryTime time.Duration) (string, error) {
 	defer monitoring.ErrorHandler()
 
 	cmd, err := c.client.Set(c.ctx, shortCode, originalUrl, expiryTime).Result()

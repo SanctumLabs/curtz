@@ -40,7 +40,7 @@ func (svc *UrlSvc) LookupUrl(shortCode string) (string, error) {
 		duration := url.GetExpiryDuration()
 
 		// nolint
-		go svc.cache.SaveUrl(shortCode, url.OriginalUrl, duration)
+		go svc.cache.SaveURL(shortCode, url.OriginalUrl, duration)
 
 		// nolint
 		go svc.urlWriteRepo.IncrementHits(shortCode)
