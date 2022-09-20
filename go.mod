@@ -11,16 +11,16 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/joho/godotenv v1.4.0
 	github.com/matoous/go-nanoid v1.5.0
-	github.com/onsi/ginkgo/v2 v2.1.6
+	github.com/onsi/ginkgo/v2 v2.2.0
 	github.com/onsi/gomega v1.20.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.4.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.0
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
-	github.com/swaggo/gin-swagger v1.5.2
-	github.com/swaggo/swag v1.8.5
-	go.mongodb.org/mongo-driver v1.10.1
+	github.com/swaggo/gin-swagger v1.5.3
+	github.com/swaggo/swag v1.8.6
+	go.mongodb.org/mongo-driver v1.10.2
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 )
 
