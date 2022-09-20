@@ -77,7 +77,7 @@ var _ = Describe("UrlWriteSvc", func() {
 			keywords := []string{}
 			expiresOn := time.Now().Add(time.Hour + 1)
 
-			request := contracts.UpdateUrlCommand{
+			request := contracts.UpdateUrlRequest{
 				UserId:      userId.String(),
 				UrlId:       urlId.String(),
 				CustomAlias: customAlias,
@@ -101,7 +101,7 @@ var _ = Describe("UrlWriteSvc", func() {
 			keywords := []string{}
 			expiresOn := time.Now().Add(-10)
 
-			request := contracts.UpdateUrlCommand{
+			request := contracts.UpdateUrlRequest{
 				UserId:      userId.String(),
 				UrlId:       urlId.String(),
 				CustomAlias: customAlias,
@@ -128,7 +128,7 @@ var _ = Describe("UrlWriteSvc", func() {
 			keywords := []string{}
 			expiresOn := time.Now().Add(time.Hour + 10)
 
-			request := contracts.UpdateUrlCommand{
+			request := contracts.UpdateUrlRequest{
 				UserId:      userId.String(),
 				UrlId:       urlId.String(),
 				CustomAlias: customAlias,
@@ -160,7 +160,7 @@ var _ = Describe("UrlWriteSvc", func() {
 			keywords := []string{}
 			expiresOn := time.Now().Add(time.Hour + 10)
 
-			request := contracts.UpdateUrlCommand{
+			request := contracts.UpdateUrlRequest{
 				UserId:      userId.String(),
 				UrlId:       urlId.String(),
 				CustomAlias: customAlias,

@@ -6,15 +6,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/pkg/validators"
 )
 
-type CreateUrlCommand struct {
-	userID      string
-	originalUrl string
-	customAlias string
-	expiresOn   time.Time
-	keywords    []string
-}
-
-type UpdateUrlCommand struct {
+type UpdateUrlRequest struct {
 	UserId      string
 	UrlId       string
 	CustomAlias string
@@ -22,28 +14,28 @@ type UpdateUrlCommand struct {
 	ExpiresOn   *time.Time
 }
 
-func NewUpdateUrlCommand(userId, urlId, customAlias string, keywords []string, expiresOn *time.Time) (UpdateUrlCommand, error) {
+func NewUpdateUrlRequest(userId, urlId, customAlias string, keywords []string, expiresOn *time.Time) (UpdateUrlRequest, error) {
 	if err := validators.IsValidUserId(userId); err != nil {
-		return UpdateUrlCommand{}, err
+		return UpdateUrlRequest{}, err
 	}
 
 	if err := validators.IsValidUrlId(urlId); err != nil {
-		return UpdateUrlCommand{}, err
+		return UpdateUrlRequest{}, err
 	}
 
 	if len(customAlias) != 0 {
 		if err := validators.IsValidCustomAlias(customAlias); err != nil {
-			return UpdateUrlCommand{}, err
+			return UpdateUrlRequest{}, err
 		}
 	}
 
 	if expiresOn != nil {
 		if err := validators.IsValidExpirationTime(*expiresOn); err != nil {
-			return UpdateUrlCommand{}, err
+			return UpdateUrlRequest{}, err
 		}
 	}
 
-	return UpdateUrlCommand{
+	return UpdateUrlRequest{
 		UserId:      userId,
 		UrlId:       urlId,
 		CustomAlias: customAlias,

@@ -122,7 +122,7 @@ func TestGetExpiryDuration(t *testing.T) {
 				keywords:      []string{},
 				expectedError: nil,
 			},
-			duration: time.Now().Add(time.Hour * 1).Sub(time.Now()),
+			duration: time.Until(time.Now().Add(time.Hour * 1)),
 		},
 	}
 

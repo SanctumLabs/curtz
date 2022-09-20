@@ -154,7 +154,7 @@ func (url URL) SetCustomAlias(customAlias string) error {
 // GetExpiryDuration returns as a time.Duration how long before the url expires
 // This returns an absolute value after subtracting time.Now()
 func (url URL) GetExpiryDuration() time.Duration {
-	duration := url.ExpiresOn.Sub(time.Now())
+	duration := time.Until(url.ExpiresOn)
 	if duration >= 0 {
 		return duration
 	}
