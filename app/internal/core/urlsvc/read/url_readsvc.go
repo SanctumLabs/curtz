@@ -1,4 +1,4 @@
-package urlsvc
+package read
 
 import (
 	"github.com/sanctumlabs/curtz/app/internal/core/contracts"

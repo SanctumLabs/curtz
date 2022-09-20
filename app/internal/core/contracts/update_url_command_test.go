@@ -57,12 +57,12 @@ var testCases = []testCase{
 	},
 }
 
-func TestNewUpdateUrlCommand(t *testing.T) {
+func TestNewUpdateUrlRequest(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual, err := NewUpdateUrlCommand(tc.userId, tc.urlId, tc.customAlias, tc.keywords, &tc.expiresOn)
+			actual, err := NewUpdateUrlRequest(tc.userId, tc.urlId, tc.customAlias, tc.keywords, &tc.expiresOn)
 			if err != tc.expectedErr {
-				t.Errorf("NewUpdateUrlCommand(%s, %s, %s, %s, %v) = %v expected error %v, got %v", tc.userId, tc.urlId, tc.customAlias, tc.keywords, tc.expiresOn, tc.expectedErr, tc.expectedErr, err)
+				t.Errorf("NewUpdateUrlRequest(%s, %s, %s, %s, %v) = %v expected error %v, got %v", tc.userId, tc.urlId, tc.customAlias, tc.keywords, tc.expiresOn, tc.expectedErr, tc.expectedErr, err)
 			} else if tc.expectedErr == nil {
 				assert.Equal(t, tc.userId, actual.UserId)
 				assert.Equal(t, tc.urlId, actual.UrlId)
@@ -74,14 +74,14 @@ func TestNewUpdateUrlCommand(t *testing.T) {
 	}
 }
 
-func BenchmarkNewUpdateUrlCommand(b *testing.B) {
+func BenchmarkNewUpdateUrlRequest(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping benchmark")
 	}
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range testCases {
-			_, _ = NewUpdateUrlCommand(tc.userId, tc.urlId, tc.customAlias, tc.keywords, &tc.expiresOn)
+			_, _ = NewUpdateUrlRequest(tc.userId, tc.urlId, tc.customAlias, tc.keywords, &tc.expiresOn)
 		}
 	}
 }
