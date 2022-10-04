@@ -33,7 +33,7 @@ echoos:
 	@echo $(OSFLAG)
 
 # will setup all the tools required by the project
-setup: setup-linting setup-trivy
+setup: setup-linting setup-trivy install install-git-hooks
 
 # Will setup linting tools
 setup-linting:
@@ -42,6 +42,12 @@ setup-linting:
 
 setup-trivy:
 	curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ./bin v0.16.0
+
+install-git-hooks:
+	@echo "Installing Git hooks..."
+	cp ./githooks/prepare-commit-msg.sh .git/hooks/prepare-commit-msg
+	cp ./githooks/pre-commit.sh .git/hooks/pre-commit
+	cp ./githooks/pre-push.sh .git/hooks/pre-push
 
 # Download dependencies
 install:
