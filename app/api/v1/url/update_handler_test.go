@@ -116,7 +116,7 @@ var _ = Describe("Update URL Handler", func() {
 			mockUrlReadSvc.
 				EXPECT().
 				GetById(urlID.String()).
-				Return(mockUrl, nil)
+				Return(*mockUrl, nil)
 
 			expiresOnField := time.Now().Add(time.Hour + 1)
 			requestBody := updateShortUrlDto{
@@ -155,7 +155,7 @@ var _ = Describe("Update URL Handler", func() {
 			mockUrlReadSvc.
 				EXPECT().
 				GetById(urlID.String()).
-				Return(mockUrl, nil)
+				Return(*mockUrl, nil)
 
 			expiresOnField := time.Now().Add(-10)
 			requestBody := updateShortUrlDto{
@@ -208,7 +208,7 @@ var _ = Describe("Update URL Handler", func() {
 		mockUrlReadSvc.
 			EXPECT().
 			GetById(urlID.String()).
-			Return(mockUrl, nil)
+			Return(*mockUrl, nil)
 
 		expiresOnField := time.Now().Add(time.Hour + 10)
 
@@ -266,7 +266,7 @@ var _ = Describe("Update URL Handler", func() {
 		mockUrlReadSvc.
 			EXPECT().
 			GetById(urlID.String()).
-			Return(mockUrl, nil)
+			Return(*mockUrl, nil)
 
 		expiresOnField := time.Now().Add(time.Hour + 10)
 		requestBody := updateShortUrlDto{
@@ -284,7 +284,7 @@ var _ = Describe("Update URL Handler", func() {
 		mockUrlWriteSvc.
 			EXPECT().
 			UpdateUrl(gomock.Any()).
-			Return(mockUpdatedUrl, nil)
+			Return(*mockUpdatedUrl, nil)
 
 		responseRecorder := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(responseRecorder)

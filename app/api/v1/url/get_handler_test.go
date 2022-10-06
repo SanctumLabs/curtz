@@ -58,7 +58,7 @@ func TestGetByIdReturnsStatusOkForFoundUrl(t *testing.T) {
 	mockUrlReadSvc.
 		EXPECT().
 		GetById(urlID.String()).
-		Return(mockUrl, nil)
+		Return(*mockUrl, nil)
 
 	urlRouter.getUrlById(ctx)
 

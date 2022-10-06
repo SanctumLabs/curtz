@@ -154,7 +154,7 @@ func TestCreateShortUrlReturnsStatusCreatedWhenCreateUrlReturnsUrl(t *testing.T)
 	mockUrlWriteSvc.
 		EXPECT().
 		CreateUrl(userId.String(), originalUrl, customAlias, gomock.Any(), keywords).
-		Return(mockUrl, nil)
+		Return(*mockUrl, nil)
 
 	utils.MockRequestBody(ctx, requestBody)
 
