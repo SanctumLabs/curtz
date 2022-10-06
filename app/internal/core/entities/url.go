@@ -1,35 +1,13 @@
 package entities
 
 import (
+	"errors"
 	"fmt"
-	netUrl "net/url"
-	"regexp"
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/pkg/encoding"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-)
-
-// @see https://github.com/asaskevich/govalidator/blob/master/patterns.go
-var (
-	IP        = `(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))`
-	Schema    = `((ftp|https?):\/\/)`
-	Username  = `(\S+(:\S*)?@)`
-	Path      = `((\/|\?|#)[^\s]*)`
-	Port      = `(:(\d{1,5}))`
-	UrlIP     = `([1-9]\d?|1\d\d|2[01]\d|22[0-3]|24\d|25[0-5])(\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])){2}(?:\.([0-9]\d?|1\d\d|2[0-4]\d|25[0-5]))`
-	Subdomain = `((www\.)|([a-zA-Z0-9]+([-_\.]?[a-zA-Z0-9])*[a-zA-Z0-9]\.[a-zA-Z0-9]+))`
-
-	MinLength   = 15
-	MaxLength   = 2048
-	Regex       = `^` + Schema + `?` + Username + `?` + `((` + IP + `|(\[` + IP + `\])|(([a-zA-Z0-9]([a-zA-Z0-9-_]+)?[a-zA-Z0-9]([-\.][a-zA-Z0-9]+)*)|(` + Subdomain + `?))?(([a-zA-Z\x{00a1}-\x{ffff}0-9]+-?-?)*[a-zA-Z\x{00a1}-\x{ffff}0-9]+)(?:\.([a-zA-Z\x{00a1}-\x{ffff}]{1,}))?))\.?` + Port + `?` + Path + `?$`
-	FilterRegex = `(xxx|localhost|127\.0\.0\.1|\.lvh\.me|\.local|urlss?h\.)`
-)
-
-var (
-	urlRe    = regexp.MustCompile(Regex)
-	filterRe = regexp.MustCompile(FilterRegex)
+	"github.com/sanctumlabs/curtz/app/pkg/validators"
 )
 
 // URL represents an entity for a url
@@ -40,23 +18,23 @@ type URL struct {
 	// UserID is the user id of the url owner
 	UserId identifier.ID
 
-	// ShortCode is the short code for the url
-	ShortCode string
+	// shortCode is the short code for the url
+	shortCode string
 
 	// CustomAlias is the custom alias for the url
-	CustomAlias string
+	customAlias string
 
 	// OriginalURL is the original url
-	OriginalUrl string
+	originalUrl string
 
 	// Hits is the number of hits for the url
-	Hits uint
+	hits uint
 
 	// ExpiresOn is the expiration date for the url
-	ExpiresOn time.Time
+	expiresOn time.Time
 
 	// Keywords is a list of keywords for the url
-	Keywords []Keyword
+	keywords []Keyword
 
 	// BaseEntity is the base entity for the url
 	BaseEntity
@@ -64,25 +42,9 @@ type URL struct {
 
 // NewUrl creates a new URL entity
 func NewUrl(userId identifier.ID, originalUrl string, customAlias string, expiresOn time.Time, keywords []string) (*URL, error) {
-	if l := len(originalUrl); l < MinLength || l > MaxLength {
-		return nil, errdefs.ErrInvalidURLLen
-	}
-
-	if filterRe.MatchString(originalUrl) {
-		return nil, errdefs.ErrFilteredURL
-	}
-
-	_, err := netUrl.ParseRequestURI(originalUrl)
+	err := validators.IsValidUrl(originalUrl)
 	if err != nil {
-		return nil, errdefs.ErrInvalidURL
-	}
-
-	if !urlRe.MatchString(originalUrl) {
-		return nil, errdefs.ErrInvalidURL
-	}
-
-	if expiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
-		return nil, errdefs.ErrPastExpiration
+		return nil, err
 	}
 
 	id := identifier.New()
@@ -101,67 +63,115 @@ func NewUrl(userId identifier.ID, originalUrl string, customAlias string, expire
 		ID:          id,
 		UserId:      userId,
 		BaseEntity:  NewBaseEntity(),
-		OriginalUrl: originalUrl,
-		ShortCode:   shortCode,
-		CustomAlias: customAlias,
-		Keywords:    kws,
-		ExpiresOn:   expiresOn,
+		originalUrl: originalUrl,
+		shortCode:   shortCode,
+		customAlias: customAlias,
+		keywords:    kws,
+		expiresOn:   expiresOn,
 	}, nil
 }
 
-// IsActive checks if the url is active or not expired.
-func (url URL) IsActive() bool {
-	return url.ExpiresOn.In(time.UTC).After(time.Now().In(time.UTC))
+// GetShortCode gets the short code of a given URL
+func (url *URL) GetShortCode() string {
+	return url.shortCode
 }
 
-func (url URL) GetKeywords() []Keyword {
-	return url.Keywords
-}
-
-func (url URL) SetKeywords(keywords []string) error {
-	kws, err := createKeywords(keywords)
+// SetShortCode sets the short code on a URL
+func (url *URL) SetShortCode(shortCode string) error {
+	err := validators.IsValidShortCode(shortCode)
 	if err != nil {
 		return err
 	}
-
-	url.Keywords = append(url.Keywords, kws...)
+	url.shortCode = shortCode
 	return nil
 }
 
-func (url URL) GetExpiresOn() time.Time {
-	return url.ExpiresOn
+// GetCustomAlias returns the custom alias for a URL
+func (url *URL) GetCustomAlias() string {
+	return url.customAlias
 }
 
-func (url URL) SetExpiresOn(expiresOn time.Time) {
-	url.ExpiresOn = expiresOn
-}
-
-// UpdateExpiresOn updates the expiresOn field on a URL
-func (url URL) UpdateExpiresOn(expiresOn time.Time) error {
-	url.ExpiresOn = expiresOn
+// SetCustomAlias sets the custom alias for a URL
+func (url *URL) SetCustomAlias(customAlias string) error {
+	err := validators.IsValidCustomAlias(customAlias)
+	if err != nil {
+		return err
+	}
+	url.customAlias = customAlias
 	return nil
 }
 
-func (url URL) GetCustomAlias() string {
-	return url.CustomAlias
+// GetOriginalURL returns the original url of URL
+func (url *URL) GetOriginalURL() string {
+	return url.originalUrl
 }
 
-func (url URL) SetCustomAlias(customAlias string) error {
-	url.CustomAlias = customAlias
+// SetOriginalURL sets/update an original URL
+func (url *URL) SetOriginalURL(u string) error {
+	err := validators.IsValidUrl(u)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+// GetHits returns the number of times the URL has been visited
+func (url *URL) GetHits() uint {
+	return url.hits
+}
+
+// SetHits sets/updates the number of times a URL has been visited
+func (url *URL) SetHits(hits int) error {
+	if hits < 0 {
+		return errors.New("URL Visit count/hits can not be set to less than 0")
+	}
+
+	url.hits = uint(hits)
+	return nil
+}
+
+// GetExpiresOn returns the expiry time of the URL
+func (url *URL) GetExpiresOn() time.Time {
+	return url.expiresOn
+}
+
+// SetExpiresOn updates/sets the expiry time of the URL
+func (url *URL) SetExpiresOn(expiresOn time.Time) {
+	url.expiresOn = expiresOn
+}
+
+// IsActive checks if the url is active or not expired.
+func (url *URL) IsActive() bool {
+	return url.expiresOn.In(time.UTC).After(time.Now().In(time.UTC))
 }
 
 // GetExpiryDuration returns as a time.Duration how long before the url expires
 // This returns an absolute value after subtracting time.Now()
-func (url URL) GetExpiryDuration() time.Duration {
-	duration := time.Until(url.ExpiresOn)
+func (url *URL) GetExpiryDuration() time.Duration {
+	duration := time.Until(url.expiresOn)
 	if duration >= 0 {
 		return duration
 	}
 	return -duration
 }
 
+// GetKeywords returns the keywords on the url
+func (url *URL) GetKeywords() []Keyword {
+	return url.keywords
+}
+
+// SetKeywords adds new keywords to the url
+func (url *URL) SetKeywords(keywords []string) error {
+	kws, err := createKeywords(keywords)
+	if err != nil {
+		return err
+	}
+
+	url.keywords = append(url.keywords, kws...)
+	return nil
+}
+
 // Prefix returns the url prefix for logging
-func (url URL) Prefix() string {
-	return fmt.Sprintf("url-%s-%s", url.ID, url.ShortCode)
+func (url *URL) Prefix() string {
+	return fmt.Sprintf("url-%s-%s", url.ID, url.shortCode)
 }

@@ -167,7 +167,7 @@ var _ = Describe("UrlSvc", func() {
 					GetByShortCode(shortCode).
 					Return(mockUrl, nil)
 
-				duration := time.Until(mockUrl.ExpiresOn)
+				duration := time.Until(mockUrl.GetExpiresOn())
 
 				mockCache.
 					EXPECT().
@@ -224,7 +224,7 @@ var _ = Describe("UrlSvc", func() {
 					EXPECT().
 					GetByShortCode(shortCode).Times(0)
 
-				duration := time.Until(mockUrl.ExpiresOn)
+				duration := time.Until(mockUrl.GetExpiresOn())
 
 				mockCache.
 					EXPECT().
