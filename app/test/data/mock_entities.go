@@ -13,15 +13,15 @@ func MockUser(email, password string) (entities.User, error) {
 	return user, err
 }
 
-func MockUrl(userID, originalUrl, customAlias, shortCode string, expiresOn time.Time, keyWords []string) entities.URL {
+func MockUrl(userID, originalUrl, customAlias, shortCode string, expiresOn time.Time, keyWords []string) *entities.URL {
 	mockUrl, err := entities.NewUrl(identifier.New().FromString(userID), originalUrl, customAlias, expiresOn, keyWords)
 	if err != nil {
-		return entities.URL{}
+		return nil
 	}
 	err = mockUrl.SetShortCode(shortCode)
 	if err != nil {
-		return entities.URL{}
+		return nil
 	}
 
-	return *mockUrl
+	return mockUrl
 }

@@ -94,7 +94,7 @@ func TestCreateShortUrlReturnsBadRequestWhenCreateUrlReturnsError(t *testing.T) 
 	ctx, _ := gin.CreateTestContext(responseRecorder)
 	ctx.Request = httpRequest
 
-	originalUrl := "http://localhost:9000/some-long-url"
+	originalUrl := "http://example.com/some-long-url"
 	customAlias := ""
 	expiresOn := time.Now()
 	keywords := []string{}

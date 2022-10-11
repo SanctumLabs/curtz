@@ -38,7 +38,7 @@ func mapEntityToModel(url entities.URL) models.Url {
 	for i, keyword := range url.GetKeywords() {
 		keywords[i] = models.Keyword{
 			UrlId: url.ID.String(),
-			Value: keyword.Value,
+			Value: keyword.GetValue(),
 		}
 	}
 

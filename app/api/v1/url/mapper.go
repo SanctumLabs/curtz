@@ -6,7 +6,7 @@ func mapEntityToResponseDto(url entities.URL) urlResponseDto {
 	keywords := []string{}
 
 	for _, keyword := range url.GetKeywords() {
-		value := keyword.Value
+		value := keyword.GetValue()
 		if value != "" {
 			keywords = append(keywords, value)
 		}

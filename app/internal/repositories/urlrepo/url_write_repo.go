@@ -73,7 +73,7 @@ func (r *UrlWriteRepo) Update(urlID, customAlias string, keywords []entities.Key
 		for _, keyword := range keywords {
 			kw := models.Keyword{
 				UrlId: urlID,
-				Value: keyword.Value,
+				Value: keyword.GetValue(),
 			}
 			update = append(update, bson.E{Key: "$addToSet", Value: bson.D{{Key: "keywords", Value: kw}}})
 		}

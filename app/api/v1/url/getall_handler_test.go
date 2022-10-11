@@ -76,8 +76,8 @@ func TestGetAllUrlsReturnsOkWhenSuccessGettingUrls(t *testing.T) {
 	mockUrlTwo := data.MockUrl(userID.String(), originalUrlTwo, customAliasTwo, shortCodeTwo, expiresOnTwo, []string{})
 
 	mockUrls := []entities.URL{
-		mockUrlOne,
-		mockUrlTwo,
+		*mockUrlOne,
+		*mockUrlTwo,
 	}
 
 	mockUrlReadSvc.
