@@ -3,6 +3,8 @@ package validators
 import (
 	"time"
 
+	netUrl "net/url"
+
 	"github.com/go-ozzo/ozzo-validation/is"
 	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -14,8 +16,26 @@ import (
 func IsValidUrl(url string) error {
 	err := validation.Validate(url, validation.Required, is.URL)
 	if err != nil {
-		return errdefs.ErrInvalidURL
+		return errdefs.ErrURLInvalid
 	}
+
+	if l := len(url); l < MinLength || l > MaxLength {
+		return errdefs.ErrURLLength
+	}
+
+	if filterRe.MatchString(url) {
+		return errdefs.ErrURLFiltered
+	}
+
+	_, err = netUrl.ParseRequestURI(url)
+	if err != nil {
+		return errdefs.ErrURLInvalid
+	}
+
+	if !urlRe.MatchString(url) {
+		return errdefs.ErrURLInvalid
+	}
+
 	return nil
 }
 
@@ -30,7 +50,7 @@ func IsValidUserId(userId string) error {
 // IsValidUrlId checks if a given urlId is valid
 func IsValidUrlId(urlId string) error {
 	if urlId == "" {
-		return errdefs.ErrInvalidUrlId
+		return errdefs.ErrURLIdInvalid
 	}
 	return nil
 }
@@ -48,5 +68,17 @@ func IsValidExpirationTime(expirationTime time.Time) error {
 	if expirationTime.In(time.UTC).Before(time.Now().In(time.UTC)) {
 		return errdefs.ErrPastExpiration
 	}
+	return nil
+}
+
+func IsValidShortCode(shortCode string) error {
+	if len(shortCode) > pkg.ShortCodeLength {
+		return errdefs.ErrShortCodeInvalid
+	}
+
+	if !pkg.ShortCodeRegex.MatchString(shortCode) {
+		return errdefs.ErrShortCodeInvalid
+	}
+
 	return nil
 }

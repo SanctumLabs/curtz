@@ -1,39 +1,52 @@
 package entities
 
 import (
-	"regexp"
-
+	"github.com/sanctumlabs/curtz/app/pkg"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-)
-
-var (
-	KeywordRegex = `^[a-zA-Z0-9-_]+$`
-	kwRe         = regexp.MustCompile(KeywordRegex)
 )
 
 // Keyword is model for keywords attached to a url
 type Keyword struct {
 	identifier.ID
-	Value string
+	value string
 }
 
 // NewKeyword creates a new keyword
-func NewKeyword(keyword string) (Keyword, error) {
+func NewKeyword(keyword string) (*Keyword, error) {
 
 	if l := len(keyword); l < 2 || l > 25 {
-		return Keyword{}, errdefs.ErrKeywordLength
+		return nil, errdefs.ErrKeywordLength
 	}
 
-	if !kwRe.MatchString(keyword) {
-		return Keyword{}, errdefs.ErrInvalidKeyword
+	if !pkg.KeywordRegex.MatchString(keyword) {
+		return nil, errdefs.ErrInvalidKeyword
 	}
 
 	id := identifier.New()
-	return Keyword{
+	return &Keyword{
 		ID:    id,
-		Value: keyword,
+		value: keyword,
 	}, nil
+}
+
+// SetValue sets the value of a Keyword. Returns error if any
+func (kw *Keyword) SetValue(value string) error {
+	if l := len(value); l < 2 || l > 25 {
+		return errdefs.ErrKeywordLength
+	}
+
+	if !pkg.KeywordRegex.MatchString(value) {
+		return errdefs.ErrInvalidKeyword
+	}
+
+	kw.value = value
+	return nil
+}
+
+// GetValue returns the value of a keyword
+func (kw *Keyword) GetValue() string {
+	return kw.value
 }
 
 func createKeywords(keywords []string) ([]Keyword, error) {
@@ -45,7 +58,7 @@ func createKeywords(keywords []string) ([]Keyword, error) {
 
 	for _, kw := range keywords {
 		if keyword, err := NewKeyword(kw); err == nil {
-			kws = append(kws, keyword)
+			kws = append(kws, *keyword)
 		}
 	}
 

@@ -29,7 +29,7 @@ func NewUrlWriteRepo(dbClient *mongo.Collection, ctx context.Context) *UrlWriteR
 }
 
 func (r *UrlWriteRepo) Save(url entities.URL) (entities.URL, error) {
-	if _, err := r.getSingleResult("original_url", url.OriginalUrl); err == nil {
+	if _, err := r.getSingleResult("original_url", url.GetOriginalURL()); err == nil {
 		return entities.URL{}, errdefs.ErrURLAlreadyExists
 	}
 
@@ -53,23 +53,27 @@ func (r *UrlWriteRepo) Update(urlID, customAlias string, keywords []entities.Key
 
 	update := bson.D{}
 
-	if len(customAlias) != 0 && existingUrl.CustomAlias != customAlias {
-		existingUrl.CustomAlias = customAlias
+	if len(customAlias) != 0 && existingUrl.GetCustomAlias() != customAlias {
+		err := existingUrl.SetCustomAlias(customAlias)
+		if err != nil {
+			return entities.URL{}, err
+		}
 		update = append(update, bson.E{Key: "$set", Value: bson.D{{Key: "custom_alias", Value: customAlias}}})
 	}
 
 	if expiresOn != nil {
-		existingUrl.ExpiresOn = *expiresOn
+		existingUrl.SetExpiresOn(*expiresOn)
 		update = append(update, bson.E{Key: "$set", Value: bson.D{{Key: "expires_on", Value: expiresOn}}})
 	}
 
 	if len(keywords) != 0 {
-		existingUrl.Keywords = append(existingUrl.Keywords, keywords...)
+		// FIXME: SET KEYWORDS
+		// existingUrl.SetKeywords(keywords...)
 
 		for _, keyword := range keywords {
 			kw := models.Keyword{
 				UrlId: urlID,
-				Value: keyword.Value,
+				Value: keyword.GetValue(),
 			}
 			update = append(update, bson.E{Key: "$addToSet", Value: bson.D{{Key: "keywords", Value: kw}}})
 		}
@@ -116,7 +120,7 @@ func (r *UrlWriteRepo) Delete(id string) error {
 func (r *UrlWriteRepo) IncrementHits(shortCode string) error {
 	if url, err := r.getSingleResult("short_code", shortCode); err == nil {
 		filter := bson.D{{Key: "short_code", Value: shortCode}}
-		update := bson.D{{Key: "$set", Value: bson.D{{Key: "visit_count", Value: url.Hits + 1}}}}
+		update := bson.D{{Key: "$set", Value: bson.D{{Key: "visit_count", Value: url.GetHits() + 1}}}}
 		opts := options.Update().SetUpsert(false)
 
 		result, err := r.dbClient.UpdateOne(r.ctx, filter, update, opts)
