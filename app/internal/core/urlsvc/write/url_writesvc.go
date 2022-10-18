@@ -28,7 +28,11 @@ func (svc *UrlWriteSvc) CreateUrl(userId string, originalUrl string, customAlias
 		return entities.URL{}, err
 	}
 
-	userIdentifier := identifier.New().FromString(userId)
+	userIdentifier, idErr := identifier.New().FromString(userId)
+	if idErr != nil {
+		return entities.URL{}, idErr
+	}
+
 	url, err := entities.NewUrl(userIdentifier, originalUrl, customAlias, expiresOn, keywords)
 
 	if err != nil {

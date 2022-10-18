@@ -29,7 +29,7 @@ func NewUserRepo(dbClient *mongo.Collection, ctx context.Context) *UserRepo {
 
 // CreateUser creates a single user
 func (u *UserRepo) CreateUser(user entities.User) (entities.User, error) {
-	if _, err := u.GetByEmail(user.Email.GetValue()); err == nil {
+	if _, err := u.GetByEmail(user.GetEmail()); err == nil {
 		return entities.User{}, errdefs.ErrUserExists
 	}
 
@@ -51,7 +51,7 @@ func (u *UserRepo) GetByEmail(email string) (entities.User, error) {
 		return entities.User{}, err
 	}
 
-	return mapModelToEntity(user), nil
+	return mapModelToEntity(user)
 }
 
 // GetById returns a user record given the id
@@ -61,7 +61,7 @@ func (u *UserRepo) GetById(id string) (entities.User, error) {
 		return entities.User{}, err
 	}
 
-	return mapModelToEntity(user), nil
+	return mapModelToEntity(user)
 }
 
 // RemoveUser deletes a user record given its id
@@ -96,7 +96,7 @@ func (u *UserRepo) GetByVerificationToken(verificationToken string) (entities.Us
 		return entities.User{}, err
 	}
 
-	return mapModelToEntity(user), nil
+	return mapModelToEntity(user)
 }
 
 func (u *UserRepo) SetVerified(id identifier.ID) error {

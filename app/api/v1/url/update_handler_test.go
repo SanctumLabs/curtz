@@ -106,7 +106,10 @@ var _ = Describe("Update URL Handler", func() {
 		expiresOn := time.Now().Add(time.Hour * 1)
 		shortCode, _ := encoding.GetUniqueShortCode()
 
-		mockUrl, err := entities.NewUrl(identifier.New().FromString(userId), originalUrl, customAlias, expiresOn, []string{})
+		id, idErr := identifier.New().FromString(userId)
+		assert.NoError(GinkgoT(), idErr)
+
+		mockUrl, err := entities.NewUrl(id, originalUrl, customAlias, expiresOn, []string{})
 		assert.NoError(GinkgoT(), err)
 
 		err = mockUrl.SetShortCode(shortCode)
@@ -199,7 +202,10 @@ var _ = Describe("Update URL Handler", func() {
 		expiresOn := time.Now().Add(time.Hour * 1)
 		shortCode, _ := encoding.GetUniqueShortCode()
 
-		mockUrl, err := entities.NewUrl(identifier.New().FromString(userId), originalUrl, customAlias, expiresOn, []string{})
+		id, idErr := identifier.New().FromString(userId)
+		assert.NoError(GinkgoT(), idErr)
+
+		mockUrl, err := entities.NewUrl(id, originalUrl, customAlias, expiresOn, []string{})
 		assert.NoError(GinkgoT(), err)
 
 		err = mockUrl.SetShortCode(shortCode)
@@ -257,7 +263,10 @@ var _ = Describe("Update URL Handler", func() {
 		expiresOn := time.Now().Add(time.Hour * 1)
 		shortCode, _ := encoding.GetUniqueShortCode()
 
-		mockUrl, err := entities.NewUrl(identifier.New().FromString(userId), originalUrl, customAlias, expiresOn, []string{})
+		id, idErr := identifier.New().FromString(userId)
+		assert.NoError(GinkgoT(), idErr)
+
+		mockUrl, err := entities.NewUrl(id, originalUrl, customAlias, expiresOn, []string{})
 		assert.NoError(GinkgoT(), err)
 
 		err = mockUrl.SetShortCode(shortCode)
@@ -275,7 +284,7 @@ var _ = Describe("Update URL Handler", func() {
 			Keywords:    []string{},
 		}
 
-		mockUpdatedUrl, err := entities.NewUrl(identifier.New().FromString(userId), originalUrl, requestBody.CustomAlias, *requestBody.ExpiresOn, []string{})
+		mockUpdatedUrl, err := entities.NewUrl(id, originalUrl, requestBody.CustomAlias, *requestBody.ExpiresOn, []string{})
 		assert.NoError(GinkgoT(), err)
 
 		err = mockUpdatedUrl.SetShortCode(shortCode)

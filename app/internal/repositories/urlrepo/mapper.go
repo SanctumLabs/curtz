@@ -13,8 +13,14 @@ func mapModelToEntity(url models.Url) entities.URL {
 		keywords = append(keywords, kw.Value)
 	}
 
-	id := identifier.New().FromString(url.BaseModel.Id)
-	userId := identifier.New().FromString(url.UserId)
+	id, idErr := identifier.New().FromString(url.BaseModel.Id)
+	if idErr != nil {
+		return entities.URL{}
+	}
+	userId, userIdErr := identifier.New().FromString(url.UserId)
+	if userIdErr != nil {
+		return entities.URL{}
+	}
 
 	urlEntity, err := entities.NewUrl(userId, url.OriginalURL, url.CustomAlias, url.ExpiresOn, keywords)
 	if err != nil {

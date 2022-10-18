@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sanctumlabs/curtz/app/pkg/identifier"
 )
 
 func (hdl *clientRouter) handleRedirect(c *gin.Context) {
@@ -39,7 +40,14 @@ func (hdl *clientRouter) handleVerification(c *gin.Context) {
 		return
 	}
 
-	if err := hdl.userSvc.SetVerified(user.ID); err != nil {
+	uid := user.GetId()
+	id, err := identifier.New().FromString(uid)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	if err := hdl.userSvc.SetVerified(id); err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}

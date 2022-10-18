@@ -3,12 +3,12 @@ package auth
 import "time"
 
 type registerRequestDto struct {
-	Email    string `json:"email" binding:"required" validate:"required"`
+	Email    string `json:"email" binding:"required,email" validate:"required"`
 	Password string `json:"password" binding:"required" validate:"required"`
 }
 
 type loginRequestDto struct {
-	Email    string `json:"email" binding:"required" validate:"required"`
+	Email    string `json:"email" binding:"required,email" validate:"required"`
 	Password string `json:"password" binding:"required" validate:"required"`
 }
 

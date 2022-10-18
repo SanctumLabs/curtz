@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/sanctumlabs/curtz/app/api"
 )
 
 // register is a handler that registers a new user account
@@ -20,8 +23,18 @@ import (
 func (hdl *authRouter) register(ctx *gin.Context) {
 	var request registerRequestDto
 	err := ctx.BindJSON(&request)
+
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"message": err.Error()})
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			out := make([]api.ErrorDto, len(ve))
+			for i, e := range ve {
+				out[i] = api.ErrorDto{Field: e.Field(), Message: getAuthErrorMessage(e)}
+			}
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"errors": out})
+			return
+		}
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"errors": err.Error()})
 		return
 	}
 
@@ -33,8 +46,8 @@ func (hdl *authRouter) register(ctx *gin.Context) {
 	}
 
 	response := userResponseDto{
-		ID:        user.ID.String(),
-		Email:     user.Email.GetValue(),
+		ID:        user.GetId(),
+		Email:     user.GetEmail(),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}
@@ -59,7 +72,16 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 	err := ctx.BindJSON(&request)
 
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			out := make([]api.ErrorDto, len(ve))
+			for i, e := range ve {
+				out[i] = api.ErrorDto{Field: e.Field(), Message: getAuthErrorMessage(e)}
+			}
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"errors": out})
+			return
+		}
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"errors": err.Error()})
 		return
 	}
 
@@ -70,18 +92,18 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 		return
 	}
 
-	if ok, err := user.Compare(user.Password.Value, request.Password); err != nil && !ok {
+	if ok, err := user.CheckPassword(request.Password); err != nil && !ok {
 		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Invalid Email or Password"})
 		return
 	}
 
-	accessToken, err := hdl.authSvc.GenerateToken(user.ID.String())
+	accessToken, err := hdl.authSvc.GenerateToken(user.GetId())
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 
-	refreshToken, err := hdl.authSvc.GenerateRefreshToken(user.ID.String())
+	refreshToken, err := hdl.authSvc.GenerateRefreshToken(user.GetId())
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
@@ -89,8 +111,8 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 
 	response := loginResponseDto{
 		userResponseDto: userResponseDto{
-			ID:        user.ID.String(),
-			Email:     user.Email.GetValue(),
+			ID:        user.GetId(),
+			Email:     user.GetEmail(),
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 		},

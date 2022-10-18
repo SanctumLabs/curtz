@@ -31,16 +31,16 @@ func (svc UserSvc) CreateUser(email, password string) (entities.User, error) {
 
 	encodedToken := encoding.Encode(user.VerificationToken)
 
-	user, err = svc.repo.CreateUser(user)
+	_, err = svc.repo.CreateUser(*user)
 	if err != nil {
 		return entities.User{}, err
 	}
 
-	if err := svc.notificationSvc.SendEmailVerificationNotification(user.Email.GetValue(), encodedToken); err != nil {
+	if err := svc.notificationSvc.SendEmailVerificationNotification(user.GetEmail(), encodedToken); err != nil {
 		return entities.User{}, err
 	}
 
-	return user, nil
+	return *user, nil
 }
 
 // GetUserByEmail retrieve a user record given their email address or returns an error

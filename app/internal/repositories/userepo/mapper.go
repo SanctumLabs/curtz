@@ -9,31 +9,43 @@ import (
 func mapEntityToModel(user entities.User) models.User {
 	return models.User{
 		BaseModel: models.BaseModel{
-			Id:        user.ID.String(),
+			Id:        user.GetId(),
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 		},
-		Email:               user.Email.GetValue(),
-		Password:            user.Password.Value,
+		Email:               user.GetEmail(),
+		Password:            user.GetPassword(),
 		VerificationToken:   user.VerificationToken.String(),
 		VerificationExpires: user.VerificationExpires,
 	}
 }
 
-func mapModelToEntity(user models.User) entities.User {
-	email, err := entities.NewEmail(user.Email)
-	if err != nil {
-		return entities.User{}
+func mapModelToEntity(user models.User) (entities.User, error) {
+	email, emailErr := entities.NewEmail(user.Email)
+	if emailErr != nil {
+		return entities.User{}, emailErr
 	}
 
-	return entities.User{
-		ID:       identifier.New().FromString(user.BaseModel.Id),
-		Email:    email,
-		Password: entities.Password{Value: user.Password},
-		BaseEntity: entities.BaseEntity{
-			CreatedAt: user.BaseModel.CreatedAt,
-			UpdatedAt: user.BaseModel.UpdatedAt,
-		},
-		Verified: user.Verified,
+	password, passwordErr := entities.NewPassword(user.Password)
+	if passwordErr != nil {
+		return entities.User{}, passwordErr
 	}
+
+	id, idErr := identifier.New().FromString(user.BaseModel.Id)
+	if idErr != nil {
+		return entities.User{}, idErr
+	}
+
+	u, err := entities.NewUser(email.GetValue(), password.GetValue())
+	if err != nil {
+		return entities.User{}, err
+	}
+
+	u.SetId(id.String())
+
+	u.CreatedAt = user.BaseModel.CreatedAt
+	u.UpdatedAt = user.BaseModel.UpdatedAt
+	u.Verified = user.Verified
+
+	return *u, nil
 }

@@ -116,8 +116,8 @@ var _ = Describe("Auth Handler", func() {
 				authRouter.register(ctx)
 
 				expectedRespBody := gin.H{
-					"id":         mockUser.ID.String(),
-					"email":      mockUser.Email.GetValue(),
+					"id":         mockUser.GetId(),
+					"email":      mockUser.GetEmail(),
 					"created_at": mockUser.CreatedAt.Format(time.RFC3339Nano),
 					"updated_at": mockUser.UpdatedAt.Format(time.RFC3339Nano),
 				}
@@ -264,7 +264,7 @@ var _ = Describe("Auth Handler", func() {
 
 						mockAuthSvc.
 							EXPECT().
-							GenerateToken(user.ID.String()).
+							GenerateToken(user.GetId()).
 							Return("", err)
 
 						utils.MockRequestBody(ctx, requestBody)
@@ -294,12 +294,12 @@ var _ = Describe("Auth Handler", func() {
 
 						mockAuthSvc.
 							EXPECT().
-							GenerateToken(user.ID.String()).
+							GenerateToken(user.GetId()).
 							Return(accessToken, nil)
 
 						mockAuthSvc.
 							EXPECT().
-							GenerateRefreshToken(user.ID.String()).
+							GenerateRefreshToken(user.GetId()).
 							Return(refreshToken, err)
 
 						utils.MockRequestBody(ctx, requestBody)
@@ -328,12 +328,12 @@ var _ = Describe("Auth Handler", func() {
 
 						mockAuthSvc.
 							EXPECT().
-							GenerateToken(user.ID.String()).
+							GenerateToken(user.GetId()).
 							Return(accessToken, nil)
 
 						mockAuthSvc.
 							EXPECT().
-							GenerateRefreshToken(user.ID.String()).
+							GenerateRefreshToken(user.GetId()).
 							Return(refreshToken, nil)
 
 						utils.MockRequestBody(ctx, requestBody)
@@ -341,8 +341,8 @@ var _ = Describe("Auth Handler", func() {
 						authRouter.login(ctx)
 
 						expectedRespBody := gin.H{
-							"id":            user.ID.String(),
-							"email":         user.Email.GetValue(),
+							"id":            user.GetId(),
+							"email":         user.GetEmail(),
 							"created_at":    user.CreatedAt.Format(time.RFC3339Nano),
 							"updated_at":    user.UpdatedAt.Format(time.RFC3339Nano),
 							"access_token":  accessToken,

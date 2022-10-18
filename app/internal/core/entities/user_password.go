@@ -1,10 +1,12 @@
 package entities
 
-import "github.com/sanctumlabs/curtz/app/pkg/utils"
+import (
+	"github.com/sanctumlabs/curtz/app/pkg/utils"
+)
 
 // Password contains user password information
 type Password struct {
-	Value string
+	value string
 }
 
 // NewPassword creates a new password
@@ -16,7 +18,7 @@ func NewPassword(value string) (Password, error) {
 	}
 
 	return Password{
-		Value: hash,
+		value: hash,
 	}, nil
 }
 
@@ -37,11 +39,11 @@ func (p *Password) SetValue(value string) error {
 		return err
 	}
 
-	p.Value = hash
+	p.value = hash
 	return nil
 }
 
 // GetValue returns the value of the password
 func (p *Password) GetValue() string {
-	return p.Value
+	return p.value
 }
