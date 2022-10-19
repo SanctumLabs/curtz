@@ -9,15 +9,15 @@ type Password struct {
 	value string
 }
 
-// NewPassword creates a new password
-func NewPassword(value string) (Password, error) {
+// NewPassword creates a new password. The password here is assumed to be plain text, The value returned will be hashed
+func NewPassword(value string) (*Password, error) {
 	hash, err := utils.HashPassword(value)
 
 	if err != nil {
-		return Password{}, err
+		return nil, err
 	}
 
-	return Password{
+	return &Password{
 		value: hash,
 	}, nil
 }
@@ -33,17 +33,11 @@ func (p *Password) Compare(hash, password string) (bool, error) {
 
 // SetValue sets the value of the password
 func (p *Password) SetValue(value string) error {
-	hash, err := utils.HashPassword(value)
-
-	if err != nil {
-		return err
-	}
-
-	p.value = hash
+	p.value = value
 	return nil
 }
 
-// GetValue returns the value of the password
+// GetValue returns the value of the hashed password
 func (p *Password) GetValue() string {
 	return p.value
 }

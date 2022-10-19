@@ -29,7 +29,7 @@ func (hdl *authRouter) register(ctx *gin.Context) {
 		if errors.As(err, &ve) {
 			out := make([]api.ErrorDto, len(ve))
 			for i, e := range ve {
-				out[i] = api.ErrorDto{Field: e.Field(), Message: getAuthErrorMessage(e)}
+				out[i] = api.ErrorDto{Field: e.Field(), Message: api.ParseDtoFieldError(e)}
 			}
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"errors": out})
 			return
@@ -76,7 +76,7 @@ func (hdl *authRouter) login(ctx *gin.Context) {
 		if errors.As(err, &ve) {
 			out := make([]api.ErrorDto, len(ve))
 			for i, e := range ve {
-				out[i] = api.ErrorDto{Field: e.Field(), Message: getAuthErrorMessage(e)}
+				out[i] = api.ErrorDto{Field: e.Field(), Message: api.ParseDtoFieldError(e)}
 			}
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"errors": out})
 			return

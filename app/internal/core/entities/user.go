@@ -22,7 +22,7 @@ type User struct {
 	email *Email
 
 	// Password is the password for a user
-	password Password
+	password *Password
 
 	// Token is the token for a user
 	Token
@@ -35,26 +35,26 @@ type User struct {
 }
 
 func NewUser(email, password string) (*User, error) {
-	userPassword, err := NewPassword(password)
-	if err != nil {
-		return nil, err
-	}
-
 	userEmail, err := NewEmail(email)
 	if err != nil {
 		return nil, err
 	}
 
+	userPassword, err := NewPassword(password)
+	if err != nil {
+		return nil, err
+	}
+
 	id := identifier.New()
-	userToken := NewToken()
-	baseModel := NewBaseEntity()
+	token := NewToken()
+	baseEntity := NewBaseEntity()
 
 	return &User{
 		id:         id,
 		email:      userEmail,
 		password:   userPassword,
-		Token:      userToken,
-		BaseEntity: baseModel,
+		Token:      token,
+		BaseEntity: baseEntity,
 	}, nil
 }
 
@@ -100,10 +100,8 @@ func (u *User) CheckPassword(password string) (bool, error) {
 
 // SetPassword sets the user password
 func (u *User) SetPassword(password string) error {
-	newPassword, err := NewPassword(password)
-	if err != nil {
-		return err
-	}
-	u.password = newPassword
+	passwd := &Password{}
+	passwd.value = password
+	u.password = passwd
 	return nil
 }

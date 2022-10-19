@@ -3,6 +3,9 @@ package pkg
 import "regexp"
 
 const (
+	// 2022-08-12T17:18:18.553Z
+	DateFormat = "yyyy-mm-ddTHH:MM:ss"
+
 	// DateLayout is standard yyyy-mm-dd format
 	DateLayout = "2006-01-02 15:04:05"
 

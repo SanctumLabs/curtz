@@ -5,13 +5,13 @@ import "time"
 // urlDto is response for a given url.This contains common fields for all other url dtos
 type urlDto struct {
 	// OriginalUrl is the original url to shorten
-	OriginalUrl string `json:"original_url" binding:"required"`
+	OriginalUrl string `json:"original_url" binding:"required,url"`
 
 	// CustomAlias is the custom alias for the url provided for by the user
 	CustomAlias string `json:"custom_alias" default:""`
 
 	// ExpiresOn is the expiration date for the url
-	ExpiresOn time.Time `json:"expires_on" binding:"required"`
+	ExpiresOn time.Time `json:"expires_on" binding:"required" time_format:"2022-08-12T17:18:19"`
 
 	// Keywords is the list of keywords to be attached to the url
 	Keywords []string `json:"keywords"`

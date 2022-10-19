@@ -5,7 +5,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//HashPassword hashes the user password
+//HashPassword hashes a user plain text password and returns the hashed password
 func HashPassword(value string) (string, error) {
 	if value == "" {
 		return "", errdefs.ErrInvalidPasswordLen
