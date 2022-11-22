@@ -13,7 +13,7 @@ require (
 	github.com/joho/godotenv v1.4.0
 	github.com/matoous/go-nanoid v1.5.0
 	github.com/onsi/ginkgo/v2 v2.5.1
-	github.com/onsi/gomega v1.24.0
+	github.com/onsi/gomega v1.24.1
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.4.0
 	github.com/sirupsen/logrus v1.9.0
@@ -59,7 +59,7 @@ require (
 	github.com/xdg-go/scram v1.1.1 // indirect
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
