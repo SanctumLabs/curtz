@@ -12,7 +12,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/joho/godotenv v1.4.0
 	github.com/matoous/go-nanoid v1.5.0
-	github.com/onsi/ginkgo/v2 v2.6.1
+	github.com/onsi/ginkgo/v2 v2.7.0
 	github.com/onsi/gomega v1.24.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.4.0
