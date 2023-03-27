@@ -13,7 +13,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/matoous/go-nanoid v1.5.0
 	github.com/onsi/ginkgo/v2 v2.9.2
-	github.com/onsi/gomega v1.27.4
+	github.com/onsi/gomega v1.27.5
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.4.0
 	github.com/sirupsen/logrus v1.9.0
