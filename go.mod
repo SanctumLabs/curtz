@@ -21,8 +21,8 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.8.12
-	go.mongodb.org/mongo-driver v1.11.3
 	golang.org/x/crypto v0.8.0
+	go.mongodb.org/mongo-driver v1.11.4
 )
 
 require (
