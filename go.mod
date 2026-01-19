@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	bou.ke/monkey v1.0.2
 	github.com/getsentry/sentry-go v0.41.0
-	github.com/getsentry/sentry-go/gin v0.40.0
+	github.com/getsentry/sentry-go/gin v0.41.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
 	github.com/go-redis/redis/v8 v8.11.5
