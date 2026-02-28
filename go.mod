@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	bou.ke/monkey v1.0.2
 	github.com/getsentry/sentry-go v0.43.0
-	github.com/getsentry/sentry-go/gin v0.42.0
+	github.com/getsentry/sentry-go/gin v0.43.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
 	github.com/go-redis/redis/v8 v8.11.5
@@ -77,7 +77,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.20.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
-	golang.org/x/net v0.49.0 // indirect
+	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
