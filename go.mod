@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	bou.ke/monkey v1.0.2
-	github.com/getsentry/sentry-go v0.45.1
+	github.com/getsentry/sentry-go v0.46.0
 	github.com/getsentry/sentry-go/gin v0.45.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-ozzo/ozzo-validation v3.6.0+incompatible
