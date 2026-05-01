@@ -1,48 +1,321 @@
 package errdefs
 
-import "errors"
-
-var (
-	ErrInvalidUserId                = errors.New("user id is invalid")
-	ErrInvalidUrlId                 = errors.New("url id is invalid")
-	ErrInvalidCustomAlias           = errors.New("custom alias is invalid")
-	ErrServerError                  = errors.New("unexpected error encountered in server side")
-	ErrInvalidURL                   = errors.New("url is invalid")
-	ErrFilteredURL                  = errors.New("url matches filter pattern")
-	ErrURLAlreadyExists             = errors.New("url matches filter pattern")
-	ErrURLNotFound                  = errors.New("url not found")
-	ErrURLExpired                   = errors.New("url expired")
-	ErrEmailInvalid                 = errors.New("email is invalid")
-	ErrInvalidPasswordLen           = errors.New("password length is invalid")
-	ErrPasswordMissmatch            = errors.New("passwords don't match")
-	ErrInvalidDate                  = errors.New("expires_on should be in 'yyyy-mm-dd hh:mm:ss' format")
-	ErrURLAlreadyShort              = errors.New("url is already shortened")
-	ErrNoMatchingData               = errors.New("no data matching given criteria")
-	ErrShortCodeEmpty               = errors.New("short_code must not be empty")
-	ErrNoShortCode                  = errors.New("short_code is not found")
-	ErrTokenRequired                = errors.New("auth token is required")
-	ErrTokenInvalid                 = errors.New("auth token is invalid")
-	ErrUserExists                   = errors.New("User already exists")
-	ErrUserDoestNotExist            = errors.New("User does not exist")
-	ErrCustomAliasInvalidLength     = errors.New("custom alias must be between 3 and 100 characters")
-	ErrCustomAliasInvalidCharacters = errors.New("custom alias can only contain alphanumeric characters and dashes")
-	ErrInvalidURLLen                = errors.New("original URL must be between 5 and 2048 characters")
-	ErrPastExpiration               = errors.New("expiration date cannot be in the past")
-	ErrKeywordsCount                = errors.New("cannot have more than 10 keywords")
-	ErrKeywordLength                = errors.New("keyword must be between 2 and 25 characters")
-	ErrInvalidKeyword               = errors.New("keyword can only contain alphanumeric characters, dashes, and underscores")
-	ErrShortCodeInvalidLength       = errors.New("short code must be between 6 and 10 characters")
-	ErrShortCodeInvalidCharacters   = errors.New("short code can only contain alphanumeric characters")
+import (
+	"context"
 )
 
-type Error struct {
-	msg string
+type errNotFound struct{ error }
+
+func (errNotFound) NotFound() {}
+
+func (e errNotFound) Cause() error {
+	return e.error
 }
 
-func (e *Error) Error() string {
-	return e.msg
+func (e errNotFound) Unwrap() error {
+	return e.error
 }
 
-func NewError(msg string) Error {
-	return Error{msg}
+// NotFound is a helper to create an error of the class with the same name from any error type
+func NotFound(err error) error {
+	if err == nil || IsNotFound(err) {
+		return err
+	}
+	return errNotFound{err}
+}
+
+type errInvalidParameter struct{ error }
+
+func (errInvalidParameter) InvalidParameter() {}
+
+func (e errInvalidParameter) Cause() error {
+	return e.error
+}
+
+func (e errInvalidParameter) Unwrap() error {
+	return e.error
+}
+
+// InvalidParameter is a helper to create an error of the class with the same name from any error type
+func InvalidParameter(err error) error {
+	if err == nil || IsInvalidParameter(err) {
+		return err
+	}
+	return errInvalidParameter{err}
+}
+
+type errConflict struct{ error }
+
+func (errConflict) Conflict() {}
+
+func (e errConflict) Cause() error {
+	return e.error
+}
+
+func (e errConflict) Unwrap() error {
+	return e.error
+}
+
+// Conflict is a helper to create an error of the class with the same name from any error type
+func Conflict(err error) error {
+	if err == nil || IsConflict(err) {
+		return err
+	}
+	return errConflict{err}
+}
+
+type errUnauthorized struct{ error }
+
+func (errUnauthorized) Unauthorized() {}
+
+func (e errUnauthorized) Cause() error {
+	return e.error
+}
+
+func (e errUnauthorized) Unwrap() error {
+	return e.error
+}
+
+// Unauthorized is a helper to create an error of the class with the same name from any error type
+func Unauthorized(err error) error {
+	if err == nil || IsUnauthorized(err) {
+		return err
+	}
+	return errUnauthorized{err}
+}
+
+type errUnavailable struct{ error }
+
+func (errUnavailable) Unavailable() {}
+
+func (e errUnavailable) Cause() error {
+	return e.error
+}
+
+func (e errUnavailable) Unwrap() error {
+	return e.error
+}
+
+// Unavailable is a helper to create an error of the class with the same name from any error type
+func Unavailable(err error) error {
+	if err == nil || IsUnavailable(err) {
+		return err
+	}
+	return errUnavailable{err}
+}
+
+type errForbidden struct{ error }
+
+func (errForbidden) Forbidden() {}
+
+func (e errForbidden) Cause() error {
+	return e.error
+}
+
+func (e errForbidden) Unwrap() error {
+	return e.error
+}
+
+// Forbidden is a helper to create an error of the class with the same name from any error type
+func Forbidden(err error) error {
+	if err == nil || IsForbidden(err) {
+		return err
+	}
+	return errForbidden{err}
+}
+
+type errSystem struct{ error }
+
+func (errSystem) System() {}
+
+func (e errSystem) Cause() error {
+	return e.error
+}
+
+func (e errSystem) Unwrap() error {
+	return e.error
+}
+
+// System is a helper to create an error of the class with the same name from any error type
+func System(err error) error {
+	if err == nil || IsSystem(err) {
+		return err
+	}
+	return errSystem{err}
+}
+
+type errNotModified struct{ error }
+
+func (errNotModified) NotModified() {}
+
+func (e errNotModified) Cause() error {
+	return e.error
+}
+
+func (e errNotModified) Unwrap() error {
+	return e.error
+}
+
+// NotModified is a helper to create an error of the class with the same name from any error type
+func NotModified(err error) error {
+	if err == nil || IsNotModified(err) {
+		return err
+	}
+	return errNotModified{err}
+}
+
+type errNotImplemented struct{ error }
+
+func (errNotImplemented) NotImplemented() {}
+
+func (e errNotImplemented) Cause() error {
+	return e.error
+}
+
+func (e errNotImplemented) Unwrap() error {
+	return e.error
+}
+
+// NotImplemented is a helper to create an error of the class with the same name from any error type
+func NotImplemented(err error) error {
+	if err == nil || IsNotImplemented(err) {
+		return err
+	}
+	return errNotImplemented{err}
+}
+
+type errUnknown struct{ error }
+
+func (errUnknown) Unknown() {}
+
+func (e errUnknown) Cause() error {
+	return e.error
+}
+
+func (e errUnknown) Unwrap() error {
+	return e.error
+}
+
+// Unknown is a helper to create an error of the class with the same name from any error type
+func Unknown(err error) error {
+	if err == nil || IsUnknown(err) {
+		return err
+	}
+	return errUnknown{err}
+}
+
+type errCancelled struct{ error }
+
+func (errCancelled) Cancelled() {}
+
+func (e errCancelled) Cause() error {
+	return e.error
+}
+
+func (e errCancelled) Unwrap() error {
+	return e.error
+}
+
+// Cancelled is a helper to create an error of the class with the same name from any error type
+func Cancelled(err error) error {
+	if err == nil || IsCancelled(err) {
+		return err
+	}
+	return errCancelled{err}
+}
+
+type errDeadline struct{ error }
+
+func (errDeadline) DeadlineExceeded() {}
+
+func (e errDeadline) Cause() error {
+	return e.error
+}
+
+func (e errDeadline) Unwrap() error {
+	return e.error
+}
+
+// Deadline is a helper to create an error of the class with the same name from any error type
+func Deadline(err error) error {
+	if err == nil || IsDeadline(err) {
+		return err
+	}
+	return errDeadline{err}
+}
+
+type errDataLoss struct{ error }
+
+func (errDataLoss) DataLoss() {}
+
+func (e errDataLoss) Cause() error {
+	return e.error
+}
+
+func (e errDataLoss) Unwrap() error {
+	return e.error
+}
+
+// DataLoss is a helper to create an error of the class with the same name from any error type
+func DataLoss(err error) error {
+	if err == nil || IsDataLoss(err) {
+		return err
+	}
+	return errDataLoss{err}
+}
+
+type errBadRequest struct{ error }
+
+func (errBadRequest) BadRequest() {}
+
+func (e errBadRequest) Cause() error {
+	return e.error
+}
+
+func (e errBadRequest) Unwrap() error {
+	return e.error
+}
+
+func BadRequest(err error) error {
+	if err == nil || IsBadRequest(err) {
+		return err
+	}
+	return errBadRequest{err}
+}
+
+type errPermanentlyFailed struct {
+	error
+}
+
+func (errPermanentlyFailed) PermanentlyFailed() {}
+
+func (e errPermanentlyFailed) Cause() error {
+	return e.error
+}
+
+func (e errPermanentlyFailed) Unwrap() error {
+	return e.error
+}
+
+func PermanentlyFailed(err error) error {
+	if err == nil || IsPermanentlyFailed(err) {
+		return err
+	}
+	return errPermanentlyFailed{err}
+}
+
+// FromContext returns the error class from the passed in context
+func FromContext(ctx context.Context) error {
+	e := ctx.Err()
+	if e == nil {
+		return nil
+	}
+
+	if e == context.Canceled {
+		return Cancelled(e)
+	}
+	if e == context.DeadlineExceeded {
+		return Deadline(e)
+	}
+	return Unknown(e)
 }
