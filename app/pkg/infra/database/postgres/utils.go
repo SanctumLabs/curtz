@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
 func buildConnectionString(config PostgresDatabaseConfig) string {
@@ -26,10 +27,10 @@ func WithTransactionRetry[T any](
 	ctx context.Context,
 	db *pgxpool.Pool,
 	operation func(tx pgx.Tx) (T, error),
-	config tools.RetryConfig,
+	config recoveryutils.RetryConfig,
 	operationName string,
 ) (T, error) {
-	return tools.ExecuteWithRetry(ctx, func(ctx context.Context) (T, error) {
+	return recoveryutils.ExecuteWithRetry(ctx, func(ctx context.Context) (T, error) {
 		tx, err := db.Begin(ctx)
 		if err != nil {
 			var result T
