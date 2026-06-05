@@ -82,7 +82,8 @@ func (q *Queries) QueryDeleteApiKeyWithId(ctx context.Context, id pgtype.UUID) (
 const querySoftDeleteApiKey = `-- name: QuerySoftDeleteApiKey :one
 UPDATE api_keys
 SET
-  deleted_at = $2
+  deleted_at = $2,
+  updated_at = NOW()
 WHERE id = $1 RETURNING id, user_id, key_hash, name, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at, deleted_at
 `
 
@@ -95,7 +96,8 @@ type QuerySoftDeleteApiKeyParams struct {
 //
 //	UPDATE api_keys
 //	SET
-//	  deleted_at = $2
+//	  deleted_at = $2,
+//	  updated_at = NOW()
 //	WHERE id = $1 RETURNING id, user_id, key_hash, name, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at, deleted_at
 func (q *Queries) QuerySoftDeleteApiKey(ctx context.Context, arg QuerySoftDeleteApiKeyParams) (ApiKey, error) {
 	row := q.db.QueryRow(ctx, querySoftDeleteApiKey, arg.ID, arg.DeletedAt)
@@ -120,7 +122,8 @@ const queryUpdateApiKey = `-- name: QueryUpdateApiKey :one
 UPDATE api_keys ak
 SET
   last_used_at=$2,
-  expires_at=$3
+  expires_at=$3,
+  updated_at=NOW()
 WHERE ak.id = $1 RETURNING id, user_id, key_hash, name, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at, deleted_at
 `
 
@@ -135,7 +138,8 @@ type QueryUpdateApiKeyParams struct {
 //	UPDATE api_keys ak
 //	SET
 //	  last_used_at=$2,
-//	  expires_at=$3
+//	  expires_at=$3,
+//	  updated_at=NOW()
 //	WHERE ak.id = $1 RETURNING id, user_id, key_hash, name, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateApiKey(ctx context.Context, arg QueryUpdateApiKeyParams) (ApiKey, error) {
 	row := q.db.QueryRow(ctx, queryUpdateApiKey, arg.ID, arg.LastUsedAt, arg.ExpiresAt)
@@ -159,7 +163,8 @@ func (q *Queries) QueryUpdateApiKey(ctx context.Context, arg QueryUpdateApiKeyPa
 const queryUpdateApiKeyLastUsed = `-- name: QueryUpdateApiKeyLastUsed :one
 UPDATE api_keys ak
 SET
-  last_used_at=$2
+  last_used_at=$2,
+  updated_at=NOW()
 WHERE ak.id = $1 RETURNING id, user_id, key_hash, name, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at, deleted_at
 `
 
@@ -172,7 +177,8 @@ type QueryUpdateApiKeyLastUsedParams struct {
 //
 //	UPDATE api_keys ak
 //	SET
-//	  last_used_at=$2
+//	  last_used_at=$2,
+//	  updated_at=NOW()
 //	WHERE ak.id = $1 RETURNING id, user_id, key_hash, name, scopes, rate_limit, last_used_at, expires_at, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateApiKeyLastUsed(ctx context.Context, arg QueryUpdateApiKeyLastUsedParams) (ApiKey, error) {
 	row := q.db.QueryRow(ctx, queryUpdateApiKeyLastUsed, arg.ID, arg.LastUsedAt)
