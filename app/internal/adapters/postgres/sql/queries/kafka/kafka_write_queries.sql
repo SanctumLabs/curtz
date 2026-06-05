@@ -17,28 +17,28 @@ SET
   sent_time=$3,
   destination=$4,
   updated_at=now()
-WHERE koe.uuid = $1 RETURNING *;
+WHERE koe.id = $1 RETURNING *;
 
 -- name: QueryUpdateKafkaOutboxEventError :one
 UPDATE kafka_outbox_events AS koe
 SET
   error_message=$2,
   updated_at=now()
-WHERE koe.uuid = $1 RETURNING *;
+WHERE koe.id = $1 RETURNING *;
 
 -- name: QuerySoftDeleteKafkaOutboxEvent :one
 UPDATE kafka_outbox_events
 SET
   deleted_at = $2,
   updated_at = now()
-WHERE uuid = $1 RETURNING *;
+WHERE id = $1 RETURNING *;
 
 -- name: QueryDeleteKafkaOutboxEvent :one
-DELETE FROM kafka_outbox_events WHERE uuid = $1 RETURNING *;
+DELETE FROM kafka_outbox_events WHERE id = $1 RETURNING *;
 
 -- name: QueryMarkKafkaOutboxEventAsSent :one
 UPDATE kafka_outbox_events
 SET
   sent_time=$2,
   updated_at=now()
-WHERE uuid = $1 RETURNING *;
+WHERE id = $1 RETURNING *;
