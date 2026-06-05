@@ -13,7 +13,8 @@ import (
 
 const queryAllApiKeys = `-- name: QueryAllApiKeys :many
 SELECT
-  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at
+  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at,
+  COUNT(*) OVER() AS total_records
 FROM api_keys ak
 WHERE CASE 
   WHEN $1::bool=true THEN ak.deleted_at IS NULL OR ak.deleted_at IS NOT NULL
@@ -32,13 +33,15 @@ type QueryAllApiKeysParams struct {
 }
 
 type QueryAllApiKeysRow struct {
-	ApiKey ApiKey `db:"api_key" json:"api_key"`
+	ApiKey       ApiKey `db:"api_key" json:"api_key"`
+	TotalRecords int64  `db:"total_records" json:"total_records"`
 }
 
 // QueryAllApiKeys
 //
 //	SELECT
-//	  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at
+//	  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at,
+//	  COUNT(*) OVER() AS total_records
 //	FROM api_keys ak
 //	WHERE CASE
 //	  WHEN $1::bool=true THEN ak.deleted_at IS NULL OR ak.deleted_at IS NOT NULL
@@ -69,6 +72,7 @@ func (q *Queries) QueryAllApiKeys(ctx context.Context, arg QueryAllApiKeysParams
 			&i.ApiKey.CreatedAt,
 			&i.ApiKey.UpdatedAt,
 			&i.ApiKey.DeletedAt,
+			&i.TotalRecords,
 		); err != nil {
 			return nil, err
 		}
@@ -118,7 +122,8 @@ func (q *Queries) QueryApiKeyById(ctx context.Context, id pgtype.UUID) (QueryApi
 
 const queryApiKeysByUser = `-- name: QueryApiKeysByUser :many
 SELECT
-  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at
+  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at,
+  COUNT(*) OVER() AS total_records
 FROM api_keys ak
 WHERE $2::bool OR ak.deleted_at IS NULL
 AND ak.user_id = $1
@@ -169,13 +174,15 @@ type QueryApiKeysByUserParams struct {
 }
 
 type QueryApiKeysByUserRow struct {
-	ApiKey ApiKey `db:"api_key" json:"api_key"`
+	ApiKey       ApiKey `db:"api_key" json:"api_key"`
+	TotalRecords int64  `db:"total_records" json:"total_records"`
 }
 
 // Date range filtering
 //
 //	SELECT
-//	  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at
+//	  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at,
+//	  COUNT(*) OVER() AS total_records
 //	FROM api_keys ak
 //	WHERE $2::bool OR ak.deleted_at IS NULL
 //	AND ak.user_id = $1
@@ -242,6 +249,7 @@ func (q *Queries) QueryApiKeysByUser(ctx context.Context, arg QueryApiKeysByUser
 			&i.ApiKey.CreatedAt,
 			&i.ApiKey.UpdatedAt,
 			&i.ApiKey.DeletedAt,
+			&i.TotalRecords,
 		); err != nil {
 			return nil, err
 		}

@@ -6,7 +6,8 @@ WHERE ak.id = $1;
 
 -- name: QueryAllApiKeys :many
 SELECT
-  sqlc.embed(ak)
+  sqlc.embed(ak),
+  COUNT(*) OVER() AS total_records
 FROM api_keys ak
 WHERE CASE 
   WHEN sqlc.arg(include_deleted)::bool=true THEN ak.deleted_at IS NULL OR ak.deleted_at IS NOT NULL
@@ -19,7 +20,8 @@ OFFSET sqlc.arg(current_offset);
 
 -- name: QueryApiKeysByUser :many
 SELECT
-  sqlc.embed(ak)
+  sqlc.embed(ak),
+  COUNT(*) OVER() AS total_records
 FROM api_keys ak
 WHERE sqlc.arg(include_deleted)::bool OR ak.deleted_at IS NULL
 AND ak.user_id = $1

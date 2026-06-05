@@ -8,7 +8,8 @@ SELECT
   description,
   created_at,
   updated_at,
-  deleted_at
+  deleted_at,
+  COUNT(*) OVER() AS total_records
 FROM user_status us
 WHERE CASE 
   WHEN sqlc.arg(include_deleted)::bool=true THEN us.deleted_at IS NULL OR us.deleted_at IS NOT NULL

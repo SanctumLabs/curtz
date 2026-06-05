@@ -18,7 +18,8 @@ SELECT
   description,
   created_at,
   updated_at,
-  deleted_at
+  deleted_at,
+  COUNT(*) OVER() AS total_records
 FROM user_status us
 WHERE CASE 
   WHEN $1::bool=true THEN us.deleted_at IS NULL OR us.deleted_at IS NOT NULL
@@ -36,6 +37,16 @@ type QueryAllUserStatusesParams struct {
 	LimitBy        int32 `db:"limit_by" json:"limit_by"`
 }
 
+type QueryAllUserStatusesRow struct {
+	ID           pgtype.UUID        `db:"id" json:"id"`
+	Name         string             `db:"name" json:"name"`
+	Description  pgtype.Text        `db:"description" json:"description"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	DeletedAt    pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	TotalRecords int64              `db:"total_records" json:"total_records"`
+}
+
 // QueryAllUserStatuses
 //
 //	SELECT
@@ -44,7 +55,8 @@ type QueryAllUserStatusesParams struct {
 //	  description,
 //	  created_at,
 //	  updated_at,
-//	  deleted_at
+//	  deleted_at,
+//	  COUNT(*) OVER() AS total_records
 //	FROM user_status us
 //	WHERE CASE
 //	  WHEN $1::bool=true THEN us.deleted_at IS NULL OR us.deleted_at IS NOT NULL
@@ -54,15 +66,15 @@ type QueryAllUserStatusesParams struct {
 //	ORDER BY us.created_at DESC
 //	LIMIT $3
 //	OFFSET $2
-func (q *Queries) QueryAllUserStatuses(ctx context.Context, arg QueryAllUserStatusesParams) ([]UserStatus, error) {
+func (q *Queries) QueryAllUserStatuses(ctx context.Context, arg QueryAllUserStatusesParams) ([]QueryAllUserStatusesRow, error) {
 	rows, err := q.db.Query(ctx, queryAllUserStatuses, arg.IncludeDeleted, arg.CurrentOffset, arg.LimitBy)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []UserStatus
+	var items []QueryAllUserStatusesRow
 	for rows.Next() {
-		var i UserStatus
+		var i QueryAllUserStatusesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -70,6 +82,7 @@ func (q *Queries) QueryAllUserStatuses(ctx context.Context, arg QueryAllUserStat
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.TotalRecords,
 		); err != nil {
 			return nil, err
 		}
