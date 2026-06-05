@@ -107,15 +107,17 @@ CREATE UNIQUE INDEX idx_users_email ON users (email);
 
 -- API keys (Identity context)
 CREATE TABLE IF NOT EXISTS api_keys (
-    id           VARCHAR(20)  PRIMARY KEY,
-    user_id      VARCHAR(20)  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id           UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    user_id      UUID  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     key_hash     VARCHAR(64)  NOT NULL, -- SHA-256 of the raw key
     name         VARCHAR(100) NOT NULL,
     scopes       TEXT[]       NOT NULL DEFAULT '{}',
     rate_limit   INTEGER      NOT NULL DEFAULT 1000, -- requests per minute
     last_used_at TIMESTAMPTZ,
     expires_at   TIMESTAMPTZ,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    deleted_at   TIMESTAMPTZ NULL
 );
 
 CREATE UNIQUE INDEX idx_api_keys_hash ON api_keys (key_hash);
@@ -161,8 +163,8 @@ INSERT INTO url_status (name, description) VALUES ('EXPIRED', 'Indicates that th
 
 -- URLs (URL context — core domain)
 CREATE TABLE IF NOT EXISTS urls (
-    id           VARCHAR(20)  PRIMARY KEY,
-    user_id      VARCHAR(20)  NOT NULL REFERENCES users(id),
+    id           UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    user_id      UUID NOT NULL REFERENCES users(id),
     short_code   VARCHAR(12)  NOT NULL,
     custom_alias VARCHAR(12),
     original_url TEXT         NOT NULL,
@@ -204,8 +206,8 @@ COMMENT ON COLUMN urls.deleted_at IS 'Timestamp when the URL was deleted (soft d
 
 -- Keywords (URL context)
 CREATE TABLE IF NOT EXISTS keywords (
-    id         VARCHAR(20)  PRIMARY KEY,
-    url_id     VARCHAR(20)  NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
+    id         UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    url_id     UUID  NOT NULL REFERENCES urls(id) ON DELETE CASCADE,
     value      VARCHAR(100) NOT NULL,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -229,9 +231,9 @@ COMMENT ON COLUMN keywords.deleted_at IS 'Timestamp when the keyword was deleted
 
 -- Webhooks (Notification context)
 CREATE TABLE IF NOT EXISTS webhooks (
-    id         VARCHAR(20)  PRIMARY KEY,
-    user_id    VARCHAR(20)  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    url_id     VARCHAR(20)  REFERENCES urls(id) ON DELETE CASCADE, -- NULL = all URLs
+    id         UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    user_id    UUID  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    url_id     UUID  REFERENCES urls(id) ON DELETE CASCADE, -- NULL = all URLs
     endpoint   TEXT         NOT NULL,
     secret     VARCHAR(64)  NOT NULL, -- HMAC signing secret
     events     TEXT[]       NOT NULL, -- e.g. {'url.accessed', 'url.expired'}
@@ -262,8 +264,8 @@ COMMENT ON COLUMN webhooks.deleted_at IS 'Timestamp when the webhook was deleted
 
 -- Security scan results (Security context)
 CREATE TABLE IF NOT EXISTS url_scans (
-    id           VARCHAR(20)  PRIMARY KEY,
-    url_id       VARCHAR(20)  NOT NULL REFERENCES urls(id),
+    id           UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    url_id       UUID  NOT NULL REFERENCES urls(id),
     provider     VARCHAR(50)  NOT NULL, -- 'google_safe_browsing' | 'virustotal'
     result       VARCHAR(20)  NOT NULL, -- 'safe' | 'malware' | 'phishing' | 'unknown'
     raw_response JSONB,
@@ -286,7 +288,7 @@ COMMENT ON COLUMN url_scans.scanned_at IS 'Timestamp when the URL was scanned.';
 
 -- outbox events
 CREATE TABLE outbox_events (
-    id              VARCHAR PRIMARY KEY NOT NULL DEFAULT (generate_uuid()),
+    id              UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     group_id        VARCHAR,
     correlation_id  VARCHAR,
     destination     VARCHAR NOT NULL,
@@ -323,7 +325,7 @@ COMMENT ON COLUMN outbox_events.updated_at IS 'Timestamp when the outbox event w
 COMMENT ON COLUMN outbox_events.deleted_at IS 'Timestamp when the outbox event was soft deleted, null if active';
 
 CREATE TABLE kafka_outbox_events (
-    id              VARCHAR PRIMARY KEY NOT NULL DEFAULT (generate_uuid()),
+    id              UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
     correlation_id  VARCHAR,
     partition_key   VARCHAR,
     destination     VARCHAR NOT NULL,

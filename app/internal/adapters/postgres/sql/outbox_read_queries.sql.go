@@ -207,7 +207,7 @@ type QueryOutboxEventByIdRow struct {
 //	  oe.id, oe.group_id, oe.correlation_id, oe.destination, oe.event_type, oe.headers, oe.payload, oe.error_message, oe.metadata, oe.sent_time, oe.processing_at, oe.created_at, oe.updated_at, oe.deleted_at
 //	FROM outbox_events oe
 //	WHERE oe.id = $1
-func (q *Queries) QueryOutboxEventById(ctx context.Context, id string) (QueryOutboxEventByIdRow, error) {
+func (q *Queries) QueryOutboxEventById(ctx context.Context, id pgtype.UUID) (QueryOutboxEventByIdRow, error) {
 	row := q.db.QueryRow(ctx, queryOutboxEventById, id)
 	var i QueryOutboxEventByIdRow
 	err := row.Scan(

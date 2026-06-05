@@ -203,7 +203,7 @@ type QueryKafkaOutboxEventByIdRow struct {
 //	  koe.id, koe.correlation_id, koe.partition_key, koe.destination, koe.event_type, koe.payload, koe.error_message, koe.metadata, koe.sent_time, koe.created_at, koe.updated_at, koe.deleted_at
 //	FROM kafka_outbox_events koe
 //	WHERE koe.id = $1
-func (q *Queries) QueryKafkaOutboxEventById(ctx context.Context, id string) (QueryKafkaOutboxEventByIdRow, error) {
+func (q *Queries) QueryKafkaOutboxEventById(ctx context.Context, id pgtype.UUID) (QueryKafkaOutboxEventByIdRow, error) {
 	row := q.db.QueryRow(ctx, queryKafkaOutboxEventById, id)
 	var i QueryKafkaOutboxEventByIdRow
 	err := row.Scan(
