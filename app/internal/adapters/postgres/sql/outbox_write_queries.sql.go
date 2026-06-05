@@ -87,7 +87,7 @@ DELETE FROM outbox_events WHERE id = $1 RETURNING id, group_id, correlation_id, 
 // QueryDeleteOutboxEvent
 //
 //	DELETE FROM outbox_events WHERE id = $1 RETURNING id, group_id, correlation_id, destination, event_type, headers, payload, error_message, metadata, sent_time, processing_at, created_at, updated_at, deleted_at
-func (q *Queries) QueryDeleteOutboxEvent(ctx context.Context, id string) (OutboxEvent, error) {
+func (q *Queries) QueryDeleteOutboxEvent(ctx context.Context, id pgtype.UUID) (OutboxEvent, error) {
 	row := q.db.QueryRow(ctx, queryDeleteOutboxEvent, id)
 	var i OutboxEvent
 	err := row.Scan(
@@ -134,7 +134,7 @@ RETURNING id, group_id, correlation_id, destination, event_type, headers, payloa
 //	  deleted_at = now()
 //	WHERE id = $1
 //	RETURNING id, group_id, correlation_id, destination, event_type, headers, payload, error_message, metadata, sent_time, processing_at, created_at, updated_at, deleted_at
-func (q *Queries) QueryMarkOutboxEventAsPermanentlyFailed(ctx context.Context, id string) (OutboxEvent, error) {
+func (q *Queries) QueryMarkOutboxEventAsPermanentlyFailed(ctx context.Context, id pgtype.UUID) (OutboxEvent, error) {
 	row := q.db.QueryRow(ctx, queryMarkOutboxEventAsPermanentlyFailed, id)
 	var i OutboxEvent
 	err := row.Scan(
@@ -165,7 +165,7 @@ WHERE id = $1 RETURNING id, group_id, correlation_id, destination, event_type, h
 `
 
 type QueryMarkOutboxEventAsSentParams struct {
-	ID       string             `db:"id" json:"id"`
+	ID       pgtype.UUID        `db:"id" json:"id"`
 	SentTime pgtype.Timestamptz `db:"sent_time" json:"sent_time"`
 }
 
@@ -207,7 +207,7 @@ WHERE id = $1 RETURNING id, group_id, correlation_id, destination, event_type, h
 `
 
 type QuerySoftDeleteOutboxEventParams struct {
-	ID        string             `db:"id" json:"id"`
+	ID        pgtype.UUID        `db:"id" json:"id"`
 	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
@@ -251,7 +251,7 @@ WHERE oe.id = $1 RETURNING id, group_id, correlation_id, destination, event_type
 `
 
 type QueryUpdateOutboxEventParams struct {
-	ID           string             `db:"id" json:"id"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
 	ErrorMessage pgtype.Text        `db:"error_message" json:"error_message"`
 	SentTime     pgtype.Timestamptz `db:"sent_time" json:"sent_time"`
 	Destination  string             `db:"destination" json:"destination"`
@@ -302,7 +302,7 @@ WHERE id = $1 RETURNING id, group_id, correlation_id, destination, event_type, h
 `
 
 type QueryUpdateOutboxEventAsProcessingParams struct {
-	ID           string             `db:"id" json:"id"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
 	ProcessingAt pgtype.Timestamptz `db:"processing_at" json:"processing_at"`
 }
 
@@ -344,7 +344,7 @@ WHERE oe.id = $1 RETURNING id, group_id, correlation_id, destination, event_type
 `
 
 type QueryUpdateOutboxEventErrorParams struct {
-	ID           string      `db:"id" json:"id"`
+	ID           pgtype.UUID `db:"id" json:"id"`
 	ErrorMessage pgtype.Text `db:"error_message" json:"error_message"`
 }
 

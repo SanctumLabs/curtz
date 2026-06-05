@@ -81,7 +81,7 @@ DELETE FROM kafka_outbox_events WHERE id = $1 RETURNING id, correlation_id, part
 // QueryDeleteKafkaOutboxEvent
 //
 //	DELETE FROM kafka_outbox_events WHERE id = $1 RETURNING id, correlation_id, partition_key, destination, event_type, payload, error_message, metadata, sent_time, created_at, updated_at, deleted_at
-func (q *Queries) QueryDeleteKafkaOutboxEvent(ctx context.Context, id string) (KafkaOutboxEvent, error) {
+func (q *Queries) QueryDeleteKafkaOutboxEvent(ctx context.Context, id pgtype.UUID) (KafkaOutboxEvent, error) {
 	row := q.db.QueryRow(ctx, queryDeleteKafkaOutboxEvent, id)
 	var i KafkaOutboxEvent
 	err := row.Scan(
@@ -110,7 +110,7 @@ WHERE id = $1 RETURNING id, correlation_id, partition_key, destination, event_ty
 `
 
 type QueryMarkKafkaOutboxEventAsSentParams struct {
-	ID       string             `db:"id" json:"id"`
+	ID       pgtype.UUID        `db:"id" json:"id"`
 	SentTime pgtype.Timestamptz `db:"sent_time" json:"sent_time"`
 }
 
@@ -150,7 +150,7 @@ WHERE id = $1 RETURNING id, correlation_id, partition_key, destination, event_ty
 `
 
 type QuerySoftDeleteKafkaOutboxEventParams struct {
-	ID        string             `db:"id" json:"id"`
+	ID        pgtype.UUID        `db:"id" json:"id"`
 	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
@@ -192,7 +192,7 @@ WHERE koe.id = $1 RETURNING id, correlation_id, partition_key, destination, even
 `
 
 type QueryUpdateKafkaOutboxEventParams struct {
-	ID           string             `db:"id" json:"id"`
+	ID           pgtype.UUID        `db:"id" json:"id"`
 	ErrorMessage pgtype.Text        `db:"error_message" json:"error_message"`
 	SentTime     pgtype.Timestamptz `db:"sent_time" json:"sent_time"`
 	Destination  string             `db:"destination" json:"destination"`
@@ -241,7 +241,7 @@ WHERE koe.id = $1 RETURNING id, correlation_id, partition_key, destination, even
 `
 
 type QueryUpdateKafkaOutboxEventErrorParams struct {
-	ID           string      `db:"id" json:"id"`
+	ID           pgtype.UUID `db:"id" json:"id"`
 	ErrorMessage pgtype.Text `db:"error_message" json:"error_message"`
 }
 
