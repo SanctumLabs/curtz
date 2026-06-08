@@ -172,6 +172,12 @@ type UrlScan struct {
 	RawResponse []byte `db:"raw_response" json:"raw_response"`
 	// Timestamp when the URL was scanned.
 	ScannedAt pgtype.Timestamptz `db:"scanned_at" json:"scanned_at"`
+	// Timestamp when the scan record was created.
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	// Timestamp when the scan record was last updated.
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	// Timestamp when the scan record was deleted (soft delete).
+	DeletedAt pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
 }
 
 // Defines possible statuses for URL entries.
