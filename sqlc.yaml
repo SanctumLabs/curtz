@@ -116,6 +116,19 @@ sql:
         emit_db_tags: true
         emit_sql_as_comment: true
 
+  # Keywords
+  - engine: "postgresql"
+    queries: "app/internal/adapters/postgres/sql/queries/url/keywords/"
+    schema: "app/internal/adapters/postgres/sql/schema.sql"
+    gen:
+      go:
+        package: "postgresql"
+        out: "app/internal/adapters/postgres/sql"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_sql_as_comment: true
+
 plugins: []
 rules: []
 options: {}
