@@ -252,7 +252,7 @@ func (q *Queries) QueryUpdateUserPassword(ctx context.Context, arg QueryUpdateUs
 	return i, err
 }
 
-const queryUpdateUserStatus = `-- name: QueryUpdateUserStatus :one
+const queryUpdateUserStatusId = `-- name: QueryUpdateUserStatusId :one
 UPDATE users
 SET
   status_id=$2,
@@ -260,20 +260,20 @@ SET
 WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 `
 
-type QueryUpdateUserStatusParams struct {
+type QueryUpdateUserStatusIdParams struct {
 	ID       pgtype.UUID `db:"id" json:"id"`
 	StatusID pgtype.Text `db:"status_id" json:"status_id"`
 }
 
-// QueryUpdateUserStatus
+// QueryUpdateUserStatusId
 //
 //	UPDATE users
 //	SET
 //	  status_id=$2,
 //	  updated_at=NOW()
 //	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
-func (q *Queries) QueryUpdateUserStatus(ctx context.Context, arg QueryUpdateUserStatusParams) (User, error) {
-	row := q.db.QueryRow(ctx, queryUpdateUserStatus, arg.ID, arg.StatusID)
+func (q *Queries) QueryUpdateUserStatusId(ctx context.Context, arg QueryUpdateUserStatusIdParams) (User, error) {
+	row := q.db.QueryRow(ctx, queryUpdateUserStatusId, arg.ID, arg.StatusID)
 	var i User
 	err := row.Scan(
 		&i.ID,

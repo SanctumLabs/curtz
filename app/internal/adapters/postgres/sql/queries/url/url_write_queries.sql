@@ -26,7 +26,7 @@ UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 -- name: QueryUpdateUrlExpiresOn :one
 UPDATE urls SET expires_on=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 
--- name: QueryUpdateUrlStatus :one
+-- name: QueryUpdateUrlStatusId :one
 UPDATE urls
 SET
   status_id=$2,
