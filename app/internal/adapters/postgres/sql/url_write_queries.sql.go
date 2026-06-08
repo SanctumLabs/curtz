@@ -268,7 +268,7 @@ func (q *Queries) QueryUpdateUrlMetadata(ctx context.Context, arg QueryUpdateUrl
 	return i, err
 }
 
-const queryUpdateUrlStatus = `-- name: QueryUpdateUrlStatus :one
+const queryUpdateUrlStatusId = `-- name: QueryUpdateUrlStatusId :one
 UPDATE urls
 SET
   status_id=$2,
@@ -276,20 +276,20 @@ SET
 WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
-type QueryUpdateUrlStatusParams struct {
+type QueryUpdateUrlStatusIdParams struct {
 	ID       pgtype.UUID `db:"id" json:"id"`
 	StatusID pgtype.UUID `db:"status_id" json:"status_id"`
 }
 
-// QueryUpdateUrlStatus
+// QueryUpdateUrlStatusId
 //
 //	UPDATE urls
 //	SET
 //	  status_id=$2,
 //	  updated_at=NOW()
 //	WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
-func (q *Queries) QueryUpdateUrlStatus(ctx context.Context, arg QueryUpdateUrlStatusParams) (Url, error) {
-	row := q.db.QueryRow(ctx, queryUpdateUrlStatus, arg.ID, arg.StatusID)
+func (q *Queries) QueryUpdateUrlStatusId(ctx context.Context, arg QueryUpdateUrlStatusIdParams) (Url, error) {
+	row := q.db.QueryRow(ctx, queryUpdateUrlStatusId, arg.ID, arg.StatusID)
 	var i Url
 	err := row.Scan(
 		&i.ID,

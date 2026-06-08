@@ -26,7 +26,7 @@ UPDATE users SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 -- name: QueryUpdateUserPassword :one
 UPDATE users SET password_hash=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 
--- name: QueryUpdateUserStatus :one
+-- name: QueryUpdateUserStatusId :one
 UPDATE users
 SET
   status_id=$2,
