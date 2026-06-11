@@ -33,6 +33,10 @@ type (
 
 		// ExpiresOn is the expiration date for the url
 		expiresOn time.Time
+
+		ogTitle       string
+		ogDescription string
+		ogImageUrl    string
 	}
 
 	// URLParams represents the parameters for creating or updating a url
@@ -56,6 +60,10 @@ type (
 
 		// Keywords is a list of keywords for the url
 		Keywords []string
+
+		OgTitle       string
+		OgDescription string
+		OgImageUrl    string
 
 		Status URLStatus
 	}
@@ -106,7 +114,14 @@ func NewUrl(params URLParams) (*URL, error) {
 		keywords:      kws,
 		expiresOn:     params.ExpiresOn,
 		status:        params.Status,
+		ogTitle:       params.OgTitle,
+		ogDescription: params.OgDescription,
+		ogImageUrl:    params.OgImageUrl,
 	}, nil
+}
+
+func (url *URL) UserId() entity.ID {
+	return url.userId
 }
 
 // IsActive checks if the url is active or not expired.
@@ -136,6 +151,18 @@ func (url *URL) CustomAlias() CustomAlias {
 
 func (url *URL) Status() URLStatus {
 	return url.status
+}
+
+func (url *URL) OgTitle() string {
+	return url.ogTitle
+}
+
+func (url *URL) OgDescription() string {
+	return url.ogDescription
+}
+
+func (url *URL) OgImageUrl() string {
+	return url.ogImageUrl
 }
 
 // ExpiryDuration returns as a time.Duration how long before the url expires

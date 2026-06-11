@@ -8,9 +8,10 @@ INSERT INTO urls (
   expires_on, 
   og_title, 
   og_description, 
-  og_image_url
+  og_image_url,
+  metadata
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
 
 -- name: QueryUpdateUrlDetails :one
 UPDATE urls
