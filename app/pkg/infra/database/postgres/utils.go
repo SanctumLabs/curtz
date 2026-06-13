@@ -148,7 +148,7 @@ func WithTransactionOptions[T any](ctx context.Context, dbClient database.Postgr
 		if err != nil {
 			err = tx.Rollback(ctx)
 			if err != nil {
-				slog.ErrorContext(ctx, "repository: failed to rollback tx: %w", err)
+				slog.ErrorContext(ctx, "repository: failed to rollback tx", "err", err)
 			}
 		}
 	}()
