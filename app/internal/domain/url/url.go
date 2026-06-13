@@ -77,7 +77,7 @@ func NewUrl(params URLParams) (*URL, error) {
 	}
 
 	if params.ExpiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
-		return nil, errdefs.ErrPastExpiration
+		return nil, fmt.Errorf(errdefs.ErrPastExpiration.Error(), params.ExpiresOn)
 	}
 
 	kws, err := createKeywords(params.Keywords)
@@ -178,4 +178,8 @@ func (url *URL) ExpiryDuration() time.Duration {
 // Prefix returns the url prefix for logging
 func (url *URL) Prefix() string {
 	return fmt.Sprintf("url-%s-%s", url.ID(), url.shortCode)
+}
+
+func (url *URL) String() string {
+	return fmt.Sprintf("url(id=%s, userId: %s)", url.ID(), url.userId)
 }

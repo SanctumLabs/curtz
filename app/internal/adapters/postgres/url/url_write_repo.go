@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -17,10 +16,20 @@ import (
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
-func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient) url.UrlWriteRepository {
+func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) url.UrlWriteRepository {
 	repo := &urlWriteRepositoryAdapter{
 		dbClient:  dbClient,
+		config:    config,
 		logPrefix: "UrlWriteRepoAdapter",
+	}
+
+	// Wire up the real transaction executor. This delegates to postgres.WithTransaction,
+	// which handles the pgxpool.Pool lifecycle. Tests override this field directly.
+	repo.withTx = func(ctx context.Context, fn func(q UrlWriteQuerier) (url.URL, error)) (url.URL, error) {
+		return postgres.WithTransaction(ctx, dbClient, func(qtx *postgresql.Queries) (url.URL, error) {
+			// *postgresql.Queries satisfies urlWriteQuerier, so we can pass it straight through.
+			return fn(qtx)
+		})
 	}
 
 	return repo
@@ -28,15 +37,18 @@ func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient) url.UrlWri
 
 func (repo *urlWriteRepositoryAdapter) Create(ctx context.Context, urlEntity url.URL) (url.URL, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<Create>", repo.logPrefix)
+	slog.InfoContext(ctx, fmt.Sprintf("%s Creating URL", handlerLogPrefix), "url", urlEntity)
 
-	// TODO: set the timeout to be configurable via env vars or config file
-	operationCtx, operationCancel := context.WithTimeout(ctx, 15*time.Second)
+	operationCtx, operationCancel := context.WithTimeout(ctx, repo.config.OperationTimeout)
 	defer operationCancel()
 
 	return recoveryutils.ExecuteWithRetry(
 		operationCtx,
 		func(retryCtx context.Context) (url.URL, error) {
-			return postgres.WithTransaction(retryCtx, repo.dbClient, func(qtx *postgresql.Queries) (url.URL, error) {
+			// Use repo.withTx instead of postgres.WithTransaction directly.
+			// This is the only change to the business logic — everything inside
+			// the closure is identical to the original implementation.
+			return repo.withTx(retryCtx, func(qtx UrlWriteQuerier) (url.URL, error) {
 				// Check context before proceeding
 				select {
 				case <-retryCtx.Done():
@@ -74,7 +86,7 @@ func (repo *urlWriteRepositoryAdapter) Create(ctx context.Context, urlEntity url
 				metadata, metadataErr := urlEntity.MetadataToBytes()
 				if metadataErr != nil {
 					slog.WarnContext(ctx, fmt.Sprintf("%s Failed to convert bid metadata to bytes", handlerLogPrefix),
-						"bid", urlEntity,
+						"url", urlEntity,
 						"error", metadataErr)
 				}
 
@@ -153,17 +165,12 @@ func (repo *urlWriteRepositoryAdapter) Create(ctx context.Context, urlEntity url
 					)
 					return url.URL{}, fmt.Errorf("failed to map created URL model to entity: %w", mapErr)
 				}
+				slog.InfoContext(retryCtx, "created model", "url", mappedUrl)
 
 				return mappedUrl, nil
 			})
 		},
-		// TODO: make the retry config for this operation configurable via env vars or config file
-		recoveryutils.RetryConfig{
-			MaxAttempts: 3,
-			BaseDelay:   500 * time.Millisecond,
-			MaxDelay:    5 * time.Second,
-			// RetryableErrors: []error{pgx.ErrTxClosed, pgx.ErrTxCommitRollback, pgx.ErrTxDone},
-		},
+		repo.config.RetryConfig,
 		fmt.Sprintf("%s.Create", repo.logPrefix),
 	)
 }

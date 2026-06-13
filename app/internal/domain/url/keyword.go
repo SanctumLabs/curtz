@@ -1,6 +1,7 @@
 package url
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -22,11 +23,11 @@ type Keyword struct {
 func NewKeyword(keyword string) (Keyword, error) {
 
 	if l := len(keyword); l < 2 || l > 25 {
-		return Keyword{}, errdefs.ErrKeywordLength
+		return Keyword{}, fmt.Errorf(errdefs.ErrKeywordLength.Error(), keyword)
 	}
 
 	if !kwRe.MatchString(keyword) {
-		return Keyword{}, errdefs.ErrInvalidKeyword
+		return Keyword{}, fmt.Errorf(errdefs.ErrInvalidKeyword.Error(), keyword)
 	}
 
 	id := identifier.New()

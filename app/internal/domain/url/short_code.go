@@ -1,6 +1,7 @@
 package url
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -21,7 +22,7 @@ func (sc ShortCode) Value() string {
 func NewShortCode(value string) (ShortCode, error) {
 	// Validate length
 	if len(value) < 6 || len(value) > 10 {
-		return ShortCode{}, errdefs.ErrShortCodeInvalidLength
+		return ShortCode{}, fmt.Errorf(errdefs.ErrShortCodeInvalidLength.Error(), value)
 	}
 
 	// Validate characters (base62 only)
