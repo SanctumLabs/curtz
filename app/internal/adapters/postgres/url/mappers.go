@@ -2,6 +2,7 @@ package urlrepo
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
@@ -42,7 +43,8 @@ func MapUrlModelToEntity(params UrlMapperParams) (url.URL, error) {
 	if urlModel.Metadata != nil {
 		urlMetadata, metadataErr := entity.BytesToMetadata(urlModel.Metadata)
 		if metadataErr != nil {
-			return url.URL{}, fmt.Errorf("failed to parse metadata when mapping url %v with error %w", urlModel.Metadata, metadataErr)
+			// Log a warning for failing to parse metadata, instead of failing
+			slog.Warn("failed to parse metadata when mapping url, skipping metadata mapping", "metadata", urlModel.Metadata, "error", metadataErr)
 		}
 		metadata = urlMetadata
 	}
