@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 )
 
 type (
@@ -76,9 +75,9 @@ func NewUrl(params URLParams) (*URL, error) {
 		return nil, err
 	}
 
-	if params.ExpiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
-		return nil, fmt.Errorf(errdefs.ErrPastExpiration.Error(), params.ExpiresOn)
-	}
+	// if params.ExpiresOn.In(time.UTC).Before(time.Now().In(time.UTC)) {
+	// 	return nil, fmt.Errorf(errdefs.ErrPastExpiration.Error(), params.ExpiresOn)
+	// }
 
 	kws, err := createKeywords(params.Keywords)
 	if err != nil {
