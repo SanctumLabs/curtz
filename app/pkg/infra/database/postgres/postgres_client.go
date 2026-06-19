@@ -101,6 +101,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (database.PostgresDatabase
 			slog.WarnContext(ctx,
 				fmt.Sprintf("%s> 🚫 failed to ping database, attempts left: %d", logPrefix, attemptsLeft-1),
 				"error", connectionErr,
+				"database", config.Name,
 			)
 			time.Sleep(pg.connTimeout)
 			attemptsLeft--

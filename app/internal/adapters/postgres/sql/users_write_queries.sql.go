@@ -21,7 +21,7 @@ type QueryCreateUserParams struct {
 	LastName     pgtype.Text `db:"last_name" json:"last_name"`
 	Email        string      `db:"email" json:"email"`
 	PasswordHash string      `db:"password_hash" json:"password_hash"`
-	StatusID     pgtype.Text `db:"status_id" json:"status_id"`
+	StatusID     pgtype.UUID `db:"status_id" json:"status_id"`
 }
 
 // QueryCreateUser
@@ -262,7 +262,7 @@ WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_has
 
 type QueryUpdateUserStatusIdParams struct {
 	ID       pgtype.UUID `db:"id" json:"id"`
-	StatusID pgtype.Text `db:"status_id" json:"status_id"`
+	StatusID pgtype.UUID `db:"status_id" json:"status_id"`
 }
 
 // QueryUpdateUserStatusId

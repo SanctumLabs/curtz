@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	"github.com/sanctumlabs/curtz/app/internal/domain/url"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -25,7 +26,7 @@ func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, config dat
 
 	// Wire up the real transaction executor. This delegates to postgres.WithTransaction,
 	// which handles the pgxpool.Pool lifecycle. Tests override this field directly.
-	repo.withTx = func(ctx context.Context, fn func(q UrlWriteQuerier) (url.URL, error)) (url.URL, error) {
+	repo.withTx = func(ctx context.Context, fn func(q postgresrepo.UrlWriteQuerier) (url.URL, error)) (url.URL, error) {
 		return postgres.WithTransaction(ctx, dbClient, func(qtx *postgresql.Queries) (url.URL, error) {
 			// *postgresql.Queries satisfies urlWriteQuerier, so we can pass it straight through.
 			return fn(qtx)
@@ -48,7 +49,7 @@ func (repo *urlWriteRepositoryAdapter) Create(ctx context.Context, urlEntity url
 			// Use repo.withTx instead of postgres.WithTransaction directly.
 			// This is the only change to the business logic — everything inside
 			// the closure is identical to the original implementation.
-			return repo.withTx(retryCtx, func(qtx UrlWriteQuerier) (url.URL, error) {
+			return repo.withTx(retryCtx, func(qtx postgresrepo.UrlWriteQuerier) (url.URL, error) {
 				// Check context before proceeding
 				select {
 				case <-retryCtx.Done():
