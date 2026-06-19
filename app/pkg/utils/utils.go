@@ -6,6 +6,7 @@ import (
 	"maps"
 	"math/rand"
 	"regexp"
+	"time"
 
 	"github.com/samber/lo"
 )
@@ -191,4 +192,23 @@ func PickRandomElement[T any](slice []T) (T, error) {
 
 	// Return the element at that random index with no error
 	return slice[randomIndex], nil
+}
+
+// GenerateRandomInt generates a random integer in the half open interval where the upper limit is defined.
+// if the upper limit is set to a value less than or equal to 0, this will be reset to a deterministic random value
+// in the range 1 < 100 were 100 is excluded from the range
+// to avoid panicking.
+func GenerateRandomInt(limits ...int) int {
+	upperLimit := 100
+	if len(limits) > 0 {
+		limit := limits[0]
+		if limit <= 0 {
+			upperLimit = rand.Intn(100)
+		}
+	}
+
+	source := rand.NewSource(time.Now().UnixNano())
+	random := rand.New(source)
+
+	return random.Intn(upperLimit)
 }

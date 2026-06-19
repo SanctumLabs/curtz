@@ -217,7 +217,7 @@ type User struct {
 	// Expiration time for the verification token.
 	VerificationExpires pgtype.Timestamptz `db:"verification_expires" json:"verification_expires"`
 	// User account status (e.g. ACTIVE, SUSPENDED).
-	StatusID pgtype.Text `db:"status_id" json:"status_id"`
+	StatusID pgtype.UUID `db:"status_id" json:"status_id"`
 	// Additional user metadata stored as JSON.
 	Metadata []byte `db:"metadata" json:"metadata"`
 	// Timestamp when the user account was created.

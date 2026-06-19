@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/wire"
+	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
 	"github.com/sanctumlabs/curtz/app/internal/domain/url"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 )
@@ -16,7 +17,7 @@ type (
 		// withTx is the transaction executor. In production it wraps postgres.WithTransaction;
 		// in tests it can be replaced with a function that calls the mock querier directly,
 		// bypassing the real database entirely.
-		withTx func(ctx context.Context, fn func(q UrlWriteQuerier) (url.URL, error)) (url.URL, error)
+		withTx func(ctx context.Context, fn func(q postgresrepo.UrlWriteQuerier) (url.URL, error)) (url.URL, error)
 	}
 
 	urlReadRepositoryAdapter struct {

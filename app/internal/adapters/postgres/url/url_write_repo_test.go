@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	mockurlrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
 	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
-	mockurlrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/url/mocks"
 	"github.com/sanctumlabs/curtz/app/internal/domain/url"
 	urlmock "github.com/sanctumlabs/curtz/app/internal/domain/url/mocks"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
