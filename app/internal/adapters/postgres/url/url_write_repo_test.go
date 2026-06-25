@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	mockurlrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
+	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
 	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
 	"github.com/sanctumlabs/curtz/app/internal/domain/url"
 	urlmock "github.com/sanctumlabs/curtz/app/internal/domain/url/mocks"
@@ -20,7 +20,7 @@ type UrlWriteRepoAdapterTestSuite struct {
 	suite.Suite
 	mockCtrl            *gomock.Controller
 	mockDbClient        *mockdatabase.MockPostgresDatabaseClient
-	mockUrlWriteQuerier *mockurlrepo.MockUrlWriteQuerier
+	mockUrlWriteQuerier *mockpostgresrepo.MockUrlWriteQuerier
 	urlWriteRepoAdapter *urlWriteRepositoryAdapter
 	config              database.Config
 }
@@ -33,7 +33,7 @@ func (suite *UrlWriteRepoAdapterTestSuite) SetupTest() {
 	mockCtrl := gomock.NewController(suite.T())
 	suite.mockCtrl = mockCtrl
 	suite.mockDbClient = mockdatabase.NewMockPostgresDatabaseClient(mockCtrl)
-	suite.mockUrlWriteQuerier = mockurlrepo.NewMockUrlWriteQuerier(mockCtrl)
+	suite.mockUrlWriteQuerier = mockpostgresrepo.NewMockUrlWriteQuerier(mockCtrl)
 	suite.urlWriteRepoAdapter = &urlWriteRepositoryAdapter{
 		logPrefix: "UrlWriteRepoAdapter",
 		dbClient:  suite.mockDbClient,
