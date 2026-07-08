@@ -23,19 +23,13 @@ type (
 	UserReadRepository interface {
 		repository.ReadRepositoryPort[User]
 
-		// FetchByShortCode retrieves a URL entity by its short code
-		FetchByShortCode(ctx context.Context, shortCode string) (User, error)
+		// FetchByUsername retrieves a User entity by its username
+		FetchByUsername(ctx context.Context, username string) (User, error)
 
-		// FetchByCustomAlias retrieves a URL entity by its custom alias
-		FetchByCustomAlias(ctx context.Context, customAlias string) (User, error)
+		// FetchByEmail retrieves a User entity by its email
+		FetchByEmail(ctx context.Context, email string) (User, error)
 
-		// FetchByUserId retrieves a list of URL entities by the user id of their owner
-		FetchByUserId(ctx context.Context, userId string) (repository.FetchRecordsResponse[User], error)
-
-		// FetchByStatus retrieves a list of URL entities by their status
+		// FetchByStatus retrieves a list of User entities by their status
 		FetchByStatus(ctx context.Context, status UserStatus) (repository.FetchRecordsResponse[User], error)
-
-		// FetchByOriginalUrl retrieves a URL entity by its original url
-		FetchByOriginalUrl(ctx context.Context, originalUrl string) (User, error)
 	}
 )

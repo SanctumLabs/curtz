@@ -15,6 +15,7 @@ type (
 		// username is the user's chosen unique username
 		username string
 
+		// fullName is the user's full name, which may include first and last names
 		fullName UserFullName
 
 		// email is the user's email address
@@ -89,50 +90,40 @@ func NewUser(params UserParams) (*User, error) {
 	}, nil
 }
 
-// IsActive checks if the url is active or not expired.
-func (url *User) IsActive() bool {
-	return url.verificationToken.In(time.UTC).After(time.Now().In(time.UTC))
+// Username returns the user's username
+func (user *User) Username() string {
+	return user.username
 }
 
-func (url *User) OriginalURL() OriginalURL {
-	return url.originalUrl
+func (user *User) FullName() UserFullName {
+	return user.fullName
 }
 
-func (url *User) ShortCode() ShortCode {
-	return url.username
+func (user *User) FirstName() string {
+	return user.fullName.FirstName()
 }
 
-func (url *User) Keywords() []Keyword {
-	return url.email
+func (user *User) LastName() string {
+	return user.fullName.LastName()
 }
 
-func (url *User) ExpiresOn() time.Time {
-	return url.verificationToken
+func (user *User) Email() Email {
+	return user.email
 }
 
-func (url *User) CustomAlias() CustomAlias {
-	return url.firstName
+func (user *User) Status() UserStatus {
+	return user.status
 }
 
-func (url *User) Status() UserStatus {
-	return url.verified
-}
-
-// ExpiryDuration returns as a time.Duration how long before the url expires
-// This returns an absolute value after subtracting time.Now()
-func (url *User) ExpiryDuration() time.Duration {
-	duration := time.Until(url.verificationToken)
-	if duration >= 0 {
-		return duration
-	}
-	return -duration
+func (user *User) Verification() UserVerification {
+	return user.verification
 }
 
 // Prefix returns the url prefix for logging
-func (url *User) Prefix() string {
-	return fmt.Sprintf("url-%s-%s", url.ID(), url.username)
+func (user *User) Prefix() string {
+	return fmt.Sprintf("user-%s-%s", user.ID(), user.username)
 }
 
-func (url *User) String() string {
-	return fmt.Sprintf("url(id=%s, userId: %s)", url.ID(), url.userId)
+func (user *User) String() string {
+	return fmt.Sprintf("user(id=%s, username: %s)", user.ID(), user.username)
 }
