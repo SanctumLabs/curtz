@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	identityrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/identity"
+	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
+	mockidentity "github.com/sanctumlabs/curtz/app/internal/domain/identity/mocks"
 	domainurl "github.com/sanctumlabs/curtz/app/internal/domain/url"
 	urlmock "github.com/sanctumlabs/curtz/app/internal/domain/url/mocks"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
@@ -16,6 +19,7 @@ import (
 type UrlWriteRepoAdapterIntegrationTestSuite struct {
 	suite.Suite
 	urlWriteRepoAdapter        domainurl.UrlWriteRepository
+	userReadRepoAdapter        identity.UserReadRepository
 	config                     database.Config
 	testPostgresDatabaseClient database.PostgresDatabaseClient
 }
@@ -29,8 +33,9 @@ func (suite *UrlWriteRepoAdapterIntegrationTestSuite) SetupTest() {
 		RetryConfig:      recoveryutils.DefaultRetryConfig,
 	}
 	suite.testPostgresDatabaseClient = testPostgresDatabaseClient
+	userReadRepoAdapter := identityrepo.NewUserReadRepoAdapter(testPostgresDatabaseClient)
 	urlWriteRepoAdapter := NewUrlWriteRepoAdapter(
-		testPostgresDatabaseClient, config,
+		testPostgresDatabaseClient, userReadRepoAdapter, config,
 	)
 	suite.urlWriteRepoAdapter = urlWriteRepoAdapter
 	suite.config = config
@@ -50,11 +55,16 @@ func (suite *UrlWriteRepoAdapterIntegrationTestSuite) TestCreate_CreatesNewUrlSu
 	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
 	defer cancel()
 
+	mockUser, mockUserErr := mockidentity.MockUser()
+	suite.NoError(mockUserErr)
+
 	mockUrl, mockUrlErr := urlmock.MockUrl(
+		urlmock.WithUserId(mockUser.ID().String()),
 		urlmock.WithExpiresOn(time.Now().Add(time.Hour*24)),
 		urlmock.WithCustomAlias("custom"),
 		urlmock.WithShortCode("shortcode"),
 	)
+
 	// Require stops the test immediately on failure, preventing a nil
 	// dereference on *mockUrl in the Create call below.
 	suite.Require().NoError(mockUrlErr)

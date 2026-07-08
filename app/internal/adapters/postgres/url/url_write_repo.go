@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
 	"github.com/sanctumlabs/curtz/app/internal/domain/url"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
@@ -17,11 +18,12 @@ import (
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
-func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) url.UrlWriteRepository {
+func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, userRepo identity.UserReadRepository, config database.Config) url.UrlWriteRepository {
 	repo := &urlWriteRepositoryAdapter{
 		dbClient:  dbClient,
 		config:    config,
 		logPrefix: "UrlWriteRepoAdapter",
+		userRepo:  userRepo,
 	}
 
 	// Wire up the real transaction executor. This delegates to postgres.WithTransaction,
@@ -59,6 +61,15 @@ func (repo *urlWriteRepositoryAdapter) Create(ctx context.Context, urlEntity url
 				}
 
 				userId := urlEntity.UserId()
+
+				// check if the user exists before proceeding
+				_, userErr := repo.userRepo.FetchById(ctx, userId.String())
+				if userErr != nil {
+					slog.ErrorContext(ctx, "Failed to fetch user", "user_id", userId.String(), "error", userErr)
+					return url.URL{}, fmt.Errorf("failed to fetch user: %w", userErr)
+				}
+
+				// Now that we know the user exists, we can proceed with creating the URL
 				userUUID, userUUIDErr := postgres.StringToUUID(userId.String())
 				if userUUIDErr != nil {
 					return url.URL{}, fmt.Errorf("failed to convert user ID to UUID: %w", userUUIDErr)
