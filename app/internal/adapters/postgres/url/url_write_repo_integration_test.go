@@ -33,7 +33,7 @@ func (suite *UrlWriteRepoAdapterIntegrationTestSuite) SetupTest() {
 		RetryConfig:      recoveryutils.DefaultRetryConfig,
 	}
 	suite.testPostgresDatabaseClient = testPostgresDatabaseClient
-	userReadRepoAdapter := identityrepo.NewUserReadRepoAdapter(testPostgresDatabaseClient)
+	userReadRepoAdapter := identityrepo.NewUserReadRepoAdapter(testPostgresDatabaseClient, config)
 	urlWriteRepoAdapter := NewUrlWriteRepoAdapter(
 		testPostgresDatabaseClient, userReadRepoAdapter, config,
 	)

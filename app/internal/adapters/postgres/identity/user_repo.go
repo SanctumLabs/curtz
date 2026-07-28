@@ -23,6 +23,7 @@ type (
 	userReadRepositoryAdapter struct {
 		logPrefix string
 		dbClient  database.PostgresDatabaseClient
+		config    database.Config
 		withTx    func(ctx context.Context, fn func(q postgresrepo.UserReadQuerier) (identity.User, error)) (identity.User, error)
 	}
 
@@ -44,7 +45,7 @@ var (
 
 func NewUserRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserRepository {
 	repo := &userRepoAdapter{
-		userReadRepositoryAdapter:  *NewUserReadRepoAdapter(dbClient).(*userReadRepositoryAdapter),
+		userReadRepositoryAdapter:  *NewUserReadRepoAdapter(dbClient, config).(*userReadRepositoryAdapter),
 		userWriteRepositoryAdapter: *NewUserWriteRepoAdapter(dbClient, config).(*userWriteRepositoryAdapter),
 	}
 
