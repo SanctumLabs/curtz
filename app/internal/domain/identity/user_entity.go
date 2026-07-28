@@ -26,6 +26,9 @@ type (
 
 		// verification contains the user verification details
 		verification UserVerification
+
+		// PasswordHash is the hashed password of the user
+		passwordHash string
 	}
 
 	// UserParams represents the parameters for creating or updating a user
@@ -55,6 +58,9 @@ type (
 
 		// Verified is a flag indicating whether the user is verified
 		Verified bool
+
+		// PasswordHash is the hashed password of the user
+		PasswordHash string
 	}
 )
 
@@ -117,6 +123,10 @@ func (user *User) Status() UserStatus {
 
 func (user *User) Verification() UserVerification {
 	return user.verification
+}
+
+func (user *User) PasswordHash() string {
+	return user.passwordHash
 }
 
 // Prefix returns the url prefix for logging
