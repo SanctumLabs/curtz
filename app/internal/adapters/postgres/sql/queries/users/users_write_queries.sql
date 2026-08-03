@@ -1,5 +1,5 @@
 -- name: QueryCreateUser :one
-INSERT INTO users (username, first_name, last_name, email, password_hash, status_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+INSERT INTO users (username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
 
 -- name: QueryUpdateUserDetails :one
 UPDATE users
