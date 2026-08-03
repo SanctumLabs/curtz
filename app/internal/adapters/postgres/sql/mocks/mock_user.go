@@ -12,6 +12,7 @@ import (
 
 type MockUserOption func(*postgresql.User)
 
+// MockUser creates a mock user with default values and applies any provided options to customize the user.
 func MockUser(options ...MockUserOption) postgresql.User {
 	id := entity.NewID()
 	username := faker.Username()
@@ -138,6 +139,7 @@ func WithUser(mockUser identity.User) MockUserOption {
 		metadata = []byte{}
 	}
 	return func(u *postgresql.User) {
+		u.ID = pgtype.UUID{Bytes: mockUser.ID(), Valid: true}
 		u.Username = mockUser.Username()
 		u.FirstName = pgtype.Text{String: mockUser.FirstName(), Valid: true}
 		u.LastName = pgtype.Text{String: mockUser.LastName(), Valid: true}
@@ -149,7 +151,7 @@ func WithUser(mockUser identity.User) MockUserOption {
 		u.Metadata = metadata
 		u.CreatedAt = pgtype.Timestamptz{Time: mockUser.CreatedAt(), Valid: true}
 		u.UpdatedAt = pgtype.Timestamptz{Time: mockUser.UpdatedAt(), Valid: true}
-		if !mockUser.DeletedAt().IsZero() {
+		if mockUser.DeletedAt() != nil {
 			u.DeletedAt = pgtype.Timestamptz{Time: *mockUser.DeletedAt(), Valid: true}
 		}
 	}

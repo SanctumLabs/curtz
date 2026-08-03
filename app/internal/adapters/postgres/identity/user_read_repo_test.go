@@ -6,7 +6,10 @@ import (
 	"time"
 
 	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
+	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
+	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
 	mockidentity "github.com/sanctumlabs/curtz/app/internal/domain/identity/mocks"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 	mockdatabase "github.com/sanctumlabs/curtz/app/pkg/infra/database/mocks"
@@ -66,10 +69,18 @@ func (suite *UserReadRepoAdapterTestSuite) TestFetchById_Success() {
 	)
 	suite.NoError(mockUserErr)
 
+	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
+	mockUserStatus := mockpostgresql.MockUserStatus(identity.UserStatusActive)
+
+	existingUser := postgresql.QueryUserByIdRow{
+		User:       mockUserRecord,
+		UserStatus: mockUserStatus,
+	}
+
 	suite.mockUserReadQuerier.
 		EXPECT().
 		QueryUserById(gomock.Any(), gomock.Any()).
-		Return(mockUser, nil).
+		Return(existingUser, nil).
 		Times(1)
 
 	actual, actualErr := suite.userReadRepoAdapter.FetchById(ctx, userId.String())
