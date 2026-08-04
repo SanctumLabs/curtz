@@ -131,9 +131,9 @@ func (user *User) PasswordHash() string {
 
 // Prefix returns the url prefix for logging
 func (user *User) Prefix() string {
-	return fmt.Sprintf("user-%s-%s", user.ID(), user.username)
+	return fmt.Sprintf("user-%s", user.ID())
 }
 
 func (user *User) String() string {
-	return fmt.Sprintf("user(id=%s, username: %s)", user.ID(), user.username)
+	return fmt.Sprintf("User(id=%s)", user.ID())
 }

@@ -1,4 +1,4 @@
-package identityrepo
+package identitydatastore
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
-func NewUserReadRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserReadRepository {
-	repo := &userReadRepositoryAdapter{
+func NewUserReadRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserReadDatastore {
+	repo := &userReadDatastoreAdapter{
 		dbClient:  dbClient,
 		logPrefix: "UserReadRepoAdapter",
 		config:    config,
@@ -37,7 +37,7 @@ func NewUserReadRepoAdapter(dbClient database.PostgresDatabaseClient, config dat
 	return repo
 }
 
-func (repo *userReadRepositoryAdapter) FetchById(ctx context.Context, userId string) (identity.User, error) {
+func (repo *userReadDatastoreAdapter) FetchById(ctx context.Context, userId string) (identity.User, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<FetchById>", repo.logPrefix)
 	slog.InfoContext(ctx, fmt.Sprintf("%s Fetching user by ID", handlerLogPrefix), "id", userId)
 
@@ -84,18 +84,18 @@ func (repo *userReadRepositoryAdapter) FetchById(ctx context.Context, userId str
 	)
 }
 
-func (repo *userReadRepositoryAdapter) FetchAll(ctx context.Context, params common.RequestParams) (repository.FetchRecordsResponse[identity.User], error) {
+func (repo *userReadDatastoreAdapter) FetchAll(ctx context.Context, params common.RequestParams) (repository.FetchRecordsResponse[identity.User], error) {
 	panic("not implemented")
 }
 
-func (repo *userReadRepositoryAdapter) FetchByUsername(ctx context.Context, username string) (identity.User, error) {
+func (repo *userReadDatastoreAdapter) FetchByUsername(ctx context.Context, username string) (identity.User, error) {
 	panic("not implemented")
 }
 
-func (repo *userReadRepositoryAdapter) FetchByEmail(ctx context.Context, email string) (identity.User, error) {
+func (repo *userReadDatastoreAdapter) FetchByEmail(ctx context.Context, email string) (identity.User, error) {
 	panic("not implemented")
 }
 
-func (repo *userReadRepositoryAdapter) FetchByStatus(ctx context.Context, status identity.UserStatus) (repository.FetchRecordsResponse[identity.User], error) {
+func (repo *userReadDatastoreAdapter) FetchByStatus(ctx context.Context, status identity.UserStatus) (repository.FetchRecordsResponse[identity.User], error) {
 	panic("not implemented")
 }

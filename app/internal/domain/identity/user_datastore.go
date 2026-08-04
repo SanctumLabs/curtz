@@ -8,19 +8,19 @@ import (
 
 type (
 
-	// UserRepository defines the interface for interacting with User entities in an underlying storage implementation
-	UserRepository interface {
-		UserReadRepository
-		UserWriteRepository
+	// UserDatastore defines the interface for interacting with User entities in an underlying storage implementation
+	UserDatastore interface {
+		UserReadDatastore
+		UserWriteDatastore
 	}
 
-	// UserWriteRepository defines the interface for writing User entities to an underlying storage implementation
-	UserWriteRepository interface {
+	// UserWriteDatastore defines the interface for writing User entities to an underlying storage implementation
+	UserWriteDatastore interface {
 		repository.WriteRepositoryPort[User]
 	}
 
-	// UserReadRepository defines the interface for reading User entities from an underlying storage implementation
-	UserReadRepository interface {
+	// UserReadDatastore defines the interface for reading User entities from an underlying storage implementation
+	UserReadDatastore interface {
 		repository.ReadRepositoryPort[User]
 
 		// FetchByUsername retrieves a User entity by its username

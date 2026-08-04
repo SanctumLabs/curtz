@@ -1,4 +1,4 @@
-package identityrepo
+package identitydatastore
 
 import (
 	"context"
@@ -17,8 +17,8 @@ import (
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
-func NewUserWriteRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserWriteRepository {
-	repo := &userWriteRepositoryAdapter{
+func NewUserWriteDatastoreAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserWriteDatastore {
+	repo := &userWriteDatastoreAdapter{
 		dbClient:  dbClient,
 		config:    config,
 		logPrefix: "UserWriteRepoAdapter",
@@ -36,20 +36,20 @@ func NewUserWriteRepoAdapter(dbClient database.PostgresDatabaseClient, config da
 	return repo
 }
 
-func (repo *userWriteRepositoryAdapter) Create(ctx context.Context, userEntity identity.User) (identity.User, error) {
-	handlerLogPrefix := fmt.Sprintf("%s<Create>", repo.logPrefix)
+func (writeDatastore *userWriteDatastoreAdapter) Create(ctx context.Context, userEntity identity.User) (identity.User, error) {
+	handlerLogPrefix := fmt.Sprintf("%s<Create>", writeDatastore.logPrefix)
 	slog.InfoContext(ctx, fmt.Sprintf("%s Creating User", handlerLogPrefix), "user", userEntity)
 
-	operationCtx, operationCancel := context.WithTimeout(ctx, repo.config.OperationTimeout)
+	operationCtx, operationCancel := context.WithTimeout(ctx, writeDatastore.config.OperationTimeout)
 	defer operationCancel()
 
 	return recoveryutils.ExecuteWithRetry(
 		operationCtx,
 		func(retryCtx context.Context) (identity.User, error) {
-			// Use repo.withTx instead of postgres.WithTransaction directly.
+			// Use writeDatastore.withTx instead of postgres.WithTransaction directly.
 			// This is the only change to the business logic — everything inside
 			// the closure is identical to the original implementation.
-			return repo.withTx(retryCtx, func(qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
+			return writeDatastore.withTx(retryCtx, func(qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
 				// Check context before proceeding
 				select {
 				case <-retryCtx.Done():
@@ -123,20 +123,20 @@ func (repo *userWriteRepositoryAdapter) Create(ctx context.Context, userEntity i
 				return mappedUser, nil
 			})
 		},
-		repo.config.RetryConfig,
-		fmt.Sprintf("%s.Create", repo.logPrefix),
+		writeDatastore.config.RetryConfig,
+		fmt.Sprintf("%s.Create", writeDatastore.logPrefix),
 	)
 }
 
-func (repo *userWriteRepositoryAdapter) Update(ctx context.Context, userEntity identity.User) (identity.User, error) {
+func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, userEntity identity.User) (identity.User, error) {
 	return userEntity, nil
 }
 
-func (repo *userWriteRepositoryAdapter) SoftDelete(ctx context.Context, id string) error {
+func (writeDatastore *userWriteDatastoreAdapter) SoftDelete(ctx context.Context, id string) error {
 	panic("not implemented")
 }
 
 // Delete deletes a given entity by its ID
-func (repo *userWriteRepositoryAdapter) Delete(ctx context.Context, id string) error {
+func (writeDatastore *userWriteDatastoreAdapter) Delete(ctx context.Context, id string) error {
 	panic("not implemented")
 }
