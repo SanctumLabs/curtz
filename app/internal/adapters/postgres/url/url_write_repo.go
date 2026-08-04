@@ -18,7 +18,7 @@ import (
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
-func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, userRepo identity.UserReadRepository, config database.Config) url.UrlWriteRepository {
+func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, userRepo identity.UserReadDatastore, config database.Config) url.UrlWriteRepository {
 	repo := &urlWriteRepositoryAdapter{
 		dbClient:  dbClient,
 		config:    config,

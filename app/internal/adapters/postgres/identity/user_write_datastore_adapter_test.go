@@ -1,4 +1,4 @@
-package identityrepo
+package identitydatastore
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
@@ -18,17 +17,16 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-type UserReadRepoAdapterTestSuite struct {
+type UserWriteDatastoreAdapterTestSuite struct {
 	suite.Suite
-	mockCtrl            *gomock.Controller
-	mockDbClient        *mockdatabase.MockPostgresDatabaseClient
-	mockUserReadQuerier *mockpostgresrepo.MockUserReadQuerier
-	mockUserReadRepo    *mockidentity.MockUserReadRepository
-	userReadRepoAdapter *userReadRepositoryAdapter
-	config              database.Config
+	mockCtrl                  *gomock.Controller
+	mockDbClient              *mockdatabase.MockPostgresDatabaseClient
+	mockUserWriteQuerier      *mockpostgresrepo.MockUserWriteQuerier
+	userWriteDatastoreAdapter *userWriteDatastoreAdapter
+	config                    database.Config
 }
 
-func (suite *UserReadRepoAdapterTestSuite) SetupTest() {
+func (suite *UserWriteDatastoreAdapterTestSuite) SetupTest() {
 	config := database.Config{
 		OperationTimeout: 30 * time.Second,
 		RetryConfig:      recoveryutils.DefaultRetryConfig,
@@ -36,28 +34,27 @@ func (suite *UserReadRepoAdapterTestSuite) SetupTest() {
 	mockCtrl := gomock.NewController(suite.T())
 	suite.mockCtrl = mockCtrl
 	suite.mockDbClient = mockdatabase.NewMockPostgresDatabaseClient(mockCtrl)
-	suite.mockUserReadQuerier = mockpostgresrepo.NewMockUserReadQuerier(mockCtrl)
-	suite.mockUserReadRepo = mockidentity.NewMockUserReadRepository(mockCtrl)
-	suite.userReadRepoAdapter = &userReadRepositoryAdapter{
-		logPrefix: "UserReadRepoAdapter",
+	suite.mockUserWriteQuerier = mockpostgresrepo.NewMockUserWriteQuerier(mockCtrl)
+	suite.userWriteDatastoreAdapter = &userWriteDatastoreAdapter{
+		logPrefix: "UserWriteRepoAdapter",
 		dbClient:  suite.mockDbClient,
 		config:    config,
 	}
 	suite.config = config
 
-	injectMockUserReadTx(suite.userReadRepoAdapter, suite.mockUserReadQuerier)
+	injectMockUserWriteTx(suite.userWriteDatastoreAdapter, suite.mockUserWriteQuerier)
 }
 
-func TestUserReadRepoAdapterTestSuite(t *testing.T) {
-	suite.Run(t, new(UserReadRepoAdapterTestSuite))
+func TestUserWriteDatastoreAdapterTestSuite(t *testing.T) {
+	suite.Run(t, new(UserWriteDatastoreAdapterTestSuite))
 }
 
-func (suite *UserReadRepoAdapterTestSuite) AfterTest(_, _ string) {
+func (suite *UserWriteDatastoreAdapterTestSuite) AfterTest(_, _ string) {
 	suite.mockCtrl.Finish()
 }
 
-// TestFetchById_Success tests the FetchById method of the UserReadRepositoryAdapter
-func (suite *UserReadRepoAdapterTestSuite) TestFetchById_Success() {
+// TestCreateUser_Success tests the CreateUser method of the UserWriteDatastoreAdapter
+func (suite *UserWriteDatastoreAdapterTestSuite) TestCreateUser_Success() {
 	bcgCtx := context.Background()
 	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
 	defer cancel()
@@ -72,18 +69,19 @@ func (suite *UserReadRepoAdapterTestSuite) TestFetchById_Success() {
 	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
 	mockUserStatus := mockpostgresql.MockUserStatus(identity.UserStatusActive)
 
-	existingUser := postgresql.QueryUserByIdRow{
-		User:       mockUserRecord,
-		UserStatus: mockUserStatus,
-	}
-
-	suite.mockUserReadQuerier.
+	suite.mockUserWriteQuerier.
 		EXPECT().
-		QueryUserById(gomock.Any(), gomock.Any()).
-		Return(existingUser, nil).
+		QueryUserStatusByName(gomock.Any(), gomock.Any()).
+		Return(mockUserStatus, nil).
 		Times(1)
 
-	actual, actualErr := suite.userReadRepoAdapter.FetchById(ctx, userId.String())
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryCreateUser(gomock.Any(), gomock.Any()).
+		Return(mockUserRecord, nil).
+		Times(1)
+
+	actual, actualErr := suite.userWriteDatastoreAdapter.Create(ctx, *mockUser)
 	suite.Nil(actualErr)
 	suite.Equal(mockUser.ID(), actual.ID())
 	suite.Equal(mockUser.Username(), actual.Username())

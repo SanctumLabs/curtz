@@ -1,4 +1,4 @@
-package identityrepo
+package identitydatastore
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	userWriteRepositoryAdapter struct {
+	userWriteDatastoreAdapter struct {
 		logPrefix string
 		dbClient  database.PostgresDatabaseClient
 		config    database.Config
@@ -20,33 +20,33 @@ type (
 		withTx func(ctx context.Context, fn func(q postgresrepo.UserWriteQuerier) (identity.User, error)) (identity.User, error)
 	}
 
-	userReadRepositoryAdapter struct {
+	userReadDatastoreAdapter struct {
 		logPrefix string
 		dbClient  database.PostgresDatabaseClient
 		config    database.Config
 		withTx    func(ctx context.Context, fn func(q postgresrepo.UserReadQuerier) (identity.User, error)) (identity.User, error)
 	}
 
-	userRepoAdapter struct {
-		userReadRepositoryAdapter
-		userWriteRepositoryAdapter
+	userDatastoreAdapter struct {
+		userReadDatastoreAdapter
+		userWriteDatastoreAdapter
 	}
 )
 
 var (
-	_ identity.UserRepository      = (*userRepoAdapter)(nil)
-	_ identity.UserWriteRepository = (*userWriteRepositoryAdapter)(nil)
-	_ identity.UserReadRepository  = (*userReadRepositoryAdapter)(nil)
+	_ identity.UserDatastore      = (*userDatastoreAdapter)(nil)
+	_ identity.UserWriteDatastore = (*userWriteDatastoreAdapter)(nil)
+	_ identity.UserReadDatastore  = (*userReadDatastoreAdapter)(nil)
 
-	UserWriteRepoAdapter = wire.NewSet(NewUserWriteRepoAdapter)
-	UserReadRepoAdapter  = wire.NewSet(NewUserReadRepoAdapter)
-	UserRepoAdapter      = wire.NewSet(NewUserRepoAdapter)
+	UserWriteDatastoreAdapter = wire.NewSet(NewUserWriteDatastoreAdapter)
+	UserReadDatastoreAdapter  = wire.NewSet(NewUserReadRepoAdapter)
+	UserDatastoreAdapter      = wire.NewSet(NewUserDatastoreAdapter)
 )
 
-func NewUserRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserRepository {
-	repo := &userRepoAdapter{
-		userReadRepositoryAdapter:  *NewUserReadRepoAdapter(dbClient, config).(*userReadRepositoryAdapter),
-		userWriteRepositoryAdapter: *NewUserWriteRepoAdapter(dbClient, config).(*userWriteRepositoryAdapter),
+func NewUserDatastoreAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserDatastore {
+	repo := &userDatastoreAdapter{
+		userReadDatastoreAdapter:  *NewUserReadRepoAdapter(dbClient, config).(*userReadDatastoreAdapter),
+		userWriteDatastoreAdapter: *NewUserWriteDatastoreAdapter(dbClient, config).(*userWriteDatastoreAdapter),
 	}
 
 	return repo

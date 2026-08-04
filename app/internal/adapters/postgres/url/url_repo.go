@@ -15,7 +15,7 @@ type (
 		logPrefix string
 		dbClient  database.PostgresDatabaseClient
 		config    database.Config
-		userRepo  identity.UserReadRepository
+		userRepo  identity.UserReadDatastore
 		// withTx is the transaction executor. In production it wraps postgres.WithTransaction;
 		// in tests it can be replaced with a function that calls the mock querier directly,
 		// bypassing the real database entirely.
@@ -43,7 +43,7 @@ var (
 	UrlRepoAdapter      = wire.NewSet(NewUrlRepoAdapter)
 )
 
-func NewUrlRepoAdapter(dbClient database.PostgresDatabaseClient, userRepo identity.UserReadRepository, config database.Config) url.UrlRepository {
+func NewUrlRepoAdapter(dbClient database.PostgresDatabaseClient, userRepo identity.UserReadDatastore, config database.Config) url.UrlRepository {
 	repo := &urlRepoAdapter{
 		urlReadRepositoryAdapter:  *NewUrlReadRepoAdapter(dbClient).(*urlReadRepositoryAdapter),
 		urlWriteRepositoryAdapter: *NewUrlWriteRepoAdapter(dbClient, userRepo, config).(*urlWriteRepositoryAdapter),

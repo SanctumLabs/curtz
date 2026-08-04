@@ -170,3 +170,162 @@ func (mr *MockUserReadQuerierMockRecorder) QueryUserByUsername(ctx, username any
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUserByUsername", reflect.TypeOf((*MockUserReadQuerier)(nil).QueryUserByUsername), ctx, username)
 }
+
+// MockUserWriteQuerier is a mock of UserWriteQuerier interface.
+type MockUserWriteQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockUserWriteQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockUserWriteQuerierMockRecorder is the mock recorder for MockUserWriteQuerier.
+type MockUserWriteQuerierMockRecorder struct {
+	mock *MockUserWriteQuerier
+}
+
+// NewMockUserWriteQuerier creates a new mock instance.
+func NewMockUserWriteQuerier(ctrl *gomock.Controller) *MockUserWriteQuerier {
+	mock := &MockUserWriteQuerier{ctrl: ctrl}
+	mock.recorder = &MockUserWriteQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUserWriteQuerier) EXPECT() *MockUserWriteQuerierMockRecorder {
+	return m.recorder
+}
+
+// QueryCreateUser mocks base method.
+func (m *MockUserWriteQuerier) QueryCreateUser(ctx context.Context, params postgresql.QueryCreateUserParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryCreateUser", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryCreateUser indicates an expected call of QueryCreateUser.
+func (mr *MockUserWriteQuerierMockRecorder) QueryCreateUser(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryCreateUser", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryCreateUser), ctx, params)
+}
+
+// QueryDeleteUserWithId mocks base method.
+func (m *MockUserWriteQuerier) QueryDeleteUserWithId(ctx context.Context, id pgtype.UUID) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryDeleteUserWithId", ctx, id)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryDeleteUserWithId indicates an expected call of QueryDeleteUserWithId.
+func (mr *MockUserWriteQuerierMockRecorder) QueryDeleteUserWithId(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryDeleteUserWithId", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryDeleteUserWithId), ctx, id)
+}
+
+// QuerySoftDeleteUser mocks base method.
+func (m *MockUserWriteQuerier) QuerySoftDeleteUser(ctx context.Context, params postgresql.QuerySoftDeleteUserParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QuerySoftDeleteUser", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QuerySoftDeleteUser indicates an expected call of QuerySoftDeleteUser.
+func (mr *MockUserWriteQuerierMockRecorder) QuerySoftDeleteUser(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QuerySoftDeleteUser", reflect.TypeOf((*MockUserWriteQuerier)(nil).QuerySoftDeleteUser), ctx, params)
+}
+
+// QueryUpdateUserDetails mocks base method.
+func (m *MockUserWriteQuerier) QueryUpdateUserDetails(ctx context.Context, params postgresql.QueryUpdateUserDetailsParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUpdateUserDetails", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUpdateUserDetails indicates an expected call of QueryUpdateUserDetails.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUpdateUserDetails(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUpdateUserDetails", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUpdateUserDetails), ctx, params)
+}
+
+// QueryUpdateUserMetadata mocks base method.
+func (m *MockUserWriteQuerier) QueryUpdateUserMetadata(ctx context.Context, params postgresql.QueryUpdateUserMetadataParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUpdateUserMetadata", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUpdateUserMetadata indicates an expected call of QueryUpdateUserMetadata.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUpdateUserMetadata(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUpdateUserMetadata", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUpdateUserMetadata), ctx, params)
+}
+
+// QueryUpdateUserPassword mocks base method.
+func (m *MockUserWriteQuerier) QueryUpdateUserPassword(ctx context.Context, params postgresql.QueryUpdateUserPasswordParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUpdateUserPassword", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUpdateUserPassword indicates an expected call of QueryUpdateUserPassword.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUpdateUserPassword(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUpdateUserPassword", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUpdateUserPassword), ctx, params)
+}
+
+// QueryUpdateUserStatusId mocks base method.
+func (m *MockUserWriteQuerier) QueryUpdateUserStatusId(ctx context.Context, params postgresql.QueryUpdateUserStatusIdParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUpdateUserStatusId", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUpdateUserStatusId indicates an expected call of QueryUpdateUserStatusId.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUpdateUserStatusId(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUpdateUserStatusId", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUpdateUserStatusId), ctx, params)
+}
+
+// QueryUpdateUserVerification mocks base method.
+func (m *MockUserWriteQuerier) QueryUpdateUserVerification(ctx context.Context, params postgresql.QueryUpdateUserVerificationParams) (postgresql.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUpdateUserVerification", ctx, params)
+	ret0, _ := ret[0].(postgresql.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUpdateUserVerification indicates an expected call of QueryUpdateUserVerification.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUpdateUserVerification(ctx, params any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUpdateUserVerification", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUpdateUserVerification), ctx, params)
+}
+
+// QueryUserStatusByName mocks base method.
+func (m *MockUserWriteQuerier) QueryUserStatusByName(ctx context.Context, name string) (postgresql.UserStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUserStatusByName", ctx, name)
+	ret0, _ := ret[0].(postgresql.UserStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUserStatusByName indicates an expected call of QueryUserStatusByName.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUserStatusByName(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUserStatusByName", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUserStatusByName), ctx, name)
+}

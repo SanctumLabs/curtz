@@ -19,7 +19,7 @@ import (
 type UrlWriteRepoAdapterIntegrationTestSuite struct {
 	suite.Suite
 	urlWriteRepoAdapter        domainurl.UrlWriteRepository
-	userReadRepoAdapter        identity.UserReadRepository
+	userReadDatastore          identity.UserReadDatastore
 	config                     database.Config
 	testPostgresDatabaseClient database.PostgresDatabaseClient
 }

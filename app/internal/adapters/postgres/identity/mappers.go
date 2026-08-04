@@ -1,4 +1,4 @@
-package identityrepo
+package identitydatastore
 
 import (
 	"fmt"
