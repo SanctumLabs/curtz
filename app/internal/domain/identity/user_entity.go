@@ -123,20 +123,46 @@ func (user *User) LastName() string {
 	return user.fullName.LastName()
 }
 
+func (user *User) WithFullName(fullName UserFullName) User {
+	user.fullName = fullName
+	return *user
+}
+
 func (user *User) Email() Email {
 	return user.email
+}
+
+// WithEmail returns a new copy of User with the email updated
+func (user *User) WithEmail(email Email) User {
+	user.email = email
+	return *user
 }
 
 func (user *User) Status() UserStatus {
 	return user.status
 }
 
+func (user *User) WithStatus(status UserStatus) User {
+	user.status = status
+	return *user
+}
+
 func (user *User) Verification() UserVerification {
 	return user.verification
 }
 
+func (user *User) WithVerification(verification UserVerification) User {
+	user.verification = verification
+	return *user
+}
+
 func (user *User) PasswordHash() string {
 	return user.passwordHash
+}
+
+func (user *User) WithPasswordHash(passwordHash string) User {
+	user.passwordHash = passwordHash
+	return *user
 }
 
 // Prefix returns the url prefix for logging
