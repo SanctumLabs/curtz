@@ -30,9 +30,29 @@ func (ufn *UserFullName) FirstName() string {
 	return ufn.firstName
 }
 
+func (ufn *UserFullName) WithFirstName(firstName string) (UserFullName, error) {
+	if len(firstName) == 0 {
+		return UserFullName{}, fmt.Errorf("first name %s is invalid", firstName)
+	}
+	return UserFullName{
+		firstName: firstName,
+		lastName:  ufn.lastName,
+	}, nil
+}
+
 // LastName is the user's last name
 func (ufn *UserFullName) LastName() string {
 	return ufn.lastName
+}
+
+func (ufn *UserFullName) WithLastName(lastName string) (UserFullName, error) {
+	if len(lastName) == 0 {
+		return UserFullName{}, fmt.Errorf("last name %s is invalid", lastName)
+	}
+	return UserFullName{
+		firstName: ufn.firstName,
+		lastName:  lastName,
+	}, nil
 }
 
 // Value is the user's full name
@@ -59,5 +79,5 @@ func (ufn *UserFullName) SetLastName(lastName string) error {
 }
 
 func (ufn *UserFullName) String() string {
-	return fmt.Sprintf("%s %s", ufn.firstName, ufn.lastName)
+	return fmt.Sprintf("FullName(firstName=%s lastName=%s)", ufn.firstName, ufn.lastName)
 }

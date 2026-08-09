@@ -221,11 +221,105 @@ func (writeDatastore *userWriteDatastoreAdapter) Create(ctx context.Context, req
 }
 
 func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, userEntity identity.User) (identity.User, error) {
-	return identity.User{}, nil
+	handlerLogPrefix := fmt.Sprintf("%s<Update>", writeDatastore.logPrefix)
+	slog.InfoContext(ctx, fmt.Sprintf("%s Updating User", handlerLogPrefix), "userId", userEntity.ID())
+
+	operationCtx, operationCancel := context.WithTimeout(ctx, writeDatastore.config.OperationTimeout)
+	defer operationCancel()
+
+	return recoveryutils.ExecuteWithRetry(
+		operationCtx,
+		func(retryCtx context.Context) (identity.User, error) {
+			// Use writeDatastore.withTx instead of postgres.WithTransaction directly.
+			// This is the only change to the business logic — everything inside
+			// the closure is identical to the original implementation.
+			return writeDatastore.withTx(retryCtx, func(qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
+				// Check context before proceeding
+				select {
+				case <-retryCtx.Done():
+					slog.ErrorContext(retryCtx, "Operation cancelled before validation with error", "error", retryCtx.Err())
+					return identity.User{}, fmt.Errorf("operation cancelled before validation: %w", retryCtx.Err())
+				default:
+				}
+
+				// query the status ID
+				status, statusErr := qtx.QueryUserStatusByName(retryCtx, string(userEntity.Status()))
+				if statusErr != nil {
+					slog.ErrorContext(
+						retryCtx,
+						fmt.Sprintf("%s Failed to retrieve user status", handlerLogPrefix),
+						"user_status", userEntity.Status(),
+						"error", statusErr,
+					)
+					if errors.Is(statusErr, pgx.ErrNoRows) {
+						return identity.User{}, errdefs.NotFound(statusErr)
+					}
+
+					return identity.User{}, fmt.Errorf("failed to query user status: %w", statusErr)
+				}
+
+				email := userEntity.Email()
+				updatedUser, updatedUserErr := qtx.QueryUpdateUserDetails(
+					retryCtx,
+					postgresql.QueryUpdateUserDetailsParams{
+						ID:        pgtype.UUID{Bytes: userEntity.ID(), Valid: true},
+						Username:  userEntity.Username(),
+						FirstName: pgtype.Text{String: userEntity.FirstName(), Valid: true},
+						LastName:  pgtype.Text{String: userEntity.LastName(), Valid: true},
+						Email:     email.Value(),
+					},
+				)
+				if updatedUserErr != nil {
+					slog.ErrorContext(
+						retryCtx,
+						fmt.Sprintf("%s Failed to update user", handlerLogPrefix),
+						"username", userEntity.ID(),
+						"error", updatedUserErr,
+					)
+					return identity.User{}, fmt.Errorf("failed to update user: %w", updatedUserErr)
+				}
+
+				// Map the created URL model back to an entity to return
+				mappedUser, mapErr := MapUserModelToEntity(UserMapperParams{
+					UserModel: updatedUser,
+					Status:    status.Name,
+				})
+				if mapErr != nil {
+					slog.ErrorContext(
+						retryCtx,
+						fmt.Sprintf("%s Failed to map updated user model to entity", handlerLogPrefix),
+						"userId", updatedUser.ID,
+						"error", mapErr,
+					)
+					return identity.User{}, fmt.Errorf("failed to map updated user model to entity: %w", mapErr)
+				}
+				slog.InfoContext(retryCtx, "updated model", "user", mappedUser)
+
+				return mappedUser, nil
+			})
+		},
+		writeDatastore.config.RetryConfig,
+		fmt.Sprintf("%s.Create", writeDatastore.logPrefix),
+	)
 }
 
 func (writeDatastore *userWriteDatastoreAdapter) UpdateVerification(ctx context.Context, request identity.UpdateUserVerificationRequest) (identity.User, error) {
 	return identity.User{}, nil
+}
+
+// UpdateMetadata updates the metadata of a User entity based on the provided request and returns the updated User entity
+func (writeDatastore *userWriteDatastoreAdapter) UpdateMetadata(ctx context.Context, request identity.UpdateUserMetadataVerificationRequest) (identity.User, error) {
+	panic("not implemented")
+}
+
+// UpdatePassword updates the password of a User entity based on the provided request and returns the updated User entity
+func (writeDatastore *userWriteDatastoreAdapter) UpdatePassword(ctx context.Context, request identity.UpdateUserPasswordRequest) (identity.User, error) {
+	panic("not implemented")
+}
+
+// UpdateStatus updates the status of a User entity based on the provided request and returns the updated User entity
+func (writeDatastore *userWriteDatastoreAdapter) UpdateStatus(ctx context.Context, request identity.UpdateUserStatusRequest) (identity.User, error) {
+	panic("not implemented")
 }
 
 func (writeDatastore *userWriteDatastoreAdapter) SoftDelete(ctx context.Context, id string) error {

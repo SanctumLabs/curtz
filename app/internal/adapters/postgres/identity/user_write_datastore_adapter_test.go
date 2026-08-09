@@ -2,10 +2,12 @@ package identitydatastore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
+	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
@@ -54,7 +56,7 @@ func (suite *UserWriteDatastoreAdapterTestSuite) AfterTest(_, _ string) {
 }
 
 // TestCreateUser_Success tests the CreateUser method of the UserWriteDatastoreAdapter
-func (suite *UserWriteDatastoreAdapterTestSuite) TestCreateUser_Success() {
+func (suite *UserWriteDatastoreAdapterTestSuite) TesSaveUser_Success() {
 	bcgCtx := context.Background()
 	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
 	defer cancel()
@@ -82,6 +84,134 @@ func (suite *UserWriteDatastoreAdapterTestSuite) TestCreateUser_Success() {
 		Times(1)
 
 	actual, actualErr := suite.userWriteDatastoreAdapter.Save(ctx, *mockUser)
+	suite.Nil(actualErr)
+	suite.Equal(mockUser.ID(), actual.ID())
+	suite.Equal(mockUser.Username(), actual.Username())
+	suite.Equal(mockUser.Email(), actual.Email())
+	suite.Equal(mockUser.FirstName(), actual.FirstName())
+	suite.Equal(mockUser.LastName(), actual.LastName())
+	suite.Equal(mockUser.CreatedAt(), actual.CreatedAt())
+	suite.Equal(mockUser.UpdatedAt(), actual.UpdatedAt())
+}
+
+func (suite *UserWriteDatastoreAdapterTestSuite) TestCreateUser_Success() {
+	bcgCtx := context.Background()
+	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
+	defer cancel()
+
+	userId := entity.NewID()
+
+	mockUser, mockUserErr := mockidentity.MockUser(
+		mockidentity.WithId(userId),
+	)
+	suite.NoError(mockUserErr)
+
+	username := mockUser.Username()
+	fullName := mockUser.FullName()
+	createNewUserRequest := identity.CreateUserRequest{
+		Username:     username,
+		FullName:     fullName,
+		Email:        mockUser.Email(),
+		PasswordHash: mockUser.PasswordHash(),
+		Metadata:     mockUser.Metadata(),
+	}
+
+	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
+	mockUserStatus := mockpostgresql.MockUserStatus(identity.UserStatusActive)
+
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryUserStatusByName(gomock.Any(), gomock.Any()).
+		Return(mockUserStatus, nil).
+		Times(1)
+
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryCreateUser(gomock.Any(), gomock.Any()).
+		Return(mockUserRecord, nil).
+		Times(1)
+
+	actual, actualErr := suite.userWriteDatastoreAdapter.Create(ctx, createNewUserRequest)
+	suite.Nil(actualErr)
+	suite.Equal(mockUser.ID(), actual.ID())
+	suite.Equal(mockUser.Username(), actual.Username())
+	suite.Equal(mockUser.Email(), actual.Email())
+	suite.Equal(mockUser.FirstName(), actual.FirstName())
+	suite.Equal(mockUser.LastName(), actual.LastName())
+	suite.Equal(mockUser.CreatedAt(), actual.CreatedAt())
+	suite.Equal(mockUser.UpdatedAt(), actual.UpdatedAt())
+}
+
+func (suite *UserWriteDatastoreAdapterTestSuite) TestCreateUser_FailureToRetrieveStatus() {
+	bcgCtx := context.Background()
+	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
+	defer cancel()
+
+	userId := entity.NewID()
+
+	mockUser, mockUserErr := mockidentity.MockUser(
+		mockidentity.WithId(userId),
+	)
+	suite.NoError(mockUserErr)
+
+	username := mockUser.Username()
+	fullName := mockUser.FullName()
+	createNewUserRequest := identity.CreateUserRequest{
+		Username:     username,
+		FullName:     fullName,
+		Email:        mockUser.Email(),
+		PasswordHash: mockUser.PasswordHash(),
+		Metadata:     mockUser.Metadata(),
+	}
+
+	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
+
+	statusErr := fmt.Errorf("failed to retrieve user status")
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryUserStatusByName(gomock.Any(), gomock.Any()).
+		Return(postgresql.UserStatus{}, statusErr).
+		Times(1)
+
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryCreateUser(gomock.Any(), gomock.Any()).
+		Return(mockUserRecord, nil).
+		Times(0)
+
+	actual, actualErr := suite.userWriteDatastoreAdapter.Create(ctx, createNewUserRequest)
+	suite.NotNil(actualErr)
+	suite.Empty(actual)
+}
+
+func (suite *UserWriteDatastoreAdapterTestSuite) TestUpdateUser_Success() {
+	bcgCtx := context.Background()
+	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
+	defer cancel()
+
+	userId := entity.NewID()
+
+	mockUser, mockUserErr := mockidentity.MockUser(
+		mockidentity.WithId(userId),
+	)
+	suite.NoError(mockUserErr)
+
+	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
+	mockUserStatus := mockpostgresql.MockUserStatus(identity.UserStatusActive)
+
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryUserStatusByName(gomock.Any(), gomock.Any()).
+		Return(mockUserStatus, nil).
+		Times(1)
+
+	suite.mockUserWriteQuerier.
+		EXPECT().
+		QueryUpdateUserDetails(gomock.Any(), gomock.Any()).
+		Return(mockUserRecord, nil).
+		Times(1)
+
+	actual, actualErr := suite.userWriteDatastoreAdapter.Update(ctx, *mockUser)
 	suite.Nil(actualErr)
 	suite.Equal(mockUser.ID(), actual.ID())
 	suite.Equal(mockUser.Username(), actual.Username())

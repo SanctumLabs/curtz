@@ -23,6 +23,15 @@ type (
 
 		// UpdateVerification updates the verification details of a User entity based on the provided request and returns the updated User entity
 		UpdateVerification(ctx context.Context, request UpdateUserVerificationRequest) (User, error)
+
+		// UpdateMetadata updates the metadata of a User entity based on the provided request and returns the updated User entity
+		UpdateMetadata(ctx context.Context, request UpdateUserMetadataVerificationRequest) (User, error)
+
+		// UpdatePassword updates the password of a User entity based on the provided request and returns the updated User entity
+		UpdatePassword(ctx context.Context, request UpdateUserPasswordRequest) (User, error)
+
+		// UpdateStatus updates the status of a User entity based on the provided request and returns the updated User entity
+		UpdateStatus(ctx context.Context, request UpdateUserStatusRequest) (User, error)
 	}
 
 	// UserReadDatastore defines the interface for reading User entities from an underlying storage implementation

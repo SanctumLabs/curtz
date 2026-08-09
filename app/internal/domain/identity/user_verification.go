@@ -53,5 +53,5 @@ func (ufn *UserVerification) SetVerificationToken(token string) error {
 }
 
 func (ufn *UserVerification) String() string {
-	return fmt.Sprintf("%s %s", ufn.verificationToken, ufn.verificationExpires)
+	return fmt.Sprintf("Verification(token=%s expires=%s verified=%t)", ufn.verificationToken, ufn.verificationExpires, ufn.verified)
 }
