@@ -26,7 +26,7 @@ type UrlWriteRepoAdapterIntegrationTestSuite struct {
 
 func (suite *UrlWriteRepoAdapterIntegrationTestSuite) SetupTest() {
 	ctx := context.Background()
-	testPostgresDatabaseClient := test.TestPostgresDatabaseClient(suite.T(), ctx)
+	testPostgresDatabaseClient := test.TestPostgresDatabaseClientHelper(suite.T(), ctx)
 
 	config := database.Config{
 		OperationTimeout: 5 * time.Minute,
@@ -69,7 +69,7 @@ func (suite *UrlWriteRepoAdapterIntegrationTestSuite) TestCreate_CreatesNewUrlSu
 	// dereference on *mockUrl in the Create call below.
 	suite.Require().NoError(mockUrlErr)
 
-	actual, actualErr := suite.urlWriteRepoAdapter.Create(ctx, *mockUrl)
+	actual, actualErr := suite.urlWriteRepoAdapter.Save(ctx, *mockUrl)
 	suite.Require().NoError(actualErr)
 
 	suite.Equal(mockUrl.UserId(), actual.UserId())

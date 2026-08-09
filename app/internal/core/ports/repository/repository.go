@@ -32,8 +32,8 @@ type (
 	// WriteRepositoryPort defines a method set used to handle writing of data for a given entity to an underlying storage
 	// implementation
 	WriteRepositoryPort[T any] interface {
-		// Create creates a given entity based on the passed in request and returns the created entity
-		Create(ctx context.Context, request T) (T, error)
+		// Save creates a given entity based on the passed in request and returns the created entity
+		Save(ctx context.Context, request T) (T, error)
 
 		// Update updates a given entity
 		Update(ctx context.Context, request T) (T, error)
