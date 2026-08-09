@@ -102,7 +102,7 @@ func (suite *UrlWriteRepoAdapterTestSuite) TestCreate_CreatesNewUrlSuccessfully(
 		QueryCreateKeyword(gomock.Any(), gomock.Any()).
 		AnyTimes()
 
-	actual, actualErr := suite.urlWriteRepoAdapter.Create(ctx, *mockUrl)
+	actual, actualErr := suite.urlWriteRepoAdapter.Save(ctx, *mockUrl)
 	suite.Nil(actualErr)
 	suite.Equal(mockUrl.UserId(), actual.UserId())
 	suite.Equal(mockUrl.ShortCode(), actual.ShortCode())
@@ -161,7 +161,7 @@ func (suite *UrlWriteRepoAdapterTestSuite) TestCreate_FailsWhenUserDoesNotExist(
 		QueryCreateKeyword(gomock.Any(), gomock.Any()).
 		Times(0)
 
-	actual, actualErr := suite.urlWriteRepoAdapter.Create(ctx, *mockUrl)
+	actual, actualErr := suite.urlWriteRepoAdapter.Save(ctx, *mockUrl)
 	suite.NotNil(actualErr)
 	suite.Empty(actual)
 }

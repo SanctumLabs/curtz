@@ -81,9 +81,19 @@ func NewUser(params UserParams) (*User, error) {
 		return nil, aggregateErr
 	}
 
-	verification, verificationErr := NewUserVerification(params.VerificationToken, params.VerificationExpires, params.Verified)
-	if verificationErr != nil {
-		return nil, verificationErr
+	var verification UserVerification
+	if params.VerificationToken != "" {
+		userVerification, verificationErr := NewUserVerification(params.VerificationToken, params.VerificationExpires, params.Verified)
+		if verificationErr != nil {
+			return nil, verificationErr
+		}
+		verification = userVerification
+	} else {
+		verification = UserVerification{
+			verificationToken:   "",
+			verificationExpires: time.Time{},
+			verified:            false,
+		}
 	}
 
 	return &User{

@@ -17,6 +17,12 @@ type (
 	// UserWriteDatastore defines the interface for writing User entities to an underlying storage implementation
 	UserWriteDatastore interface {
 		repository.WriteRepositoryPort[User]
+
+		// Create creates a new User entity based on the provided request and returns the created User entity
+		Create(ctx context.Context, request CreateUserRequest) (User, error)
+
+		// UpdateVerification updates the verification details of a User entity based on the provided request and returns the updated User entity
+		UpdateVerification(ctx context.Context, request UpdateUserVerificationRequest) (User, error)
 	}
 
 	// UserReadDatastore defines the interface for reading User entities from an underlying storage implementation

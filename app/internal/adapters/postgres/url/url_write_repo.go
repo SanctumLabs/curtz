@@ -38,7 +38,7 @@ func NewUrlWriteRepoAdapter(dbClient database.PostgresDatabaseClient, userRepo i
 	return repo
 }
 
-func (repo *urlWriteRepositoryAdapter) Create(ctx context.Context, urlEntity url.URL) (url.URL, error) {
+func (repo *urlWriteRepositoryAdapter) Save(ctx context.Context, urlEntity url.URL) (url.URL, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<Create>", repo.logPrefix)
 	slog.InfoContext(ctx, fmt.Sprintf("%s Creating URL", handlerLogPrefix), "url", urlEntity)
 
