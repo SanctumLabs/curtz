@@ -81,7 +81,7 @@ func (suite *UserWriteDatastoreAdapterTestSuite) TestCreateUser_Success() {
 		Return(mockUserRecord, nil).
 		Times(1)
 
-	actual, actualErr := suite.userWriteDatastoreAdapter.Create(ctx, *mockUser)
+	actual, actualErr := suite.userWriteDatastoreAdapter.Save(ctx, *mockUser)
 	suite.Nil(actualErr)
 	suite.Equal(mockUser.ID(), actual.ID())
 	suite.Equal(mockUser.Username(), actual.Username())

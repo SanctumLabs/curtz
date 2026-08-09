@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package identitydatastore
 
 import (
@@ -5,59 +8,84 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
 	mockidentity "github.com/sanctumlabs/curtz/app/internal/domain/identity/mocks"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 	"github.com/sanctumlabs/curtz/app/test"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
 )
 
-type UserWriteDatastoreAdapterIntegrationTestSuite struct {
-	suite.Suite
-	userWriteRepoAdapter       identity.UserWriteDatastore
-	config                     database.Config
-	testPostgresDatabaseClient database.PostgresDatabaseClient
+func TestUserWriteDatastoreAdapterIntegrationTest(t *testing.T) {
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "User Write Datastore Adapter Integration Test Suite")
 }
 
-func (suite *UserWriteDatastoreAdapterIntegrationTestSuite) SetupTest() {
+var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", ginkgo.Ordered, func() {
 	ctx := context.Background()
-	testPostgresDatabaseClient := test.TestPostgresDatabaseClient(suite.T(), ctx)
 
-	config := database.Config{
-		OperationTimeout: 5 * time.Minute,
-		RetryConfig:      recoveryutils.DefaultRetryConfig,
-	}
-	suite.testPostgresDatabaseClient = testPostgresDatabaseClient
-	urlWriteRepoAdapter := NewUserWriteDatastoreAdapter(
-		testPostgresDatabaseClient, config,
+	var (
+		testPostgresDatabaseClient database.PostgresDatabaseClient
+		userWriteDatastoreAdapter  identity.UserWriteDatastore
 	)
-	suite.userWriteRepoAdapter = urlWriteRepoAdapter
-	suite.config = config
-}
 
-func TestUserWriteDatastoreAdapterIntegrationTestSuite(t *testing.T) {
-	suite.Run(t, new(UserWriteDatastoreAdapterIntegrationTestSuite))
-}
+	ginkgo.BeforeAll(func() {
+		var err error
+		testPostgresDatabaseClient, err = test.TestPostgresDatabaseClient(ctx)
+		if err != nil {
+			assert.FailNow(ginkgo.GinkgoT(), "failed to create database client: %s", err.Error())
+		}
 
-func (suite *UserWriteDatastoreAdapterIntegrationTestSuite) AfterTest(_, _ string) {
-	suite.testPostgresDatabaseClient.Close()
-}
+		config := database.Config{
+			OperationTimeout: 5 * time.Minute,
+			RetryConfig:      recoveryutils.DefaultRetryConfig,
+		}
 
-// TestCreate_CreatesNewUrlSuccessfully tests the Create method of the UrlWriteRepositoryAdapter
-func (suite *UserWriteDatastoreAdapterIntegrationTestSuite) TestCreate_CreatesNewUrlSuccessfully() {
-	bcgCtx := context.Background()
-	ctx, cancel := context.WithTimeout(bcgCtx, suite.config.OperationTimeout)
-	defer cancel()
+		userWriteDatastoreAdapter = NewUserWriteDatastoreAdapter(
+			testPostgresDatabaseClient,
+			config,
+		)
+	})
 
-	mockUser, mockUserErr := mockidentity.MockUser()
-	suite.NoError(mockUserErr)
+	ginkgo.AfterAll(func() {
+		testPostgresDatabaseClient.Close()
+	})
 
-	// Require stops the test immediately on failure, preventing a nil
-	// dereference on *mockUser in the Create call below.
-	suite.Require().NoError(mockUserErr)
+	ginkgo.Describe("Save", func() {
+		ginkgo.It("saves a new user successfully", func() {
+			mockUser, mockUserErr := mockidentity.MockUser()
+			assert.NoError(ginkgo.GinkgoT(), mockUserErr)
 
-	actual, actualErr := suite.userWriteRepoAdapter.Create(ctx, *mockUser)
-	suite.Require().NoError(actualErr)
-	suite.Require().NotNil(actual)
-}
+			// Require stops the test immediately on failure, preventing a nil
+			// dereference on *mockUser in the Create call below.
+			assert.NoError(ginkgo.GinkgoT(), mockUserErr)
+
+			actual, actualErr := userWriteDatastoreAdapter.Save(ctx, *mockUser)
+			assert.NoError(ginkgo.GinkgoT(), actualErr)
+			assert.NotNil(ginkgo.GinkgoT(), actual)
+		})
+	})
+
+	ginkgo.Describe("Create", func() {
+		ginkgo.It("creates a new user successfully", func() {
+			mockUser, mockUserErr := mockidentity.MockUser()
+			assert.NoError(ginkgo.GinkgoT(), mockUserErr)
+
+			username := mockUser.Username()
+			fullName := mockUser.FullName()
+			createNewUserRequest := identity.CreateUserRequest{
+				Username:     username,
+				FullName:     fullName,
+				Email:        mockUser.Email(),
+				PasswordHash: mockUser.PasswordHash(),
+				Metadata:     mockUser.Metadata(),
+			}
+
+			actual, actualErr := userWriteDatastoreAdapter.Create(ctx, createNewUserRequest)
+			assert.NoError(ginkgo.GinkgoT(), actualErr)
+			assert.NotNil(ginkgo.GinkgoT(), actual)
+		})
+	})
+})
