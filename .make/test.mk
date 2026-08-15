@@ -1,9 +1,16 @@
 
 .PHONY: test
-test: ## Runs all tests
+test: ## Runs all tests (usage: make test)
 	@echo "${YELLOW} Running tests ${NC}"
 	go test ./...
 	@echo "${YELLOW} Done Running tests ${NC}"
+
+
+.PHONY: test.integration
+test.integration: ## Runs all integration tests (usage: make test.integration)
+	@echo "${YELLOW} Running integration tests ${NC}"
+	go test -tags integration ./...
+	@echo "${YELLOW} Done Running integration tests ${NC}"
 
 .PHONY: test.coverage
 test.coverage: ## Runs all tests with coverage

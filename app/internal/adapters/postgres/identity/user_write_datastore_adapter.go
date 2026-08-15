@@ -119,7 +119,7 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 					)
 					return identity.User{}, fmt.Errorf("failed to map created user model to entity: %w", mapErr)
 				}
-				slog.InfoContext(retryCtx, "created model", "user", mappedUser)
+				slog.InfoContext(retryCtx, "created user", "user", mappedUser.ID())
 
 				return mappedUser, nil
 			})
