@@ -39,8 +39,8 @@ clean: ## Cleans the project by removing the bin directory and coverage files
 	if [ -f ${BIN_DIR} ] ; then rm ${BIN_DIR} ; fi
 
 .PHONY: lint
-lint:
-	@echo "${GREEN} Running lint checks ${NC}"
+lint: ## Runs linting on the project (usage: make lint CURRENT_DIR=/path/to/project)
+	@echo "${GREEN} Running lint checks in directory $(CURRENT_DIR) ${NC}"
 	docker run -t --rm -v $(CURRENT_DIR):/app -v ~/.cache/golangci-lint/:/root/.cache -w /app golangci/golangci-lint:v2.2.1 golangci-lint run -v
 	@echo "${GREEN} Done linting ${NC}"
 

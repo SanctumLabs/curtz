@@ -19,7 +19,7 @@ test.coverage: ## Runs all tests with coverage
 	@echo "${GREEN} Done running tests with coverage ${NC}"
 
 .PHONY: mocks.generate
-mocks.generate: ## generates mocks usage: make mocks.generate MOCK_SOURCE=internal/infra/database/postgresql/queries.go MOCK_DESTINATION=internal/infra/database/postgresql/mocks/queries_mock.go MOCK_PACKAGE=postgresqlmocks
+mocks.generate: ## generates mocks (usage: make mocks.generate MOCK_SOURCE=internal/infra/database/postgresql/queries.go MOCK_DESTINATION=internal/infra/database/postgresql/mocks/queries_mock.go MOCK_PACKAGE=postgresqlmocks)
 	@echo "${GREEN} >>>> Generating mocks for $(MOCK_SOURCE) in $(MOCK_DESTINATION) ${NC}"
 	@set -e; \
 	MOCKGEN_BIN=$$(command -v mockgen 2>/dev/null || true); \
