@@ -152,19 +152,9 @@ func (writeDatastore *userWriteDatastoreAdapter) Create(ctx context.Context, req
 				}
 
 				// query the status ID
-				status, statusErr := qtx.QueryUserStatusByName(retryCtx, string(identity.UserStatusInactive))
+				status, statusErr := queryUserStatusByName(retryCtx, qtx, string(identity.UserStatusInactive))
 				if statusErr != nil {
-					slog.ErrorContext(
-						retryCtx,
-						fmt.Sprintf("%s Failed to retrieve user status", handlerLogPrefix),
-						"user_status", identity.UserStatusInactive,
-						"error", statusErr,
-					)
-					if errors.Is(statusErr, pgx.ErrNoRows) {
-						return identity.User{}, errdefs.NotFound(statusErr)
-					}
-
-					return identity.User{}, fmt.Errorf("failed to query user status: %w", statusErr)
+					return identity.User{}, statusErr
 				}
 
 				metadata, metadataErr := utils.MapToBytes(request.Metadata)
@@ -243,19 +233,9 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 				}
 
 				// query the status ID
-				status, statusErr := qtx.QueryUserStatusByName(retryCtx, string(userEntity.Status()))
+				status, statusErr := queryUserStatusByName(retryCtx, qtx, string(userEntity.Status()))
 				if statusErr != nil {
-					slog.ErrorContext(
-						retryCtx,
-						fmt.Sprintf("%s Failed to retrieve user status", handlerLogPrefix),
-						"user_status", userEntity.Status(),
-						"error", statusErr,
-					)
-					if errors.Is(statusErr, pgx.ErrNoRows) {
-						return identity.User{}, errdefs.NotFound(statusErr)
-					}
-
-					return identity.User{}, fmt.Errorf("failed to query user status: %w", statusErr)
+					return identity.User{}, statusErr
 				}
 
 				email := userEntity.Email()
@@ -304,7 +284,71 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 }
 
 func (writeDatastore *userWriteDatastoreAdapter) UpdateVerification(ctx context.Context, request identity.UpdateUserVerificationRequest) (identity.User, error) {
-	return identity.User{}, nil
+	handlerLogPrefix := fmt.Sprintf("%s<UpdateVerification>", writeDatastore.logPrefix)
+	slog.InfoContext(ctx, fmt.Sprintf("%s Updating User Verification", handlerLogPrefix), "userId", request.ID)
+
+	operationCtx, operationCancel := context.WithTimeout(ctx, writeDatastore.config.OperationTimeout)
+	defer operationCancel()
+
+	return recoveryutils.ExecuteWithRetry(
+		operationCtx,
+		func(retryCtx context.Context) (identity.User, error) {
+			return writeDatastore.withTx(retryCtx, func(qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
+				// Check context before proceeding
+				select {
+				case <-retryCtx.Done():
+					slog.ErrorContext(retryCtx, "Operation cancelled before validation with error", "error", retryCtx.Err())
+					return identity.User{}, fmt.Errorf("operation cancelled before validation: %w", retryCtx.Err())
+				default:
+				}
+
+				// query the existing user
+				existingUser, existingUserErr := queryUserById(retryCtx, qtx, request.ID)
+				if existingUserErr != nil {
+					return identity.User{}, existingUserErr
+				}
+
+				updatedVerification, updatedVerificationErr := qtx.QueryUpdateUserVerification(
+					retryCtx,
+					postgresql.QueryUpdateUserVerificationParams{
+						ID:                  existingUser.User.ID,
+						Verified:            request.Verified,
+						VerificationToken:   pgtype.Text{String: request.VerificationToken, Valid: true},
+						VerificationExpires: pgtype.Timestamptz{Time: request.VerificationExpires, Valid: true},
+					},
+				)
+				if updatedVerificationErr != nil {
+					slog.ErrorContext(
+						retryCtx,
+						fmt.Sprintf("%s Failed to update user verification", handlerLogPrefix),
+						"id", request.ID,
+						"error", updatedVerificationErr,
+					)
+					return identity.User{}, fmt.Errorf("failed to update user %s verification: %w", request.ID, updatedVerificationErr)
+				}
+
+				// Map the created URL model back to an entity to return
+				mappedUser, mapErr := MapUserModelToEntity(UserMapperParams{
+					UserModel: updatedVerification,
+					Status:    existingUser.UserStatus.Name,
+				})
+				if mapErr != nil {
+					slog.ErrorContext(
+						retryCtx,
+						fmt.Sprintf("%s Failed to map updated user model to entity", handlerLogPrefix),
+						"userId", updatedVerification.ID,
+						"error", mapErr,
+					)
+					return identity.User{}, fmt.Errorf("failed to map updated user model to entity: %w", mapErr)
+				}
+				slog.InfoContext(retryCtx, "updated model", "user", mappedUser)
+
+				return mappedUser, nil
+			})
+		},
+		writeDatastore.config.RetryConfig,
+		fmt.Sprintf("%s.Create", writeDatastore.logPrefix),
+	)
 }
 
 // UpdateMetadata updates the metadata of a User entity based on the provided request and returns the updated User entity
