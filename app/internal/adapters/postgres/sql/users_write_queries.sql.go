@@ -12,10 +12,11 @@ import (
 )
 
 const queryCreateUser = `-- name: QueryCreateUser :one
-INSERT INTO users (username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryCreateUserParams struct {
+	ID           pgtype.UUID `db:"id" json:"id"`
 	Username     string      `db:"username" json:"username"`
 	FirstName    pgtype.Text `db:"first_name" json:"first_name"`
 	LastName     pgtype.Text `db:"last_name" json:"last_name"`
@@ -27,9 +28,10 @@ type QueryCreateUserParams struct {
 
 // QueryCreateUser
 //
-//	INSERT INTO users (username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryCreateUser,
+		arg.ID,
 		arg.Username,
 		arg.FirstName,
 		arg.LastName,

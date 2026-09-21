@@ -22,6 +22,18 @@ FROM urls u
 JOIN url_status us ON u.status_id = us.id
 WHERE u.custom_alias = $1;
 
+-- name: QueryExpiredActiveUrls :many
+SELECT 
+  sqlc.embed(u),
+  sqlc.embed(us)
+FROM urls u
+JOIN url_status us ON u.status_id = us.id
+WHERE us.name = 'ACTIVE'
+  AND u.deleted_at IS NULL
+  AND u.expires_on < sqlc.arg(expires_before)
+ORDER BY u.expires_on ASC
+LIMIT sqlc.arg(limit_by);
+
 -- name: QueryAllUrls :many
 SELECT 
   sqlc.embed(u),

@@ -72,7 +72,7 @@ INSERT INTO user_status (name, description) VALUES ('SUSPENDED', 'Indicates that
 INSERT INTO user_status (name, description) VALUES ('INACTIVE', 'Indicates that the user account is inactive');
 
 CREATE TABLE IF NOT EXISTS users (
-    id                   UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    id                   UUID PRIMARY KEY NOT NULL,
     username             VARCHAR(50)  NOT NULL UNIQUE,
     first_name           VARCHAR(50),
     last_name            VARCHAR(50),
@@ -164,7 +164,7 @@ INSERT INTO url_status (name, description) VALUES ('EXPIRED', 'Indicates that th
 
 -- URLs (URL context — core domain)
 CREATE TABLE IF NOT EXISTS urls (
-    id           UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    id           UUID PRIMARY KEY NOT NULL,
     user_id      UUID NOT NULL REFERENCES users(id),
     short_code   VARCHAR(12)  NOT NULL,
     custom_alias VARCHAR(12),

@@ -68,6 +68,7 @@ func MapUserModelToEntity(params UserMapperParams) (identity.User, error) {
 		VerificationToken:   userModel.VerificationToken.String,
 		VerificationExpires: userModel.VerificationExpires.Time,
 		Verified:            userModel.Verified,
+		PasswordHash:        userModel.PasswordHash,
 	}
 
 	userEntity, userEntityErr := identity.NewUser(userParams)

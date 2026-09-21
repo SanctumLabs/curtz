@@ -29,7 +29,7 @@ SELECT
   COUNT(*) OVER() AS total_records
 FROM users u 
 JOIN user_status us ON u.status_id = us.id
-WHERE sqlc.arg(include_deleted)::bool OR u.deleted_at IS NULL
+WHERE (sqlc.arg(include_deleted)::bool OR u.deleted_at IS NULL)
   AND (COALESCE(sqlc.narg(user_status), '') = '' OR us.name = sqlc.narg(user_status))
 -- Date range filtering
 AND (
