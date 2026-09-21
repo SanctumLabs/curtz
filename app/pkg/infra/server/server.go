@@ -1,10 +1,10 @@
 package server
 
 import (
-	"carduka/bidsvc/pkg/infra/logger"
-	"carduka/bidsvc/pkg/infra/server/middleware"
-	"carduka/bidsvc/pkg/infra/server/router"
 	"fmt"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/logger"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/server/middleware"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
 
 	"github.com/bytedance/sonic"
 	"github.com/gofiber/contrib/swagger"
