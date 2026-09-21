@@ -18,7 +18,7 @@ SELECT
   COUNT(*) OVER() AS total_records
 FROM users u 
 JOIN user_status us ON u.status_id = us.id
-WHERE $1::bool OR u.deleted_at IS NULL
+WHERE ($1::bool OR u.deleted_at IS NULL)
   AND (COALESCE($2, '') = '' OR us.name = $2)
 AND (
   $3::text IS NULL
@@ -80,7 +80,7 @@ type QueryAllUsersRow struct {
 //	  COUNT(*) OVER() AS total_records
 //	FROM users u
 //	JOIN user_status us ON u.status_id = us.id
-//	WHERE $1::bool OR u.deleted_at IS NULL
+//	WHERE ($1::bool OR u.deleted_at IS NULL)
 //	  AND (COALESCE($2, '') = '' OR us.name = $2)
 //	AND (
 //	  $3::text IS NULL

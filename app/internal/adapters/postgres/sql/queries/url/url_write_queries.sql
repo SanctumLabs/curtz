@@ -1,5 +1,6 @@
 -- name: QueryCreateUrl :one
 INSERT INTO urls (
+  id,
   user_id, 
   short_code, 
   custom_alias, 
@@ -11,7 +12,7 @@ INSERT INTO urls (
   og_image_url,
   metadata
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *;
 
 -- name: QueryUpdateUrlDetails :one
 UPDATE urls

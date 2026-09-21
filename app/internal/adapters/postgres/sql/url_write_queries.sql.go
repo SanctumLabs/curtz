@@ -13,6 +13,7 @@ import (
 
 const queryCreateUrl = `-- name: QueryCreateUrl :one
 INSERT INTO urls (
+  id,
   user_id, 
   short_code, 
   custom_alias, 
@@ -24,10 +25,11 @@ INSERT INTO urls (
   og_image_url,
   metadata
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryCreateUrlParams struct {
+	ID            pgtype.UUID        `db:"id" json:"id"`
 	UserID        pgtype.UUID        `db:"user_id" json:"user_id"`
 	ShortCode     string             `db:"short_code" json:"short_code"`
 	CustomAlias   pgtype.Text        `db:"custom_alias" json:"custom_alias"`
@@ -43,6 +45,7 @@ type QueryCreateUrlParams struct {
 // QueryCreateUrl
 //
 //	INSERT INTO urls (
+//	  id,
 //	  user_id,
 //	  short_code,
 //	  custom_alias,
@@ -54,9 +57,10 @@ type QueryCreateUrlParams struct {
 //	  og_image_url,
 //	  metadata
 //	)
-//	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+//	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryCreateUrl(ctx context.Context, arg QueryCreateUrlParams) (Url, error) {
 	row := q.db.QueryRow(ctx, queryCreateUrl,
+		arg.ID,
 		arg.UserID,
 		arg.ShortCode,
 		arg.CustomAlias,

@@ -105,6 +105,7 @@ func (repo *urlWriteRepositoryAdapter) Save(ctx context.Context, urlEntity url.U
 				createdUrl, createdUrlErr := qtx.QueryCreateUrl(
 					retryCtx,
 					postgresql.QueryCreateUrlParams{
+						ID:        pgtype.UUID{Bytes: urlEntity.ID(), Valid: true},
 						UserID:    userUUID,
 						ShortCode: shortCode.Value(),
 						CustomAlias: pgtype.Text{

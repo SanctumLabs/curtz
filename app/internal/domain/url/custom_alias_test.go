@@ -1,6 +1,7 @@
 package url
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -25,7 +26,7 @@ var customAliasTestCases = []customAliasTestCase{
 	},
 	{
 		name:  "custom alias too long should return error",
-		input: "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+		input: "abcdefghijklm",
 		err:   errdefs.ErrCustomAliasInvalidLength,
 	},
 	{
@@ -50,7 +51,12 @@ var customAliasTestCases = []customAliasTestCase{
 	},
 	{
 		name:  "valid custom alias with dashes and numbers should return no error",
-		input: "test-123-alias",
+		input: "test-123-al",
+		err:   nil,
+	},
+	{
+		name:  "custom alias at max length should return no error",
+		input: "abcdefghijkl",
 		err:   nil,
 	},
 }
@@ -59,7 +65,7 @@ func TestNewCustomAlias(t *testing.T) {
 	for _, tc := range customAliasTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			customAlias, err := NewCustomAlias(tc.input)
-			if err != tc.err {
+			if !errors.Is(err, tc.err) {
 				t.Errorf("NewCustomAlias(%s) = (%v, %v), expected error %v, got %v", tc.input, customAlias, err, tc.err, err)
 			}
 			if err == nil && customAlias.Value() != tc.input {

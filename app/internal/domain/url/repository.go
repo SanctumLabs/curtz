@@ -2,6 +2,7 @@ package url
 
 import (
 	"context"
+	"time"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/ports/repository"
 )
@@ -37,5 +38,9 @@ type (
 
 		// FetchByOriginalUrl retrieves a URL entity by its original url
 		FetchByOriginalUrl(ctx context.Context, originalUrl string) (URL, error)
+
+		// FetchExpiredActive retrieves up to limit ACTIVE URL entities whose expiry is before the given time.
+		// Used by the expiry background job to find URLs to transition to EXPIRED.
+		FetchExpiredActive(ctx context.Context, before time.Time, limit int) ([]URL, error)
 	}
 )

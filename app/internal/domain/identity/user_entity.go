@@ -103,6 +103,7 @@ func NewUser(params UserParams) (*User, error) {
 		email:         email,
 		verification:  verification,
 		status:        params.Status,
+		passwordHash:  params.PasswordHash,
 	}, nil
 }
 

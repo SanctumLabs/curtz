@@ -325,6 +325,82 @@ func (q *Queries) QueryAllUrlsByUserId(ctx context.Context, arg QueryAllUrlsByUs
 	return items, nil
 }
 
+const queryExpiredActiveUrls = `-- name: QueryExpiredActiveUrls :many
+SELECT 
+  u.id, u.user_id, u.short_code, u.custom_alias, u.original_url, u.status_id, u.expires_on, u.og_title, u.og_description, u.og_image_url, u.metadata, u.created_at, u.updated_at, u.deleted_at,
+  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
+FROM urls u
+JOIN url_status us ON u.status_id = us.id
+WHERE us.name = 'ACTIVE'
+  AND u.deleted_at IS NULL
+  AND u.expires_on < $1
+ORDER BY u.expires_on ASC
+LIMIT $2
+`
+
+type QueryExpiredActiveUrlsParams struct {
+	ExpiresBefore pgtype.Timestamptz `db:"expires_before" json:"expires_before"`
+	LimitBy       int32              `db:"limit_by" json:"limit_by"`
+}
+
+type QueryExpiredActiveUrlsRow struct {
+	Url       Url       `db:"url" json:"url"`
+	UrlStatus UrlStatus `db:"url_status" json:"url_status"`
+}
+
+// QueryExpiredActiveUrls
+//
+//	SELECT
+//	  u.id, u.user_id, u.short_code, u.custom_alias, u.original_url, u.status_id, u.expires_on, u.og_title, u.og_description, u.og_image_url, u.metadata, u.created_at, u.updated_at, u.deleted_at,
+//	  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
+//	FROM urls u
+//	JOIN url_status us ON u.status_id = us.id
+//	WHERE us.name = 'ACTIVE'
+//	  AND u.deleted_at IS NULL
+//	  AND u.expires_on < $1
+//	ORDER BY u.expires_on ASC
+//	LIMIT $2
+func (q *Queries) QueryExpiredActiveUrls(ctx context.Context, arg QueryExpiredActiveUrlsParams) ([]QueryExpiredActiveUrlsRow, error) {
+	rows, err := q.db.Query(ctx, queryExpiredActiveUrls, arg.ExpiresBefore, arg.LimitBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QueryExpiredActiveUrlsRow
+	for rows.Next() {
+		var i QueryExpiredActiveUrlsRow
+		if err := rows.Scan(
+			&i.Url.ID,
+			&i.Url.UserID,
+			&i.Url.ShortCode,
+			&i.Url.CustomAlias,
+			&i.Url.OriginalUrl,
+			&i.Url.StatusID,
+			&i.Url.ExpiresOn,
+			&i.Url.OgTitle,
+			&i.Url.OgDescription,
+			&i.Url.OgImageUrl,
+			&i.Url.Metadata,
+			&i.Url.CreatedAt,
+			&i.Url.UpdatedAt,
+			&i.Url.DeletedAt,
+			&i.UrlStatus.ID,
+			&i.UrlStatus.Name,
+			&i.UrlStatus.Description,
+			&i.UrlStatus.CreatedAt,
+			&i.UrlStatus.UpdatedAt,
+			&i.UrlStatus.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const queryUrlByCustomAlias = `-- name: QueryUrlByCustomAlias :one
 SELECT 
   u.id, u.user_id, u.short_code, u.custom_alias, u.original_url, u.status_id, u.expires_on, u.og_title, u.og_description, u.og_image_url, u.metadata, u.created_at, u.updated_at, u.deleted_at, 

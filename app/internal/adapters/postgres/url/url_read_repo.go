@@ -2,6 +2,7 @@ package urlrepo
 
 import (
 	"context"
+	"time"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/ports/repository"
 	"github.com/sanctumlabs/curtz/app/internal/domain/url"
@@ -42,5 +43,9 @@ func (repo *urlReadRepositoryAdapter) FetchByStatus(ctx context.Context, status 
 }
 
 func (repo *urlReadRepositoryAdapter) FetchByOriginalUrl(ctx context.Context, originalUrl string) (url.URL, error) {
+	panic("not implemented")
+}
+
+func (repo *urlReadRepositoryAdapter) FetchExpiredActive(ctx context.Context, before time.Time, limit int) ([]url.URL, error) {
 	panic("not implemented")
 }
