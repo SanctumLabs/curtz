@@ -98,6 +98,17 @@ func (repo *userReadDatastoreAdapter) FetchByEmail(ctx context.Context, email st
 		})
 }
 
+func (repo *userReadDatastoreAdapter) FetchByVerificationToken(ctx context.Context, token string) (identity.User, error) {
+	slog.InfoContext(ctx, fmt.Sprintf("%s<FetchByVerificationToken> Fetching user by verification token", repo.logPrefix))
+
+	// The token is deliberately kept out of the log attributes: it is a bearer credential.
+	return repo.fetchOne(ctx, "FetchByVerificationToken", nil,
+		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, postgresql.UserStatus, error) {
+			row, err := qtx.QueryUserByVerificationToken(ctx, pgtype.Text{String: token, Valid: true})
+			return row.User, row.UserStatus, err
+		})
+}
+
 func (repo *userReadDatastoreAdapter) FetchAll(ctx context.Context, params common.RequestParams) (repository.FetchRecordsResponse[identity.User], error) {
 	slog.InfoContext(ctx, fmt.Sprintf("%s<FetchAll> Fetching users", repo.logPrefix), "params", params)
 

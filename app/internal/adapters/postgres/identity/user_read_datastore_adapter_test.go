@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
@@ -27,7 +28,7 @@ type UserReadDatastoreAdapterTestSuite struct {
 	mockCtrl                 *gomock.Controller
 	mockDbClient             *mockdatabase.MockPostgresDatabaseClient
 	mockUserReadQuerier      *mockpostgresrepo.MockUserReadQuerier
-	mockUserReadDatastore    *mockidentity.MockUserReadRepository
+	mockUserReadDatastore    *mockidentity.MockUserReadDatastore
 	userReadDatastoreAdapter *userReadDatastoreAdapter
 	config                   database.Config
 }
@@ -41,7 +42,7 @@ func (suite *UserReadDatastoreAdapterTestSuite) SetupTest() {
 	suite.mockCtrl = mockCtrl
 	suite.mockDbClient = mockdatabase.NewMockPostgresDatabaseClient(mockCtrl)
 	suite.mockUserReadQuerier = mockpostgresrepo.NewMockUserReadQuerier(mockCtrl)
-	suite.mockUserReadDatastore = mockidentity.NewMockUserReadRepository(mockCtrl)
+	suite.mockUserReadDatastore = mockidentity.NewMockUserReadDatastore(mockCtrl)
 	suite.userReadDatastoreAdapter = &userReadDatastoreAdapter{
 		logPrefix: "UserReadRepoAdapter",
 		dbClient:  suite.mockDbClient,
@@ -235,4 +236,36 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByStatus_Empty() {
 	suite.NoError(err)
 	suite.Equal(0, actual.Total)
 	suite.Empty(actual.Records)
+}
+
+func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByVerificationToken_Success() {
+	ctx := context.Background()
+	mockUser, userRecord, userStatus := suite.newMockUserRow()
+	verification := mockUser.Verification()
+	token := verification.Token()
+
+	suite.mockUserReadQuerier.
+		EXPECT().
+		QueryUserByVerificationToken(gomock.Any(), pgtype.Text{String: token, Valid: true}).
+		Return(postgresql.QueryUserByVerificationTokenRow{User: userRecord, UserStatus: userStatus}, nil).
+		Times(1)
+
+	actual, err := suite.userReadDatastoreAdapter.FetchByVerificationToken(ctx, token)
+	suite.NoError(err)
+	suite.Equal(mockUser.ID(), actual.ID())
+
+	actualVerification := actual.Verification()
+	suite.Equal(token, actualVerification.Token())
+}
+
+func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByVerificationToken_NotFound() {
+	suite.mockUserReadQuerier.
+		EXPECT().
+		QueryUserByVerificationToken(gomock.Any(), gomock.Any()).
+		Return(postgresql.QueryUserByVerificationTokenRow{}, pgx.ErrNoRows).
+		Times(1)
+
+	_, err := suite.userReadDatastoreAdapter.FetchByVerificationToken(context.Background(), "no-such-token")
+	suite.Error(err)
+	suite.True(errdefs.IsNotFound(err), "expected a NotFound error, got %v", err)
 }

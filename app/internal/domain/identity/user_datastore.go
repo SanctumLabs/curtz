@@ -24,6 +24,10 @@ type (
 		// UpdateVerification updates the verification details of a User entity based on the provided request and returns the updated User entity
 		UpdateVerification(ctx context.Context, request UpdateUserVerificationRequest) (User, error)
 
+		// MarkVerified atomically records a completed email verification and moves the User to the
+		// status the aggregate transitioned to
+		MarkVerified(ctx context.Context, request MarkUserVerifiedRequest) (User, error)
+
 		// UpdateMetadata updates the metadata of a User entity based on the provided request and returns the updated User entity
 		UpdateMetadata(ctx context.Context, request UpdateUserMetadataVerificationRequest) (User, error)
 
@@ -43,6 +47,9 @@ type (
 
 		// FetchByEmail retrieves a User entity by its email
 		FetchByEmail(ctx context.Context, email string) (User, error)
+
+		// FetchByVerificationToken retrieves a User entity by its email-verification token
+		FetchByVerificationToken(ctx context.Context, token string) (User, error)
 
 		// FetchByStatus retrieves a list of User entities by their status
 		FetchByStatus(ctx context.Context, status UserStatus) (repository.FetchRecordsResponse[User], error)

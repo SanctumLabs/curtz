@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 )
 
 type (
@@ -61,6 +62,17 @@ type (
 
 		// PasswordHash is the hashed password of the user
 		PasswordHash string
+	}
+
+	// RegisterUserParams are the inputs needed to register a brand new user. The password must
+	// already be hashed: the domain never sees a plaintext password.
+	RegisterUserParams struct {
+		Username     string
+		FirstName    string
+		LastName     string
+		Email        string
+		PasswordHash string
+		Metadata     map[string]any
 	}
 )
 
@@ -124,46 +136,149 @@ func (user *User) LastName() string {
 	return user.fullName.LastName()
 }
 
-func (user *User) WithFullName(fullName UserFullName) User {
+// WithFullName returns a copy of User with the full name updated, leaving the receiver unchanged.
+func (user User) WithFullName(fullName UserFullName) User {
 	user.fullName = fullName
-	return *user
+	return user
 }
 
 func (user *User) Email() Email {
 	return user.email
 }
 
-// WithEmail returns a new copy of User with the email updated
-func (user *User) WithEmail(email Email) User {
+// WithEmail returns a copy of User with the email updated, leaving the receiver unchanged.
+func (user User) WithEmail(email Email) User {
 	user.email = email
-	return *user
+	return user
 }
 
 func (user *User) Status() UserStatus {
 	return user.status
 }
 
-func (user *User) WithStatus(status UserStatus) User {
-	user.status = status
-	return *user
-}
-
 func (user *User) Verification() UserVerification {
 	return user.verification
-}
-
-func (user *User) WithVerification(verification UserVerification) User {
-	user.verification = verification
-	return *user
 }
 
 func (user *User) PasswordHash() string {
 	return user.passwordHash
 }
 
-func (user *User) WithPasswordHash(passwordHash string) User {
+// WithPasswordHash returns a copy of User with the password hash updated, leaving the receiver
+// unchanged.
+func (user User) WithPasswordHash(passwordHash string) User {
 	user.passwordHash = passwordHash
-	return *user
+	return user
+}
+
+// Register creates a new INACTIVE user, assigns its identity and timestamps, issues a
+// verification token, and records UserRegistered. A user becomes ACTIVE only via Verify.
+func Register(params RegisterUserParams) (*User, error) {
+	token, tokenErr := NewVerificationToken()
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+
+	now := time.Now()
+	user, err := NewUser(UserParams{
+		AggregateRootParams: entity.AggregateRootParams{
+			EntityParams: entity.EntityParams{
+				EntityIDParams: entity.EntityIDParams{
+					ID:    entity.NewID(),
+					KeyID: entity.NewKeyID(),
+				},
+				EntityTimestampParams: entity.EntityTimestampParams{
+					CreatedAt: now,
+					UpdatedAt: now,
+				},
+				Metadata: params.Metadata,
+			},
+		},
+		Username:            params.Username,
+		FirstName:           params.FirstName,
+		LastName:            params.LastName,
+		Email:               params.Email,
+		PasswordHash:        params.PasswordHash,
+		Status:              UserStatusInactive,
+		VerificationToken:   token,
+		VerificationExpires: now.Add(VerificationTokenTTL),
+		Verified:            false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	user.ApplyDomain(UserRegistered{
+		baseEvent:           newBaseEvent("user.registered"),
+		UserID:              entity.IDToString(user.ID()),
+		Username:            user.username,
+		Email:               user.email.Value(),
+		VerificationToken:   token,
+		VerificationExpires: user.verification.Expires(),
+	})
+
+	return user, nil
+}
+
+// Verify completes email verification with the given token and activates the user,
+// recording UserVerified. The token must match and must not have expired.
+func (user *User) Verify(token string, now time.Time) error {
+	if user.verification.Verified() {
+		return errdefs.ErrUserAlreadyVerified
+	}
+	if user.verification.Token() == "" || user.verification.Token() != token {
+		return errdefs.ErrVerificationTokenInvalid
+	}
+	if user.verification.IsExpired(now) {
+		return errdefs.ErrVerificationTokenExpired
+	}
+
+	user.verification.verified = true
+	user.status = UserStatusActive
+	user.touch()
+
+	user.ApplyDomain(UserVerified{
+		baseEvent: newBaseEvent("user.verified"),
+		UserID:    entity.IDToString(user.ID()),
+		Email:     user.email.Value(),
+	})
+
+	return nil
+}
+
+// MarkDeleted transitions any non-deleted user to DELETED and records UserDeleted.
+func (user *User) MarkDeleted() error {
+	if err := user.transition(UserStatusDeleted, UserStatusActive, UserStatusInactive, UserStatusSuspended); err != nil {
+		return err
+	}
+
+	user.ApplyDomain(UserDeleted{
+		baseEvent: newBaseEvent("user.deleted"),
+		UserID:    entity.IDToString(user.ID()),
+	})
+
+	return nil
+}
+
+// IsActive reports whether the user is verified and in the ACTIVE state.
+func (user *User) IsActive() bool {
+	return user.status == UserStatusActive && user.verification.Verified()
+}
+
+// transition moves the user to `to` if its current status is one of `from`.
+func (user *User) transition(to UserStatus, from ...UserStatus) error {
+	for _, f := range from {
+		if user.status == f {
+			user.status = to
+			user.touch()
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s -> %s", errdefs.ErrInvalidUserStatusTransition, user.status, to)
+}
+
+func (user *User) touch() {
+	user.EntityTimestamp = user.EntityTimestamp.WithUpdatedAt(time.Now())
 }
 
 // Prefix returns the url prefix for logging

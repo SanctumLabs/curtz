@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -53,4 +54,18 @@ func queryUserById(ctx context.Context, qtx postgresrepo.UserReadQuerier, userId
 		return nil, fmt.Errorf("failed to query user: %s %w", userId, existingUserErr)
 	}
 	return &existingUser, nil
+}
+
+// uniqueViolationCode is PostgreSQL's SQLSTATE for a unique constraint violation.
+const uniqueViolationCode = "23505"
+
+// asConflict maps a unique-constraint violation onto a Conflict error so callers (and the HTTP
+// layer) can tell "this username/email is taken" apart from a genuine failure. Any other error is
+// returned unchanged.
+func asConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolationCode {
+		return errdefs.Conflict(err)
+	}
+	return err
 }

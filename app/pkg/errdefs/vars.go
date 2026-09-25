@@ -36,6 +36,11 @@ var (
 	ErrShortCodeInvalidLength       = errors.New("short code must be between 6 and 10 characters")
 	ErrShortCodeInvalidCharacters   = errors.New("short code can only contain alphanumeric characters")
 	ErrURLNotActive                 = errors.New("url is not active")
+	ErrUserAlreadyVerified          = errors.New("user is already verified")
+	ErrVerificationTokenInvalid     = errors.New("verification token is invalid")
+	ErrVerificationTokenExpired     = errors.New("verification token has expired")
+	ErrInvalidCredentials           = errors.New("invalid email or password")
+	ErrInvalidUserStatusTransition  = errors.New("invalid user status transition")
 	ErrInvalidStatusTransition      = errors.New("invalid url status transition")
 )
 

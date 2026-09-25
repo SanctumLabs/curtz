@@ -1,9 +1,25 @@
 package identity
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 )
+
+// VerificationTokenTTL is how long a freshly issued verification token stays valid.
+const VerificationTokenTTL = 15 * time.Minute
+
+// NewVerificationToken generates a crypto-random, URL-safe verification token.
+// It is deliberately not derived from the user's ID: UUIDv7 ids encode a timestamp and would
+// make tokens partially predictable.
+func NewVerificationToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("failed to generate verification token: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
+}
 
 // UserVerification is a value object representing a user's verification in the system.
 type UserVerification struct {
@@ -35,6 +51,11 @@ func (ufn *UserVerification) Expires() time.Time {
 
 func (ufn *UserVerification) Verified() bool {
 	return ufn.verified
+}
+
+// IsExpired reports whether the verification token is no longer valid at the given time.
+func (ufn *UserVerification) IsExpired(now time.Time) bool {
+	return !ufn.verificationExpires.After(now)
 }
 
 // SetVerified sets the user's verification to verified

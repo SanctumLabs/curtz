@@ -171,6 +171,21 @@ func (mr *MockUserReadQuerierMockRecorder) QueryUserByUsername(ctx, username any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUserByUsername", reflect.TypeOf((*MockUserReadQuerier)(nil).QueryUserByUsername), ctx, username)
 }
 
+// QueryUserByVerificationToken mocks base method.
+func (m *MockUserReadQuerier) QueryUserByVerificationToken(ctx context.Context, verificationToken pgtype.Text) (postgresql.QueryUserByVerificationTokenRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUserByVerificationToken", ctx, verificationToken)
+	ret0, _ := ret[0].(postgresql.QueryUserByVerificationTokenRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUserByVerificationToken indicates an expected call of QueryUserByVerificationToken.
+func (mr *MockUserReadQuerierMockRecorder) QueryUserByVerificationToken(ctx, verificationToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUserByVerificationToken", reflect.TypeOf((*MockUserReadQuerier)(nil).QueryUserByVerificationToken), ctx, verificationToken)
+}
+
 // MockUserWriteQuerier is a mock of UserWriteQuerier interface.
 type MockUserWriteQuerier struct {
 	ctrl     *gomock.Controller
@@ -373,6 +388,21 @@ func (m *MockUserWriteQuerier) QueryUserByUsername(ctx context.Context, username
 func (mr *MockUserWriteQuerierMockRecorder) QueryUserByUsername(ctx, username any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUserByUsername", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUserByUsername), ctx, username)
+}
+
+// QueryUserByVerificationToken mocks base method.
+func (m *MockUserWriteQuerier) QueryUserByVerificationToken(ctx context.Context, verificationToken pgtype.Text) (postgresql.QueryUserByVerificationTokenRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUserByVerificationToken", ctx, verificationToken)
+	ret0, _ := ret[0].(postgresql.QueryUserByVerificationTokenRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUserByVerificationToken indicates an expected call of QueryUserByVerificationToken.
+func (mr *MockUserWriteQuerierMockRecorder) QueryUserByVerificationToken(ctx, verificationToken any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUserByVerificationToken", reflect.TypeOf((*MockUserWriteQuerier)(nil).QueryUserByVerificationToken), ctx, verificationToken)
 }
 
 // QueryUserStatusByName mocks base method.

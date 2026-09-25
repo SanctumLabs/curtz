@@ -12,23 +12,26 @@ import (
 )
 
 const queryCreateUser = `-- name: QueryCreateUser :one
-INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata, verified, verification_token, verification_expires) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryCreateUserParams struct {
-	ID           pgtype.UUID `db:"id" json:"id"`
-	Username     string      `db:"username" json:"username"`
-	FirstName    pgtype.Text `db:"first_name" json:"first_name"`
-	LastName     pgtype.Text `db:"last_name" json:"last_name"`
-	Email        string      `db:"email" json:"email"`
-	PasswordHash string      `db:"password_hash" json:"password_hash"`
-	StatusID     pgtype.UUID `db:"status_id" json:"status_id"`
-	Metadata     []byte      `db:"metadata" json:"metadata"`
+	ID                  pgtype.UUID        `db:"id" json:"id"`
+	Username            string             `db:"username" json:"username"`
+	FirstName           pgtype.Text        `db:"first_name" json:"first_name"`
+	LastName            pgtype.Text        `db:"last_name" json:"last_name"`
+	Email               string             `db:"email" json:"email"`
+	PasswordHash        string             `db:"password_hash" json:"password_hash"`
+	StatusID            pgtype.UUID        `db:"status_id" json:"status_id"`
+	Metadata            []byte             `db:"metadata" json:"metadata"`
+	Verified            bool               `db:"verified" json:"verified"`
+	VerificationToken   pgtype.Text        `db:"verification_token" json:"verification_token"`
+	VerificationExpires pgtype.Timestamptz `db:"verification_expires" json:"verification_expires"`
 }
 
 // QueryCreateUser
 //
-//	INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata, verified, verification_token, verification_expires) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryCreateUser,
 		arg.ID,
@@ -39,6 +42,9 @@ func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams
 		arg.PasswordHash,
 		arg.StatusID,
 		arg.Metadata,
+		arg.Verified,
+		arg.VerificationToken,
+		arg.VerificationExpires,
 	)
 	var i User
 	err := row.Scan(

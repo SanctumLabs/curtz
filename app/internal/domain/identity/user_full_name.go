@@ -22,6 +22,7 @@ func NewUserFullName(firstName, lastName string) (UserFullName, error) {
 
 	return UserFullName{
 		firstName: firstName,
+		lastName:  lastName,
 	}, nil
 }
 
@@ -55,8 +56,12 @@ func (ufn *UserFullName) WithLastName(lastName string) (UserFullName, error) {
 	}, nil
 }
 
-// Value is the user's full name
+// Value is the user's full name. The last name is optional, so a user with only a first
+// name renders as just that, with no trailing space.
 func (ufn *UserFullName) Value() string {
+	if ufn.lastName == "" {
+		return ufn.firstName
+	}
 	return fmt.Sprintf("%s %s", ufn.firstName, ufn.lastName)
 }
 

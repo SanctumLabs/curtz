@@ -24,6 +24,7 @@ type (
 		QueryUserById(ctx context.Context, id pgtype.UUID) (postgresql.QueryUserByIdRow, error)
 		QueryUserByUsername(ctx context.Context, username string) (postgresql.QueryUserByUsernameRow, error)
 		QueryUserByEmail(ctx context.Context, email string) (postgresql.QueryUserByEmailRow, error)
+		QueryUserByVerificationToken(ctx context.Context, verificationToken pgtype.Text) (postgresql.QueryUserByVerificationTokenRow, error)
 		QueryAllUsers(ctx context.Context, arg postgresql.QueryAllUsersParams) ([]postgresql.QueryAllUsersRow, error)
 	}
 

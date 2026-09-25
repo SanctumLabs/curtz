@@ -79,17 +79,21 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 		}
 
 		email := userEntity.Email()
+		verification := userEntity.Verification()
 		createdUser, createdUserErr := qtx.QueryCreateUser(
 			ctx,
 			postgresql.QueryCreateUserParams{
-				ID:           pgtype.UUID{Bytes: userEntity.ID(), Valid: true},
-				Username:     userEntity.Username(),
-				FirstName:    pgtype.Text{String: userEntity.FirstName(), Valid: true},
-				LastName:     pgtype.Text{String: userEntity.LastName(), Valid: true},
-				Email:        email.Value(),
-				PasswordHash: userEntity.PasswordHash(),
-				StatusID:     status.ID,
-				Metadata:     metadata,
+				ID:                  pgtype.UUID{Bytes: userEntity.ID(), Valid: true},
+				Username:            userEntity.Username(),
+				FirstName:           pgtype.Text{String: userEntity.FirstName(), Valid: true},
+				LastName:            pgtype.Text{String: userEntity.LastName(), Valid: true},
+				Email:               email.Value(),
+				PasswordHash:        userEntity.PasswordHash(),
+				StatusID:            status.ID,
+				Metadata:            metadata,
+				Verified:            verification.Verified(),
+				VerificationToken:   pgtype.Text{String: verification.Token(), Valid: verification.Token() != ""},
+				VerificationExpires: pgtype.Timestamptz{Time: verification.Expires(), Valid: !verification.Expires().IsZero()},
 			},
 		)
 		if createdUserErr != nil {
@@ -99,7 +103,7 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 				"username", userEntity.Username(),
 				"error", createdUserErr,
 			)
-			return identity.User{}, fmt.Errorf("failed to create user: %w", createdUserErr)
+			return identity.User{}, asConflict(fmt.Errorf("failed to create user: %w", createdUserErr))
 		}
 
 		return mapUser(ctx, handlerLogPrefix, createdUser, status.Name)
@@ -143,7 +147,7 @@ func (writeDatastore *userWriteDatastoreAdapter) Create(ctx context.Context, req
 				"username", request.Username,
 				"error", createdUserErr,
 			)
-			return identity.User{}, fmt.Errorf("failed to create user: %w", createdUserErr)
+			return identity.User{}, asConflict(fmt.Errorf("failed to create user: %w", createdUserErr))
 		}
 
 		return mapUser(ctx, handlerLogPrefix, createdUser, status.Name)
@@ -215,6 +219,54 @@ func (writeDatastore *userWriteDatastoreAdapter) UpdateVerification(ctx context.
 		}
 
 		return mapUser(ctx, handlerLogPrefix, updatedUser, existingUser.UserStatus.Name)
+	})
+}
+
+// MarkVerified atomically flags the user verified and applies the status the aggregate
+// transitioned to. Both writes share one transaction so a user can never end up verified but
+// still inactive.
+func (writeDatastore *userWriteDatastoreAdapter) MarkVerified(ctx context.Context, request identity.MarkUserVerifiedRequest) (identity.User, error) {
+	handlerLogPrefix := fmt.Sprintf("%s<MarkVerified>", writeDatastore.logPrefix)
+	slog.InfoContext(ctx, fmt.Sprintf("%s Marking User verified", handlerLogPrefix), "userId", request.ID, "status", request.Status)
+
+	return writeDatastore.run(ctx, "MarkVerified", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
+		existingUser, existingUserErr := queryUserById(ctx, qtx, request.ID)
+		if existingUserErr != nil {
+			return identity.User{}, existingUserErr
+		}
+
+		status, statusErr := queryUserStatusByName(ctx, qtx, string(request.Status))
+		if statusErr != nil {
+			return identity.User{}, statusErr
+		}
+
+		verifiedUser, verifiedErr := qtx.QueryUpdateUserVerification(
+			ctx,
+			postgresql.QueryUpdateUserVerificationParams{
+				ID:                  existingUser.User.ID,
+				Verified:            true,
+				VerificationToken:   existingUser.User.VerificationToken,
+				VerificationExpires: existingUser.User.VerificationExpires,
+			},
+		)
+		if verifiedErr != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to flag user verified", handlerLogPrefix), "id", request.ID, "error", verifiedErr)
+			return identity.User{}, fmt.Errorf("failed to mark user %s verified: %w", request.ID, verifiedErr)
+		}
+
+		activatedUser, activatedErr := qtx.QueryUpdateUserStatusId(
+			ctx,
+			postgresql.QueryUpdateUserStatusIdParams{
+				ID:       verifiedUser.ID,
+				StatusID: status.ID,
+			},
+		)
+		if activatedErr != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to apply user status", handlerLogPrefix), "id", request.ID, "error", activatedErr)
+			return identity.User{}, fmt.Errorf("failed to apply status to user %s: %w", request.ID, activatedErr)
+		}
+
+		return mapUser(ctx, handlerLogPrefix, activatedUser, status.Name)
 	})
 }
 
