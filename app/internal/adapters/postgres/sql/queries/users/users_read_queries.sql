@@ -14,6 +14,14 @@ FROM users u
 JOIN user_status us ON u.status_id = us.id
 WHERE u.username = $1;
 
+-- name: QueryUserByVerificationToken :one
+SELECT
+  sqlc.embed(u),
+  sqlc.embed(us)
+FROM users u
+JOIN user_status us ON u.status_id = us.id
+WHERE u.verification_token = $1 AND u.deleted_at IS NULL;
+
 -- name: QueryUserByEmail :one
 SELECT 
   sqlc.embed(u), 

@@ -315,3 +315,53 @@ func (q *Queries) QueryUserByUsername(ctx context.Context, username string) (Que
 	)
 	return i, err
 }
+
+const queryUserByVerificationToken = `-- name: QueryUserByVerificationToken :one
+SELECT
+  u.id, u.username, u.first_name, u.last_name, u.email, u.password_hash, u.verified, u.verification_token, u.verification_expires, u.status_id, u.metadata, u.created_at, u.updated_at, u.deleted_at,
+  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
+FROM users u
+JOIN user_status us ON u.status_id = us.id
+WHERE u.verification_token = $1 AND u.deleted_at IS NULL
+`
+
+type QueryUserByVerificationTokenRow struct {
+	User       User       `db:"user" json:"user"`
+	UserStatus UserStatus `db:"user_status" json:"user_status"`
+}
+
+// QueryUserByVerificationToken
+//
+//	SELECT
+//	  u.id, u.username, u.first_name, u.last_name, u.email, u.password_hash, u.verified, u.verification_token, u.verification_expires, u.status_id, u.metadata, u.created_at, u.updated_at, u.deleted_at,
+//	  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
+//	FROM users u
+//	JOIN user_status us ON u.status_id = us.id
+//	WHERE u.verification_token = $1 AND u.deleted_at IS NULL
+func (q *Queries) QueryUserByVerificationToken(ctx context.Context, verificationToken pgtype.Text) (QueryUserByVerificationTokenRow, error) {
+	row := q.db.QueryRow(ctx, queryUserByVerificationToken, verificationToken)
+	var i QueryUserByVerificationTokenRow
+	err := row.Scan(
+		&i.User.ID,
+		&i.User.Username,
+		&i.User.FirstName,
+		&i.User.LastName,
+		&i.User.Email,
+		&i.User.PasswordHash,
+		&i.User.Verified,
+		&i.User.VerificationToken,
+		&i.User.VerificationExpires,
+		&i.User.StatusID,
+		&i.User.Metadata,
+		&i.User.CreatedAt,
+		&i.User.UpdatedAt,
+		&i.User.DeletedAt,
+		&i.UserStatus.ID,
+		&i.UserStatus.Name,
+		&i.UserStatus.Description,
+		&i.UserStatus.CreatedAt,
+		&i.UserStatus.UpdatedAt,
+		&i.UserStatus.DeletedAt,
+	)
+	return i, err
+}

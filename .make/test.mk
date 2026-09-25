@@ -12,6 +12,12 @@ test.integration: ## Runs all integration tests (usage: make test.integration)
 	go test -tags integration ./...
 	@echo "${YELLOW} Done Running integration tests ${NC}"
 
+.PHONY: test.e2e
+test.e2e: ## Runs all end-to-end tests, requires Docker (usage: make test.e2e)
+	@echo "${YELLOW} Running e2e tests ${NC}"
+	go test -tags e2e ./...
+	@echo "${YELLOW} Done Running e2e tests ${NC}"
+
 .PHONY: test.coverage
 test.coverage: ## Runs all tests with coverage
 	@echo "${GREEN} Running tests with coverage ${NC}"

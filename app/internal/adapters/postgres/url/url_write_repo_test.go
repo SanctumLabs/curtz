@@ -21,12 +21,12 @@ import (
 
 type UrlWriteRepoAdapterTestSuite struct {
 	suite.Suite
-	mockCtrl            *gomock.Controller
-	mockDbClient        *mockdatabase.MockPostgresDatabaseClient
-	mockUrlWriteQuerier *mockpostgresrepo.MockUrlWriteQuerier
-	mockUserReadRepo    *mockidentity.MockUserReadRepository
-	urlWriteRepoAdapter *urlWriteRepositoryAdapter
-	config              database.Config
+	mockCtrl              *gomock.Controller
+	mockDbClient          *mockdatabase.MockPostgresDatabaseClient
+	mockUrlWriteQuerier   *mockpostgresrepo.MockUrlWriteQuerier
+	mockUserReadDatastore *mockidentity.MockUserReadDatastore
+	urlWriteRepoAdapter   *urlWriteRepositoryAdapter
+	config                database.Config
 }
 
 func (suite *UrlWriteRepoAdapterTestSuite) SetupTest() {
@@ -38,11 +38,11 @@ func (suite *UrlWriteRepoAdapterTestSuite) SetupTest() {
 	suite.mockCtrl = mockCtrl
 	suite.mockDbClient = mockdatabase.NewMockPostgresDatabaseClient(mockCtrl)
 	suite.mockUrlWriteQuerier = mockpostgresrepo.NewMockUrlWriteQuerier(mockCtrl)
-	suite.mockUserReadRepo = mockidentity.NewMockUserReadRepository(mockCtrl)
+	suite.mockUserReadDatastore = mockidentity.NewMockUserReadDatastore(mockCtrl)
 	suite.urlWriteRepoAdapter = &urlWriteRepositoryAdapter{
 		logPrefix: "UrlWriteRepoAdapter",
 		dbClient:  suite.mockDbClient,
-		userRepo:  suite.mockUserReadRepo,
+		userRepo:  suite.mockUserReadDatastore,
 		config:    config,
 	}
 	suite.config = config
@@ -79,7 +79,7 @@ func (suite *UrlWriteRepoAdapterTestSuite) TestCreate_CreatesNewUrlSuccessfully(
 		mockpostgresql.WithUrl(*mockUrl),
 	)
 
-	suite.mockUserReadRepo.
+	suite.mockUserReadDatastore.
 		EXPECT().
 		FetchById(gomock.Any(), gomock.Any()).
 		Return(*mockUser, nil).
@@ -138,7 +138,7 @@ func (suite *UrlWriteRepoAdapterTestSuite) TestCreate_FailsWhenUserDoesNotExist(
 
 	userErr := fmt.Errorf("user not found")
 
-	suite.mockUserReadRepo.
+	suite.mockUserReadDatastore.
 		EXPECT().
 		FetchById(gomock.Any(), gomock.Any()).
 		Return(identity.User{}, userErr).
