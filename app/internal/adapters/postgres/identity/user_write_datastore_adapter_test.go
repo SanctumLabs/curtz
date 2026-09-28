@@ -16,6 +16,7 @@ import (
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 	mockdatabase "github.com/sanctumlabs/curtz/app/pkg/infra/database/mocks"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -39,7 +40,7 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Unit Test Suite", ginkgo.O
 		mockDbClient = mockdatabase.NewMockPostgresDatabaseClient(mockCtrl)
 		mockUserWriteQuerier = mockpostgresrepo.NewMockUserWriteQuerier(mockCtrl)
 		userWriteDatastore = &userWriteDatastoreAdapter{
-			logPrefix: "UserWriteRepoAdapter",
+			logPrefix: "UserWriteDatastoreAdapter",
 			dbClient:  mockDbClient,
 			config:    config,
 		}
@@ -58,20 +59,10 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Unit Test Suite", ginkgo.O
 	assert.NoError(ginkgo.GinkgoT(), mockUserErr)
 
 	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
-	mockUserStatus := mockpostgresql.MockUserStatus(identity.UserStatusActive)
-	mockWUserQueryByIdRow := postgresql.QueryUserByIdRow{
-		User:       mockUserRecord,
-		UserStatus: mockUserStatus,
-	}
+	mockWUserQueryByIdRow := postgresql.QueryUserByIdRow{User: mockUserRecord}
 
 	ginkgo.Describe("Save", func() {
 		ginkgo.It("saves a new user successfully", func() {
-			mockUserWriteQuerier.
-				EXPECT().
-				QueryUserStatusByName(gomock.Any(), gomock.Any()).
-				Return(mockUserStatus, nil).
-				Times(1)
-
 			mockUserWriteQuerier.
 				EXPECT().
 				QueryCreateUser(gomock.Any(), gomock.Any()).
@@ -90,16 +81,95 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Unit Test Suite", ginkgo.O
 		})
 	})
 
-	ginkgo.Describe("Update", func() {
-		ginkgo.It("successfully updates a user and returns the updated user", func() {
-			mockUserStatusActive := mockpostgresql.MockUserStatus(identity.UserStatusActive)
+	ginkgo.Describe("Outbox", func() {
+		registerUser := func() *identity.User {
+			registered, registerErr := identity.Register(identity.RegisterUserParams{
+				Username:  "johndoe",
+				FirstName: "John",
+				Email:     "john.doe@curtz.com",
+			})
+			assert.NoError(ginkgo.GinkgoT(), registerErr)
+			return registered
+		}
+
+		ginkgo.It("writes each recorded event to the outbox in the save transaction", func() {
+			registered := registerUser()
+			event := registered.DomainEvents()[0]
+			userID := entity.IDToString(registered.ID())
+
+			mockUserWriteQuerier.EXPECT().QueryCreateUser(gomock.Any(), gomock.Any()).Return(mockUserRecord, nil).Times(1)
+			mockUserWriteQuerier.
+				EXPECT().
+				QueryCreateOutboxEvent(gomock.Any(), gomock.Cond(func(params postgresql.QueryCreateOutboxEventParams) bool {
+					eventID, _ := postgres.UUIDToString(params.ID)
+					return eventID == event.ID() &&
+						params.EventType == "user.registered" &&
+						params.Destination == "identity.events" &&
+						params.PartitionKey.String == userID &&
+						len(params.Payload) > 0 && len(params.Headers) > 0
+				})).
+				Return(postgresql.OutboxEvent{}, nil).
+				Times(1)
+
+			_, actualErr := userWriteDatastore.Save(ctx, *registered)
+			assert.NoError(ginkgo.GinkgoT(), actualErr)
+		})
+
+		ginkgo.It("fails the save when the event cannot be written, so the user is not committed without it", func() {
+			registered := registerUser()
+			outboxErr := errors.New("outbox insert failed")
+
+			mockUserWriteQuerier.EXPECT().QueryCreateUser(gomock.Any(), gomock.Any()).Return(mockUserRecord, nil).Times(1)
+			mockUserWriteQuerier.EXPECT().QueryCreateOutboxEvent(gomock.Any(), gomock.Any()).Return(postgresql.OutboxEvent{}, outboxErr).Times(1)
+
+			actual, actualErr := userWriteDatastore.Save(ctx, *registered)
+			assert.ErrorIs(ginkgo.GinkgoT(), actualErr, outboxErr)
+			assert.Empty(ginkgo.GinkgoT(), actual)
+		})
+
+		ginkgo.It("persists a verification with its status and UserVerified event", func() {
+			// as loaded from the datastore: inactive, unverified, and carrying no events yet
+			loaded, loadedErr := mockidentity.MockUser(
+				mockidentity.WithStatus(identity.UserStatusInactive),
+				mockidentity.WithVerified(false),
+				mockidentity.WithVerificationToken("a-verification-token"),
+				mockidentity.WithVerificationExpires(time.Now().Add(time.Hour)),
+			)
+			assert.NoError(ginkgo.GinkgoT(), loadedErr)
+			assert.NoError(ginkgo.GinkgoT(), loaded.Verify("a-verification-token", time.Now()))
 
 			mockUserWriteQuerier.
 				EXPECT().
-				QueryUserStatusByName(gomock.Any(), gomock.Any()).
-				Return(mockUserStatusActive, nil).
+				QueryUpdateUserVerification(gomock.Any(), gomock.Cond(func(params postgresql.QueryUpdateUserVerificationParams) bool {
+					return params.Verified
+				})).
+				Return(mockUserRecord, nil).
+				Times(1)
+			mockUserWriteQuerier.
+				EXPECT().
+				QueryUpdateUserStatus(gomock.Any(), gomock.Cond(func(params postgresql.QueryUpdateUserStatusParams) bool {
+					return params.Status == postgresql.UserStatusACTIVE
+				})).
+				Return(mockUserRecord, nil).
+				Times(1)
+			var eventTypes []string
+			mockUserWriteQuerier.
+				EXPECT().
+				QueryCreateOutboxEvent(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, params postgresql.QueryCreateOutboxEventParams) (postgresql.OutboxEvent, error) {
+					eventTypes = append(eventTypes, params.EventType)
+					return postgresql.OutboxEvent{}, nil
+				}).
 				Times(1)
 
+			_, actualErr := userWriteDatastore.MarkVerified(ctx, *loaded)
+			assert.NoError(ginkgo.GinkgoT(), actualErr)
+			assert.Equal(ginkgo.GinkgoT(), []string{"user.verified"}, eventTypes)
+		})
+	})
+
+	ginkgo.Describe("Update", func() {
+		ginkgo.It("successfully updates a user and returns the updated user", func() {
 			mockUserWriteQuerier.
 				EXPECT().
 				QueryUpdateUserDetails(gomock.Any(), gomock.Any()).
@@ -118,24 +188,16 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Unit Test Suite", ginkgo.O
 		})
 
 		ginkgo.It("persists the status the aggregate transitioned to", func() {
-			mockUserStatusDeleted := mockpostgresql.MockUserStatus(identity.UserStatusDeleted)
-
-			mockUserWriteQuerier.
-				EXPECT().
-				QueryUserStatusByName(gomock.Any(), string(identity.UserStatusDeleted)).
-				Return(mockUserStatusDeleted, nil).
-				Times(1)
+			deletedUser, deletedUserErr := mockidentity.MockUser(mockidentity.WithStatus(identity.UserStatusDeleted))
+			assert.NoError(ginkgo.GinkgoT(), deletedUserErr)
 
 			mockUserWriteQuerier.
 				EXPECT().
 				QueryUpdateUserDetails(gomock.Any(), gomock.Cond(func(params postgresql.QueryUpdateUserDetailsParams) bool {
-					return params.StatusID == mockUserStatusDeleted.ID
+					return params.Status == postgresql.UserStatusDELETED
 				})).
-				Return(mockUserRecord, nil).
+				Return(mockpostgresql.MockUser(mockpostgresql.WithUser(*deletedUser)), nil).
 				Times(1)
-
-			deletedUser, deletedUserErr := mockidentity.MockUser(mockidentity.WithStatus(identity.UserStatusDeleted))
-			assert.NoError(ginkgo.GinkgoT(), deletedUserErr)
 
 			actual, actualErr := userWriteDatastore.Update(ctx, *deletedUser)
 			assert.Nil(ginkgo.GinkgoT(), actualErr)
@@ -143,14 +205,6 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Unit Test Suite", ginkgo.O
 		})
 
 		ginkgo.It("returns error when there is a failure to update a user", func() {
-			mockUserStatusActive := mockpostgresql.MockUserStatus(identity.UserStatusActive)
-
-			mockUserWriteQuerier.
-				EXPECT().
-				QueryUserStatusByName(gomock.Any(), gomock.Any()).
-				Return(mockUserStatusActive, nil).
-				Times(1)
-
 			updateUserDetailsErr := errors.New("Failed to update user")
 			mockUserWriteQuerier.
 				EXPECT().

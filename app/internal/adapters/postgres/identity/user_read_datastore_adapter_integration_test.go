@@ -40,7 +40,7 @@ var _ = ginkgo.Describe("User Read Datastore Adapter Integration Test Suite", gi
 			OperationTimeout: 5 * time.Minute,
 			RetryConfig:      recoveryutils.DefaultRetryConfig,
 		}
-		userReadDatastoreAdapter = NewUserReadRepoAdapter(testPostgresDatabaseClient, config)
+		userReadDatastoreAdapter = NewUserReadDatastoreAdapter(testPostgresDatabaseClient, config)
 		userWriteDatastoreAdapter = NewUserWriteDatastoreAdapter(testPostgresDatabaseClient, config)
 
 		mockUser, mockUserErr := mockidentity.MockUser(

@@ -200,10 +200,15 @@ func (suite *IdentityServiceTestSuite) TestVerifyEmail_ActivatesUser() {
 	suite.Require().NoError(err)
 
 	suite.mockUsers.EXPECT().FetchByVerificationToken(gomock.Any(), token).Return(*user, nil).Times(1)
-	// the request itself is the assertion: the service must ask for the status the aggregate
-	// transitioned to, which Verify sets to ACTIVE
+	// the service must hand over the aggregate Verify transitioned: ACTIVE, verified, and carrying
+	// the UserVerified event for the outbox
 	suite.mockUsers.EXPECT().
-		MarkVerified(gomock.Any(), identity.MarkUserVerifiedRequest{ID: userID, Status: identity.UserStatusActive}).
+		MarkVerified(gomock.Any(), gomock.Cond(func(verified identity.User) bool {
+			events := verified.DomainEvents()
+			return entity.IDToString(verified.ID()) == userID &&
+				verified.Status() == identity.UserStatusActive &&
+				len(events) > 0 && events[len(events)-1].EventType() == "user.verified"
+		})).
 		Return(*persisted, nil).
 		Times(1)
 

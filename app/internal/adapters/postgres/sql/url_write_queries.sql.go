@@ -18,14 +18,14 @@ INSERT INTO urls (
   short_code, 
   custom_alias, 
   original_url, 
-  status_id, 
+  status, 
   expires_on, 
   og_title, 
   og_description, 
   og_image_url,
   metadata
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryCreateUrlParams struct {
@@ -34,7 +34,7 @@ type QueryCreateUrlParams struct {
 	ShortCode     string             `db:"short_code" json:"short_code"`
 	CustomAlias   pgtype.Text        `db:"custom_alias" json:"custom_alias"`
 	OriginalUrl   string             `db:"original_url" json:"original_url"`
-	StatusID      pgtype.UUID        `db:"status_id" json:"status_id"`
+	Status        UrlStatus          `db:"status" json:"status"`
 	ExpiresOn     pgtype.Timestamptz `db:"expires_on" json:"expires_on"`
 	OgTitle       pgtype.Text        `db:"og_title" json:"og_title"`
 	OgDescription pgtype.Text        `db:"og_description" json:"og_description"`
@@ -50,14 +50,14 @@ type QueryCreateUrlParams struct {
 //	  short_code,
 //	  custom_alias,
 //	  original_url,
-//	  status_id,
+//	  status,
 //	  expires_on,
 //	  og_title,
 //	  og_description,
 //	  og_image_url,
 //	  metadata
 //	)
-//	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+//	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryCreateUrl(ctx context.Context, arg QueryCreateUrlParams) (Url, error) {
 	row := q.db.QueryRow(ctx, queryCreateUrl,
 		arg.ID,
@@ -65,7 +65,7 @@ func (q *Queries) QueryCreateUrl(ctx context.Context, arg QueryCreateUrlParams) 
 		arg.ShortCode,
 		arg.CustomAlias,
 		arg.OriginalUrl,
-		arg.StatusID,
+		arg.Status,
 		arg.ExpiresOn,
 		arg.OgTitle,
 		arg.OgDescription,
@@ -79,7 +79,7 @@ func (q *Queries) QueryCreateUrl(ctx context.Context, arg QueryCreateUrlParams) 
 		&i.ShortCode,
 		&i.CustomAlias,
 		&i.OriginalUrl,
-		&i.StatusID,
+		&i.Status,
 		&i.ExpiresOn,
 		&i.OgTitle,
 		&i.OgDescription,
@@ -93,12 +93,12 @@ func (q *Queries) QueryCreateUrl(ctx context.Context, arg QueryCreateUrlParams) 
 }
 
 const queryDeleteUrlWithId = `-- name: QueryDeleteUrlWithId :one
-DELETE FROM urls WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+DELETE FROM urls WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
 // QueryDeleteUrlWithId
 //
-//	DELETE FROM urls WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+//	DELETE FROM urls WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryDeleteUrlWithId(ctx context.Context, id pgtype.UUID) (Url, error) {
 	row := q.db.QueryRow(ctx, queryDeleteUrlWithId, id)
 	var i Url
@@ -108,7 +108,7 @@ func (q *Queries) QueryDeleteUrlWithId(ctx context.Context, id pgtype.UUID) (Url
 		&i.ShortCode,
 		&i.CustomAlias,
 		&i.OriginalUrl,
-		&i.StatusID,
+		&i.Status,
 		&i.ExpiresOn,
 		&i.OgTitle,
 		&i.OgDescription,
@@ -126,7 +126,7 @@ UPDATE urls
 SET
   deleted_at = $2,
   updated_at = NOW()
-WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
 type QuerySoftDeleteUrlParams struct {
@@ -140,7 +140,7 @@ type QuerySoftDeleteUrlParams struct {
 //	SET
 //	  deleted_at = $2,
 //	  updated_at = NOW()
-//	WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+//	WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QuerySoftDeleteUrl(ctx context.Context, arg QuerySoftDeleteUrlParams) (Url, error) {
 	row := q.db.QueryRow(ctx, querySoftDeleteUrl, arg.ID, arg.DeletedAt)
 	var i Url
@@ -150,7 +150,7 @@ func (q *Queries) QuerySoftDeleteUrl(ctx context.Context, arg QuerySoftDeleteUrl
 		&i.ShortCode,
 		&i.CustomAlias,
 		&i.OriginalUrl,
-		&i.StatusID,
+		&i.Status,
 		&i.ExpiresOn,
 		&i.OgTitle,
 		&i.OgDescription,
@@ -164,7 +164,7 @@ func (q *Queries) QuerySoftDeleteUrl(ctx context.Context, arg QuerySoftDeleteUrl
 }
 
 const queryUpdateUrlExpiresOn = `-- name: QueryUpdateUrlExpiresOn :one
-UPDATE urls SET expires_on=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+UPDATE urls SET expires_on=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryUpdateUrlExpiresOnParams struct {
@@ -174,7 +174,7 @@ type QueryUpdateUrlExpiresOnParams struct {
 
 // QueryUpdateUrlExpiresOn
 //
-//	UPDATE urls SET expires_on=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+//	UPDATE urls SET expires_on=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUrlExpiresOn(ctx context.Context, arg QueryUpdateUrlExpiresOnParams) (Url, error) {
 	row := q.db.QueryRow(ctx, queryUpdateUrlExpiresOn, arg.ID, arg.ExpiresOn)
 	var i Url
@@ -184,7 +184,7 @@ func (q *Queries) QueryUpdateUrlExpiresOn(ctx context.Context, arg QueryUpdateUr
 		&i.ShortCode,
 		&i.CustomAlias,
 		&i.OriginalUrl,
-		&i.StatusID,
+		&i.Status,
 		&i.ExpiresOn,
 		&i.OgTitle,
 		&i.OgDescription,
@@ -198,7 +198,7 @@ func (q *Queries) QueryUpdateUrlExpiresOn(ctx context.Context, arg QueryUpdateUr
 }
 
 const queryUpdateUrlMetadata = `-- name: QueryUpdateUrlMetadata :one
-UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryUpdateUrlMetadataParams struct {
@@ -208,7 +208,7 @@ type QueryUpdateUrlMetadataParams struct {
 
 // QueryUpdateUrlMetadata
 //
-//	UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+//	UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUrlMetadata(ctx context.Context, arg QueryUpdateUrlMetadataParams) (Url, error) {
 	row := q.db.QueryRow(ctx, queryUpdateUrlMetadata, arg.ID, arg.Metadata)
 	var i Url
@@ -218,7 +218,7 @@ func (q *Queries) QueryUpdateUrlMetadata(ctx context.Context, arg QueryUpdateUrl
 		&i.ShortCode,
 		&i.CustomAlias,
 		&i.OriginalUrl,
-		&i.StatusID,
+		&i.Status,
 		&i.ExpiresOn,
 		&i.OgTitle,
 		&i.OgDescription,
@@ -231,28 +231,28 @@ func (q *Queries) QueryUpdateUrlMetadata(ctx context.Context, arg QueryUpdateUrl
 	return i, err
 }
 
-const queryUpdateUrlStatusId = `-- name: QueryUpdateUrlStatusId :one
+const queryUpdateUrlStatus = `-- name: QueryUpdateUrlStatus :one
 UPDATE urls
 SET
-  status_id=$2,
+  status=$2,
   updated_at=NOW()
-WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
 `
 
-type QueryUpdateUrlStatusIdParams struct {
-	ID       pgtype.UUID `db:"id" json:"id"`
-	StatusID pgtype.UUID `db:"status_id" json:"status_id"`
+type QueryUpdateUrlStatusParams struct {
+	ID     pgtype.UUID `db:"id" json:"id"`
+	Status UrlStatus   `db:"status" json:"status"`
 }
 
-// QueryUpdateUrlStatusId
+// QueryUpdateUrlStatus
 //
 //	UPDATE urls
 //	SET
-//	  status_id=$2,
+//	  status=$2,
 //	  updated_at=NOW()
-//	WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status_id, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
-func (q *Queries) QueryUpdateUrlStatusId(ctx context.Context, arg QueryUpdateUrlStatusIdParams) (Url, error) {
-	row := q.db.QueryRow(ctx, queryUpdateUrlStatusId, arg.ID, arg.StatusID)
+//	WHERE id = $1 RETURNING id, user_id, short_code, custom_alias, original_url, status, expires_on, og_title, og_description, og_image_url, metadata, created_at, updated_at, deleted_at
+func (q *Queries) QueryUpdateUrlStatus(ctx context.Context, arg QueryUpdateUrlStatusParams) (Url, error) {
+	row := q.db.QueryRow(ctx, queryUpdateUrlStatus, arg.ID, arg.Status)
 	var i Url
 	err := row.Scan(
 		&i.ID,
@@ -260,7 +260,7 @@ func (q *Queries) QueryUpdateUrlStatusId(ctx context.Context, arg QueryUpdateUrl
 		&i.ShortCode,
 		&i.CustomAlias,
 		&i.OriginalUrl,
-		&i.StatusID,
+		&i.Status,
 		&i.ExpiresOn,
 		&i.OgTitle,
 		&i.OgDescription,

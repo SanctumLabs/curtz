@@ -5,7 +5,7 @@ INSERT INTO urls (
   short_code, 
   custom_alias, 
   original_url, 
-  status_id, 
+  status, 
   expires_on, 
   og_title, 
   og_description, 
@@ -20,10 +20,10 @@ UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 -- name: QueryUpdateUrlExpiresOn :one
 UPDATE urls SET expires_on=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 
--- name: QueryUpdateUrlStatusId :one
+-- name: QueryUpdateUrlStatus :one
 UPDATE urls
 SET
-  status_id=$2,
+  status=$2,
   updated_at=NOW()
 WHERE id = $1 RETURNING *;
 

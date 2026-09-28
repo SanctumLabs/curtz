@@ -138,11 +138,10 @@ func (suite *IdentityHandlersTestSuite) TestRegister_Returns422ForMissingFields(
 	suite.mockUsers.EXPECT().Save(gomock.Any(), gomock.Any()).Times(0)
 
 	cases := map[string]string{
-		"missing username":   `{"first_name":"John","email":"john.doe@curtz.com","password":"pw"}`,
-		"missing first name": `{"username":"johndoe","email":"john.doe@curtz.com","password":"pw"}`,
-		"missing email":      `{"username":"johndoe","first_name":"John","password":"pw"}`,
-		"missing password":   `{"username":"johndoe","first_name":"John","email":"john.doe@curtz.com"}`,
-		"empty body":         `{}`,
+		"missing username": `{"first_name":"John","email":"john.doe@curtz.com","password":"pw"}`,
+		"missing email":    `{"username":"johndoe","first_name":"John","password":"pw"}`,
+		"missing password": `{"username":"johndoe","first_name":"John","email":"john.doe@curtz.com"}`,
+		"empty body":       `{}`,
 	}
 
 	for name, payload := range cases {
@@ -151,6 +150,15 @@ func (suite *IdentityHandlersTestSuite) TestRegister_Returns422ForMissingFields(
 			suite.Equal(fiber.StatusUnprocessableEntity, status)
 		})
 	}
+}
+
+// A missing first name is rejected by the domain, not the handler, so it surfaces as a 400.
+func (suite *IdentityHandlersTestSuite) TestRegister_Returns400ForMissingFirstName() {
+	suite.mockUsers.EXPECT().Save(gomock.Any(), gomock.Any()).Times(0)
+
+	_, status, _ := suite.do("POST", baseURI+"/auth/register",
+		`{"username":"johndoe","email":"john.doe@curtz.com","password":"s3cret-password"}`)
+	suite.Equal(fiber.StatusBadRequest, status)
 }
 
 func (suite *IdentityHandlersTestSuite) TestRegister_Returns422ForMalformedJSON() {

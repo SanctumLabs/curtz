@@ -8,7 +8,7 @@ A registered user is persisted `INACTIVE` with a verification token and becomes 
 
 The token is 32 crypto-random bytes, hex-encoded. It is deliberately **not** derived from the user id: ids are UUIDv7 (ADR-0001) and encode a timestamp, which would make tokens partially predictable.
 
-Persisting the transition needs both the `verified` flag and `status_id` to change together, so `UserWriteDatastore.MarkVerified` applies both in one transaction. Two separate calls could leave a user verified but still inactive.
+Persisting the transition needs both the `verified` flag and `status` to change together, so `UserWriteDatastore.MarkVerified` applies both in one transaction. Two separate calls could leave a user verified but still inactive.
 
 ## Fixing the pre-v2 verification flow
 

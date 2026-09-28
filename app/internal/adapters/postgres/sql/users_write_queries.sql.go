@@ -12,7 +12,7 @@ import (
 )
 
 const queryCreateUser = `-- name: QueryCreateUser :one
-INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata, verified, verification_token, verification_expires) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+INSERT INTO users (id, username, first_name, last_name, email, password_hash, status, metadata, verified, verification_token, verification_expires) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryCreateUserParams struct {
@@ -22,7 +22,7 @@ type QueryCreateUserParams struct {
 	LastName            pgtype.Text        `db:"last_name" json:"last_name"`
 	Email               string             `db:"email" json:"email"`
 	PasswordHash        string             `db:"password_hash" json:"password_hash"`
-	StatusID            pgtype.UUID        `db:"status_id" json:"status_id"`
+	Status              UserStatus         `db:"status" json:"status"`
 	Metadata            []byte             `db:"metadata" json:"metadata"`
 	Verified            bool               `db:"verified" json:"verified"`
 	VerificationToken   pgtype.Text        `db:"verification_token" json:"verification_token"`
@@ -31,7 +31,7 @@ type QueryCreateUserParams struct {
 
 // QueryCreateUser
 //
-//	INSERT INTO users (id, username, first_name, last_name, email, password_hash, status_id, metadata, verified, verification_token, verification_expires) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	INSERT INTO users (id, username, first_name, last_name, email, password_hash, status, metadata, verified, verification_token, verification_expires) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryCreateUser,
 		arg.ID,
@@ -40,7 +40,7 @@ func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams
 		arg.LastName,
 		arg.Email,
 		arg.PasswordHash,
-		arg.StatusID,
+		arg.Status,
 		arg.Metadata,
 		arg.Verified,
 		arg.VerificationToken,
@@ -57,7 +57,7 @@ func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -67,12 +67,12 @@ func (q *Queries) QueryCreateUser(ctx context.Context, arg QueryCreateUserParams
 }
 
 const queryDeleteUserWithId = `-- name: QueryDeleteUserWithId :one
-DELETE FROM users WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+DELETE FROM users WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 // QueryDeleteUserWithId
 //
-//	DELETE FROM users WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	DELETE FROM users WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryDeleteUserWithId(ctx context.Context, id pgtype.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, queryDeleteUserWithId, id)
 	var i User
@@ -86,7 +86,7 @@ func (q *Queries) QueryDeleteUserWithId(ctx context.Context, id pgtype.UUID) (Us
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -100,7 +100,7 @@ UPDATE users
 SET
   deleted_at = $2,
   updated_at = NOW()
-WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 type QuerySoftDeleteUserParams struct {
@@ -114,7 +114,7 @@ type QuerySoftDeleteUserParams struct {
 //	SET
 //	  deleted_at = $2,
 //	  updated_at = NOW()
-//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QuerySoftDeleteUser(ctx context.Context, arg QuerySoftDeleteUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, querySoftDeleteUser, arg.ID, arg.DeletedAt)
 	var i User
@@ -128,7 +128,7 @@ func (q *Queries) QuerySoftDeleteUser(ctx context.Context, arg QuerySoftDeleteUs
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -144,9 +144,9 @@ SET
   first_name=$3,
   last_name=$4,
   email=$5,
-  status_id=$6,
+  status=$6,
   updated_at=NOW()
-WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryUpdateUserDetailsParams struct {
@@ -155,7 +155,7 @@ type QueryUpdateUserDetailsParams struct {
 	FirstName pgtype.Text `db:"first_name" json:"first_name"`
 	LastName  pgtype.Text `db:"last_name" json:"last_name"`
 	Email     string      `db:"email" json:"email"`
-	StatusID  pgtype.UUID `db:"status_id" json:"status_id"`
+	Status    UserStatus  `db:"status" json:"status"`
 }
 
 // QueryUpdateUserDetails
@@ -166,9 +166,9 @@ type QueryUpdateUserDetailsParams struct {
 //	  first_name=$3,
 //	  last_name=$4,
 //	  email=$5,
-//	  status_id=$6,
+//	  status=$6,
 //	  updated_at=NOW()
-//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUserDetails(ctx context.Context, arg QueryUpdateUserDetailsParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryUpdateUserDetails,
 		arg.ID,
@@ -176,7 +176,7 @@ func (q *Queries) QueryUpdateUserDetails(ctx context.Context, arg QueryUpdateUse
 		arg.FirstName,
 		arg.LastName,
 		arg.Email,
-		arg.StatusID,
+		arg.Status,
 	)
 	var i User
 	err := row.Scan(
@@ -189,7 +189,7 @@ func (q *Queries) QueryUpdateUserDetails(ctx context.Context, arg QueryUpdateUse
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -199,7 +199,7 @@ func (q *Queries) QueryUpdateUserDetails(ctx context.Context, arg QueryUpdateUse
 }
 
 const queryUpdateUserMetadata = `-- name: QueryUpdateUserMetadata :one
-UPDATE users SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+UPDATE users SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryUpdateUserMetadataParams struct {
@@ -209,7 +209,7 @@ type QueryUpdateUserMetadataParams struct {
 
 // QueryUpdateUserMetadata
 //
-//	UPDATE users SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	UPDATE users SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUserMetadata(ctx context.Context, arg QueryUpdateUserMetadataParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryUpdateUserMetadata, arg.ID, arg.Metadata)
 	var i User
@@ -223,7 +223,7 @@ func (q *Queries) QueryUpdateUserMetadata(ctx context.Context, arg QueryUpdateUs
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -233,7 +233,7 @@ func (q *Queries) QueryUpdateUserMetadata(ctx context.Context, arg QueryUpdateUs
 }
 
 const queryUpdateUserPassword = `-- name: QueryUpdateUserPassword :one
-UPDATE users SET password_hash=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+UPDATE users SET password_hash=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryUpdateUserPasswordParams struct {
@@ -243,7 +243,7 @@ type QueryUpdateUserPasswordParams struct {
 
 // QueryUpdateUserPassword
 //
-//	UPDATE users SET password_hash=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	UPDATE users SET password_hash=$2, updated_at=NOW() WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUserPassword(ctx context.Context, arg QueryUpdateUserPasswordParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryUpdateUserPassword, arg.ID, arg.PasswordHash)
 	var i User
@@ -257,7 +257,7 @@ func (q *Queries) QueryUpdateUserPassword(ctx context.Context, arg QueryUpdateUs
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -266,28 +266,28 @@ func (q *Queries) QueryUpdateUserPassword(ctx context.Context, arg QueryUpdateUs
 	return i, err
 }
 
-const queryUpdateUserStatusId = `-- name: QueryUpdateUserStatusId :one
+const queryUpdateUserStatus = `-- name: QueryUpdateUserStatus :one
 UPDATE users
 SET
-  status_id=$2,
+  status=$2,
   updated_at=NOW()
-WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
-type QueryUpdateUserStatusIdParams struct {
-	ID       pgtype.UUID `db:"id" json:"id"`
-	StatusID pgtype.UUID `db:"status_id" json:"status_id"`
+type QueryUpdateUserStatusParams struct {
+	ID     pgtype.UUID `db:"id" json:"id"`
+	Status UserStatus  `db:"status" json:"status"`
 }
 
-// QueryUpdateUserStatusId
+// QueryUpdateUserStatus
 //
 //	UPDATE users
 //	SET
-//	  status_id=$2,
+//	  status=$2,
 //	  updated_at=NOW()
-//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
-func (q *Queries) QueryUpdateUserStatusId(ctx context.Context, arg QueryUpdateUserStatusIdParams) (User, error) {
-	row := q.db.QueryRow(ctx, queryUpdateUserStatusId, arg.ID, arg.StatusID)
+//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
+func (q *Queries) QueryUpdateUserStatus(ctx context.Context, arg QueryUpdateUserStatusParams) (User, error) {
+	row := q.db.QueryRow(ctx, queryUpdateUserStatus, arg.ID, arg.Status)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -299,7 +299,7 @@ func (q *Queries) QueryUpdateUserStatusId(ctx context.Context, arg QueryUpdateUs
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -315,7 +315,7 @@ SET
   verification_token=$3,
   verification_expires=$4,
   updated_at=NOW()
-WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 `
 
 type QueryUpdateUserVerificationParams struct {
@@ -333,7 +333,7 @@ type QueryUpdateUserVerificationParams struct {
 //	  verification_token=$3,
 //	  verification_expires=$4,
 //	  updated_at=NOW()
-//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
+//	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUserVerification(ctx context.Context, arg QueryUpdateUserVerificationParams) (User, error) {
 	row := q.db.QueryRow(ctx, queryUpdateUserVerification,
 		arg.ID,
@@ -352,7 +352,7 @@ func (q *Queries) QueryUpdateUserVerification(ctx context.Context, arg QueryUpda
 		&i.Verified,
 		&i.VerificationToken,
 		&i.VerificationExpires,
-		&i.StatusID,
+		&i.Status,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,

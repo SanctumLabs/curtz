@@ -148,18 +148,18 @@ func (mr *MockUserDatastoreMockRecorder) FetchByVerificationToken(ctx, token any
 }
 
 // MarkVerified mocks base method.
-func (m *MockUserDatastore) MarkVerified(ctx context.Context, request identity.MarkUserVerifiedRequest) (identity.User, error) {
+func (m *MockUserDatastore) MarkVerified(ctx context.Context, user identity.User) (identity.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkVerified", ctx, request)
+	ret := m.ctrl.Call(m, "MarkVerified", ctx, user)
 	ret0, _ := ret[0].(identity.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MarkVerified indicates an expected call of MarkVerified.
-func (mr *MockUserDatastoreMockRecorder) MarkVerified(ctx, request any) *gomock.Call {
+func (mr *MockUserDatastoreMockRecorder) MarkVerified(ctx, user any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkVerified", reflect.TypeOf((*MockUserDatastore)(nil).MarkVerified), ctx, request)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkVerified", reflect.TypeOf((*MockUserDatastore)(nil).MarkVerified), ctx, user)
 }
 
 // Save mocks base method.
@@ -275,18 +275,18 @@ func (mr *MockUserWriteDatastoreMockRecorder) Delete(ctx, id any) *gomock.Call {
 }
 
 // MarkVerified mocks base method.
-func (m *MockUserWriteDatastore) MarkVerified(ctx context.Context, request identity.MarkUserVerifiedRequest) (identity.User, error) {
+func (m *MockUserWriteDatastore) MarkVerified(ctx context.Context, user identity.User) (identity.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkVerified", ctx, request)
+	ret := m.ctrl.Call(m, "MarkVerified", ctx, user)
 	ret0, _ := ret[0].(identity.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MarkVerified indicates an expected call of MarkVerified.
-func (mr *MockUserWriteDatastoreMockRecorder) MarkVerified(ctx, request any) *gomock.Call {
+func (mr *MockUserWriteDatastoreMockRecorder) MarkVerified(ctx, user any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkVerified", reflect.TypeOf((*MockUserWriteDatastore)(nil).MarkVerified), ctx, request)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkVerified", reflect.TypeOf((*MockUserWriteDatastore)(nil).MarkVerified), ctx, user)
 }
 
 // Save mocks base method.

@@ -39,10 +39,7 @@ func (svc *Service) VerifyEmail(ctx context.Context, token string) (identity.Use
 		return identity.User{}, errdefs.InvalidParameter(verifyErr)
 	}
 
-	verifiedUser, markErr := svc.users.MarkVerified(ctx, identity.MarkUserVerifiedRequest{
-		ID:     entity.IDToString(user.ID()),
-		Status: user.Status(),
-	})
+	verifiedUser, markErr := svc.users.MarkVerified(ctx, user)
 	if markErr != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to persist verification", handlerLogPrefix),
 			"userId", entity.IDToString(user.ID()),

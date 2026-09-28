@@ -16,6 +16,7 @@ import (
 // @Accept      json
 // @Produce     json
 // @Success     201 {object} identityapi.userResponseDto
+// @Failure     400 {object} identityapi.errorResponseDto
 // @Failure     409 {object} identityapi.errorResponseDto
 // @Failure     422 {object} identityapi.errorResponseDto
 // @Router      /auth/register [post]
@@ -25,8 +26,9 @@ func (rtr *identityRouter) register(ctx *fiber.Ctx) error {
 		return respondValidationError(ctx, "request body is not valid JSON")
 	}
 
-	if request.Email == "" || request.Password == "" || request.Username == "" || request.FirstName == "" {
-		return respondValidationError(ctx, "username, first_name, email and password are required")
+	// first_name is validated by the domain (UserFullName), which reports it as a 400.
+	if request.Email == "" || request.Password == "" || request.Username == "" {
+		return respondValidationError(ctx, "username, email and password are required")
 	}
 
 	user, err := rtr.svc.Register(ctx.UserContext(), identityapp.RegisterCommand{

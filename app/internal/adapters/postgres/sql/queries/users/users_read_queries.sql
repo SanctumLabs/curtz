@@ -1,44 +1,34 @@
 -- name: QueryUserById :one
-SELECT 
-  sqlc.embed(u),
-  sqlc.embed(us)
+SELECT
+  sqlc.embed(u)
 FROM users u
-JOIN user_status us ON u.status_id = us.id 
 WHERE u.id = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryUserByUsername :one
-SELECT 
-  sqlc.embed(u), 
-  sqlc.embed(us) 
-FROM users u 
-JOIN user_status us ON u.status_id = us.id
+SELECT
+  sqlc.embed(u)
+FROM users u
 WHERE u.username = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryUserByVerificationToken :one
 SELECT
-  sqlc.embed(u),
-  sqlc.embed(us)
+  sqlc.embed(u)
 FROM users u
-JOIN user_status us ON u.status_id = us.id
 WHERE u.verification_token = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryUserByEmail :one
-SELECT 
-  sqlc.embed(u), 
-  sqlc.embed(us) 
+SELECT
+  sqlc.embed(u)
 FROM users u
-JOIN user_status us ON u.status_id = us.id
 WHERE u.email = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryAllUsers :many
-SELECT 
+SELECT
   sqlc.embed(u),
-  sqlc.embed(us),
   COUNT(*) OVER() AS total_records
-FROM users u 
-JOIN user_status us ON u.status_id = us.id
+FROM users u
 WHERE (sqlc.arg(include_deleted)::bool OR u.deleted_at IS NULL)
-  AND (COALESCE(sqlc.narg(user_status), '') = '' OR us.name = sqlc.narg(user_status))
+  AND (sqlc.narg(user_status)::user_status IS NULL OR u.status = sqlc.narg(user_status)::user_status)
 -- Date range filtering
 AND (
   sqlc.narg(date_field)::text IS NULL

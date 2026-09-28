@@ -18,9 +18,9 @@ type (
 	UserWriteDatastore interface {
 		repository.WriteRepositoryPort[User]
 
-		// MarkVerified atomically records a completed email verification and moves the User to the
-		// status the aggregate transitioned to
-		MarkVerified(ctx context.Context, request MarkUserVerifiedRequest) (User, error)
+		// MarkVerified persists a User that has just completed email verification (see User.Verify):
+		// its verified flag, status and recorded events are written atomically
+		MarkVerified(ctx context.Context, user User) (User, error)
 
 		// UpdateMetadata updates the metadata of a User entity based on the provided request and returns the updated User entity
 		UpdateMetadata(ctx context.Context, request UpdateUserMetadataVerificationRequest) (User, error)

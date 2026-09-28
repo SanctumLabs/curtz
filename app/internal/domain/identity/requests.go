@@ -19,10 +19,3 @@ type UpdateUserPasswordRequest struct {
 	ID           string `json:"id"`
 	PasswordHash string `json:"password_hash,omitempty"`
 }
-
-// MarkUserVerifiedRequest records a completed email verification. Status is the status the
-// aggregate transitioned to, applied in the same transaction as the verification flags.
-type MarkUserVerifiedRequest struct {
-	ID     string     `json:"id"`
-	Status UserStatus `json:"status"`
-}

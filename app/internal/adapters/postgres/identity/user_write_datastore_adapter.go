@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
@@ -22,7 +23,7 @@ func NewUserWriteDatastoreAdapter(dbClient database.PostgresDatabaseClient, conf
 	repo := &userWriteDatastoreAdapter{
 		dbClient:  dbClient,
 		config:    config,
-		logPrefix: "UserWriteRepoAdapter",
+		logPrefix: "UserWriteDatastoreAdapter",
 	}
 
 	// Wire up the real transaction executor. This delegates to postgres.WithTransactionVoid,
@@ -39,15 +40,22 @@ func NewUserWriteDatastoreAdapter(dbClient database.PostgresDatabaseClient, conf
 
 // run executes fn inside a retried transaction, returning the resulting User.
 func (writeDatastore *userWriteDatastoreAdapter) run(ctx context.Context, operation string, fn func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error)) (identity.User, error) {
-	return execute(ctx, writeDatastore.config, fmt.Sprintf("%s.%s", writeDatastore.logPrefix, operation), writeDatastore.withTx, fn)
+	return postgresrepo.Execute(ctx, writeDatastore.config, fmt.Sprintf("%s.%s", writeDatastore.logPrefix, operation), writeDatastore.withTx, fn)
+}
+
+// identityEventsDestination is where Identity's domain events are published once relayed from the outbox.
+const identityEventsDestination = "identity.events"
+
+// writeEvents appends the events the user aggregate recorded to the outbox, in the caller's
+// transaction. The aggregate passed in must carry only events not yet persisted; the User returned
+// by a write is re-read from the database and carries none.
+func writeEvents(ctx context.Context, qtx postgresrepo.UserWriteQuerier, userEntity identity.User) error {
+	return postgresrepo.WriteOutboxEvents(ctx, qtx, identityEventsDestination, entity.IDToString(userEntity.ID()), userEntity.DomainEvents())
 }
 
 // mapUser maps a user model to an entity, logging and wrapping any mapping failure.
-func mapUser(ctx context.Context, handlerLogPrefix string, userModel postgresql.User, status string) (identity.User, error) {
-	mappedUser, mapErr := MapUserModelToEntity(UserMapperParams{
-		UserModel: userModel,
-		Status:    status,
-	})
+func mapUser(ctx context.Context, handlerLogPrefix string, userModel postgresql.User) (identity.User, error) {
+	mappedUser, mapErr := MapUserModelToEntity(userModel)
 	if mapErr != nil {
 		slog.ErrorContext(
 			ctx,
@@ -65,11 +73,6 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 	slog.InfoContext(ctx, fmt.Sprintf("%s Saving User", handlerLogPrefix), "user", userEntity)
 
 	return writeDatastore.run(ctx, "Save", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
-		status, statusErr := queryUserStatusByName(ctx, qtx, string(userEntity.Status()))
-		if statusErr != nil {
-			return identity.User{}, statusErr
-		}
-
 		metadata, metadataErr := userEntity.MetadataToBytes()
 		if metadataErr != nil {
 			slog.WarnContext(ctx, fmt.Sprintf("%s Failed to convert user metadata to bytes", handlerLogPrefix),
@@ -88,7 +91,7 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 				LastName:            pgtype.Text{String: userEntity.LastName(), Valid: true},
 				Email:               email.Value(),
 				PasswordHash:        userEntity.PasswordHash(),
-				StatusID:            status.ID,
+				Status:              postgresql.UserStatus(userEntity.Status()),
 				Metadata:            metadata,
 				Verified:            verification.Verified(),
 				VerificationToken:   pgtype.Text{String: verification.Token(), Valid: verification.Token() != ""},
@@ -105,7 +108,11 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 			return identity.User{}, asConflict(fmt.Errorf("failed to create user: %w", createdUserErr))
 		}
 
-		return mapUser(ctx, handlerLogPrefix, createdUser, status.Name)
+		if outboxErr := writeEvents(ctx, qtx, userEntity); outboxErr != nil {
+			return identity.User{}, outboxErr
+		}
+
+		return mapUser(ctx, handlerLogPrefix, createdUser)
 	})
 }
 
@@ -114,11 +121,6 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 	slog.InfoContext(ctx, fmt.Sprintf("%s Updating User", handlerLogPrefix), "userId", userEntity.ID())
 
 	return writeDatastore.run(ctx, "Update", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
-		status, statusErr := queryUserStatusByName(ctx, qtx, string(userEntity.Status()))
-		if statusErr != nil {
-			return identity.User{}, statusErr
-		}
-
 		email := userEntity.Email()
 		updatedUser, updatedUserErr := qtx.QueryUpdateUserDetails(
 			ctx,
@@ -128,7 +130,7 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 				FirstName: pgtype.Text{String: userEntity.FirstName(), Valid: true},
 				LastName:  pgtype.Text{String: userEntity.LastName(), Valid: true},
 				Email:     email.Value(),
-				StatusID:  status.ID,
+				Status:    postgresql.UserStatus(userEntity.Status()),
 			},
 		)
 		if updatedUserErr != nil {
@@ -141,55 +143,57 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 			return identity.User{}, fmt.Errorf("failed to update user: %w", updatedUserErr)
 		}
 
-		return mapUser(ctx, handlerLogPrefix, updatedUser, status.Name)
+		if outboxErr := writeEvents(ctx, qtx, userEntity); outboxErr != nil {
+			return identity.User{}, outboxErr
+		}
+
+		return mapUser(ctx, handlerLogPrefix, updatedUser)
 	})
 }
 
-// MarkVerified atomically flags the user verified and applies the status the aggregate
-// transitioned to. Both writes share one transaction so a user can never end up verified but
-// still inactive.
-func (writeDatastore *userWriteDatastoreAdapter) MarkVerified(ctx context.Context, request identity.MarkUserVerifiedRequest) (identity.User, error) {
+// MarkVerified persists a user the aggregate has just verified: the verified flag, the status it
+// transitioned to and its recorded events all commit in one transaction, so a user can never end
+// up verified but still inactive, or verified without a UserVerified event.
+func (writeDatastore *userWriteDatastoreAdapter) MarkVerified(ctx context.Context, userEntity identity.User) (identity.User, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<MarkVerified>", writeDatastore.logPrefix)
-	slog.InfoContext(ctx, fmt.Sprintf("%s Marking User verified", handlerLogPrefix), "userId", request.ID, "status", request.Status)
+	slog.InfoContext(ctx, fmt.Sprintf("%s Marking User verified", handlerLogPrefix), "userId", userEntity.ID(), "status", userEntity.Status())
 
 	return writeDatastore.run(ctx, "MarkVerified", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
-		existingUser, existingUserErr := queryUserById(ctx, qtx, request.ID)
-		if existingUserErr != nil {
-			return identity.User{}, existingUserErr
-		}
-
-		status, statusErr := queryUserStatusByName(ctx, qtx, string(request.Status))
-		if statusErr != nil {
-			return identity.User{}, statusErr
-		}
-
-		verifiedUser, verifiedErr := qtx.QueryUpdateUserVerification(
+		userID := pgtype.UUID{Bytes: userEntity.ID(), Valid: true}
+		verification := userEntity.Verification()
+		if _, verifiedErr := qtx.QueryUpdateUserVerification(
 			ctx,
 			postgresql.QueryUpdateUserVerificationParams{
-				ID:                  existingUser.User.ID,
-				Verified:            true,
-				VerificationToken:   existingUser.User.VerificationToken,
-				VerificationExpires: existingUser.User.VerificationExpires,
+				ID:                  userID,
+				Verified:            verification.Verified(),
+				VerificationToken:   pgtype.Text{String: verification.Token(), Valid: verification.Token() != ""},
+				VerificationExpires: pgtype.Timestamptz{Time: verification.Expires(), Valid: !verification.Expires().IsZero()},
 			},
-		)
-		if verifiedErr != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to flag user verified", handlerLogPrefix), "id", request.ID, "error", verifiedErr)
-			return identity.User{}, fmt.Errorf("failed to mark user %s verified: %w", request.ID, verifiedErr)
+		); verifiedErr != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to flag user verified", handlerLogPrefix), "userId", userEntity.ID(), "error", verifiedErr)
+			if errors.Is(verifiedErr, pgx.ErrNoRows) {
+				return identity.User{}, errdefs.NotFound(verifiedErr)
+			}
+			return identity.User{}, fmt.Errorf("failed to mark user %s verified: %w", userEntity.ID(), verifiedErr)
 		}
 
-		activatedUser, activatedErr := qtx.QueryUpdateUserStatusId(
+		activatedUser, activatedErr := qtx.QueryUpdateUserStatus(
 			ctx,
-			postgresql.QueryUpdateUserStatusIdParams{
-				ID:       verifiedUser.ID,
-				StatusID: status.ID,
+			postgresql.QueryUpdateUserStatusParams{
+				ID:     userID,
+				Status: postgresql.UserStatus(userEntity.Status()),
 			},
 		)
 		if activatedErr != nil {
-			slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to apply user status", handlerLogPrefix), "id", request.ID, "error", activatedErr)
-			return identity.User{}, fmt.Errorf("failed to apply status to user %s: %w", request.ID, activatedErr)
+			slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to apply user status", handlerLogPrefix), "userId", userEntity.ID(), "error", activatedErr)
+			return identity.User{}, fmt.Errorf("failed to apply status to user %s: %w", userEntity.ID(), activatedErr)
 		}
 
-		return mapUser(ctx, handlerLogPrefix, activatedUser, status.Name)
+		if outboxErr := writeEvents(ctx, qtx, userEntity); outboxErr != nil {
+			return identity.User{}, outboxErr
+		}
+
+		return mapUser(ctx, handlerLogPrefix, activatedUser)
 	})
 }
 
@@ -228,7 +232,7 @@ func (writeDatastore *userWriteDatastoreAdapter) UpdateMetadata(ctx context.Cont
 			return identity.User{}, fmt.Errorf("failed to update user %s metadata: %w", request.ID, updatedUserErr)
 		}
 
-		return mapUser(ctx, handlerLogPrefix, updatedUser, existingUser.UserStatus.Name)
+		return mapUser(ctx, handlerLogPrefix, updatedUser)
 	})
 }
 
@@ -260,7 +264,7 @@ func (writeDatastore *userWriteDatastoreAdapter) UpdatePassword(ctx context.Cont
 			return identity.User{}, fmt.Errorf("failed to update user %s password: %w", request.ID, updatedUserErr)
 		}
 
-		return mapUser(ctx, handlerLogPrefix, updatedUser, existingUser.UserStatus.Name)
+		return mapUser(ctx, handlerLogPrefix, updatedUser)
 	})
 }
 

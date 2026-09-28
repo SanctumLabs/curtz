@@ -44,7 +44,7 @@ func (suite *UserReadDatastoreAdapterTestSuite) SetupTest() {
 	suite.mockUserReadQuerier = mockpostgresrepo.NewMockUserReadQuerier(mockCtrl)
 	suite.mockUserReadDatastore = mockidentity.NewMockUserReadDatastore(mockCtrl)
 	suite.userReadDatastoreAdapter = &userReadDatastoreAdapter{
-		logPrefix: "UserReadRepoAdapter",
+		logPrefix: "UserReadDatastoreAdapter",
 		dbClient:  suite.mockDbClient,
 		config:    config,
 	}
@@ -75,12 +75,7 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchById_Success() {
 	suite.NoError(mockUserErr)
 
 	mockUserRecord := mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
-	mockUserStatus := mockpostgresql.MockUserStatus(identity.UserStatusActive)
-
-	existingUser := postgresql.QueryUserByIdRow{
-		User:       mockUserRecord,
-		UserStatus: mockUserStatus,
-	}
+	existingUser := postgresql.QueryUserByIdRow{User: mockUserRecord}
 
 	suite.mockUserReadQuerier.
 		EXPECT().
@@ -99,20 +94,20 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchById_Success() {
 	suite.Equal(mockUser.UpdatedAt(), actual.UpdatedAt())
 }
 
-func (suite *UserReadDatastoreAdapterTestSuite) newMockUserRow() (*identity.User, postgresql.User, postgresql.UserStatus) {
+func (suite *UserReadDatastoreAdapterTestSuite) newMockUserRow() (*identity.User, postgresql.User) {
 	mockUser, mockUserErr := mockidentity.MockUser(mockidentity.WithId(entity.NewID()))
 	suite.Require().NoError(mockUserErr)
-	return mockUser, mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser)), mockpostgresql.MockUserStatus(identity.UserStatusActive)
+	return mockUser, mockpostgresql.MockUser(mockpostgresql.WithUser(*mockUser))
 }
 
 func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByUsername_Success() {
 	ctx := context.Background()
-	mockUser, userRecord, userStatus := suite.newMockUserRow()
+	mockUser, userRecord := suite.newMockUserRow()
 
 	suite.mockUserReadQuerier.
 		EXPECT().
 		QueryUserByUsername(gomock.Any(), mockUser.Username()).
-		Return(postgresql.QueryUserByUsernameRow{User: userRecord, UserStatus: userStatus}, nil).
+		Return(postgresql.QueryUserByUsernameRow{User: userRecord}, nil).
 		Times(1)
 
 	actual, err := suite.userReadDatastoreAdapter.FetchByUsername(ctx, mockUser.Username())
@@ -136,13 +131,13 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByUsername_NotFound() {
 
 func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByEmail_Success() {
 	ctx := context.Background()
-	mockUser, userRecord, userStatus := suite.newMockUserRow()
+	mockUser, userRecord := suite.newMockUserRow()
 	email := mockUser.Email()
 
 	suite.mockUserReadQuerier.
 		EXPECT().
 		QueryUserByEmail(gomock.Any(), email.Value()).
-		Return(postgresql.QueryUserByEmailRow{User: userRecord, UserStatus: userStatus}, nil).
+		Return(postgresql.QueryUserByEmailRow{User: userRecord}, nil).
 		Times(1)
 
 	actual, err := suite.userReadDatastoreAdapter.FetchByEmail(ctx, email.Value())
@@ -165,20 +160,20 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByEmail_NotFound() {
 
 func (suite *UserReadDatastoreAdapterTestSuite) TestFetchAll_Success() {
 	ctx := context.Background()
-	first, firstRecord, status := suite.newMockUserRow()
-	second, secondRecord, _ := suite.newMockUserRow()
+	first, firstRecord := suite.newMockUserRow()
+	second, secondRecord := suite.newMockUserRow()
 
 	params := common.NewRequestParams(common.WithRequestLimit(2), common.WithOffset(2))
 
 	suite.mockUserReadQuerier.
 		EXPECT().
 		QueryAllUsers(gomock.Any(), gomock.Cond(func(p postgresql.QueryAllUsersParams) bool {
-			return p.LimitBy == 2 && p.CurrentOffset == 2 && p.UserStatus == nil && !p.IncludeDeleted &&
+			return p.LimitBy == 2 && p.CurrentOffset == 2 && !p.UserStatus.Valid && !p.IncludeDeleted &&
 				p.OrderBy == string(common.OrderByCreatedAt) && p.SortOrder == string(common.SortOrderDesc)
 		})).
 		Return([]postgresql.QueryAllUsersRow{
-			{User: firstRecord, UserStatus: status, TotalRecords: 5},
-			{User: secondRecord, UserStatus: status, TotalRecords: 5},
+			{User: firstRecord, TotalRecords: 5},
+			{User: secondRecord, TotalRecords: 5},
 		}, nil).
 		Times(1)
 
@@ -206,15 +201,15 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchAll_QueryError() {
 
 func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByStatus_FiltersByStatus() {
 	ctx := context.Background()
-	mockUser, userRecord, _ := suite.newMockUserRow()
-	suspended := mockpostgresql.MockUserStatus(identity.UserStatusSuspended)
+	mockUser, userRecord := suite.newMockUserRow()
+	userRecord.Status = postgresql.UserStatusSUSPENDED
 
 	suite.mockUserReadQuerier.
 		EXPECT().
 		QueryAllUsers(gomock.Any(), gomock.Cond(func(p postgresql.QueryAllUsersParams) bool {
-			return p.UserStatus == string(identity.UserStatusSuspended)
+			return p.UserStatus.Valid && p.UserStatus.UserStatus == postgresql.UserStatusSUSPENDED
 		})).
-		Return([]postgresql.QueryAllUsersRow{{User: userRecord, UserStatus: suspended, TotalRecords: 1}}, nil).
+		Return([]postgresql.QueryAllUsersRow{{User: userRecord, TotalRecords: 1}}, nil).
 		Times(1)
 
 	actual, err := suite.userReadDatastoreAdapter.FetchByStatus(ctx, identity.UserStatusSuspended)
@@ -240,14 +235,14 @@ func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByStatus_Empty() {
 
 func (suite *UserReadDatastoreAdapterTestSuite) TestFetchByVerificationToken_Success() {
 	ctx := context.Background()
-	mockUser, userRecord, userStatus := suite.newMockUserRow()
+	mockUser, userRecord := suite.newMockUserRow()
 	verification := mockUser.Verification()
 	token := verification.Token()
 
 	suite.mockUserReadQuerier.
 		EXPECT().
 		QueryUserByVerificationToken(gomock.Any(), pgtype.Text{String: token, Valid: true}).
-		Return(postgresql.QueryUserByVerificationTokenRow{User: userRecord, UserStatus: userStatus}, nil).
+		Return(postgresql.QueryUserByVerificationTokenRow{User: userRecord}, nil).
 		Times(1)
 
 	actual, err := suite.userReadDatastoreAdapter.FetchByVerificationToken(ctx, token)

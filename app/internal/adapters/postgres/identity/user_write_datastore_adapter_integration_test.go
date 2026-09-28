@@ -8,11 +8,13 @@ import (
 
 	"github.com/go-faker/faker/v4"
 	"github.com/onsi/ginkgo/v2"
+	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
 	mockidentity "github.com/sanctumlabs/curtz/app/internal/domain/identity/mocks"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 	"github.com/sanctumlabs/curtz/app/test"
 	"github.com/stretchr/testify/assert"
@@ -60,6 +62,30 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 			actual, actualErr := userWriteDatastoreAdapter.Save(ctx, *mockUser)
 			assert.NoError(ginkgo.GinkgoT(), actualErr)
 			assert.NotNil(ginkgo.GinkgoT(), actual)
+		})
+	})
+
+	ginkgo.Describe("Outbox", func() {
+		ginkgo.It("commits a registered user's UserRegistered event with the user", func() {
+			registered, registerErr := identity.Register(identity.RegisterUserParams{
+				Username:  faker.Username(),
+				FirstName: "John",
+				Email:     faker.Email(),
+			})
+			assert.NoError(ginkgo.GinkgoT(), registerErr)
+			event := registered.DomainEvents()[0]
+
+			_, saveErr := userWriteDatastoreAdapter.Save(ctx, *registered)
+			assert.NoError(ginkgo.GinkgoT(), saveErr)
+
+			eventID, idErr := postgres.StringToUUID(event.ID())
+			assert.NoError(ginkgo.GinkgoT(), idErr)
+			outboxEvent, outboxErr := postgresql.New(testPostgresDatabaseClient.GetDB()).QueryOutboxEventById(ctx, eventID)
+			assert.NoError(ginkgo.GinkgoT(), outboxErr)
+			assert.Equal(ginkgo.GinkgoT(), "user.registered", outboxEvent.OutboxEvent.EventType)
+			assert.Equal(ginkgo.GinkgoT(), "identity.events", outboxEvent.OutboxEvent.Destination)
+			assert.Equal(ginkgo.GinkgoT(), entity.IDToString(registered.ID()), outboxEvent.OutboxEvent.PartitionKey.String)
+			assert.False(ginkgo.GinkgoT(), outboxEvent.OutboxEvent.SentTime.Valid, "a new event is not yet sent")
 		})
 	})
 
@@ -182,7 +208,7 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 			_, updateErr := userWriteDatastoreAdapter.Update(ctx, created)
 			assert.NoError(ginkgo.GinkgoT(), updateErr)
 
-			readDatastore := NewUserReadRepoAdapter(testPostgresDatabaseClient, database.Config{
+			readDatastore := NewUserReadDatastoreAdapter(testPostgresDatabaseClient, database.Config{
 				OperationTimeout: 5 * time.Minute,
 				RetryConfig:      recoveryutils.DefaultRetryConfig,
 			})
@@ -198,7 +224,7 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 
 			assert.NoError(ginkgo.GinkgoT(), userWriteDatastoreAdapter.SoftDelete(ctx, created.ID().String()))
 
-			readDatastore := NewUserReadRepoAdapter(testPostgresDatabaseClient, database.Config{
+			readDatastore := NewUserReadDatastoreAdapter(testPostgresDatabaseClient, database.Config{
 				OperationTimeout: 5 * time.Minute,
 				RetryConfig:      recoveryutils.DefaultRetryConfig,
 			})
@@ -218,7 +244,7 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 
 			assert.NoError(ginkgo.GinkgoT(), userWriteDatastoreAdapter.Delete(ctx, created.ID().String()))
 
-			readDatastore := NewUserReadRepoAdapter(testPostgresDatabaseClient, database.Config{
+			readDatastore := NewUserReadDatastoreAdapter(testPostgresDatabaseClient, database.Config{
 				OperationTimeout: 5 * time.Minute,
 				RetryConfig:      recoveryutils.DefaultRetryConfig,
 			})

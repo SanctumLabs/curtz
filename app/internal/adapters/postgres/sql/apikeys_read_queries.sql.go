@@ -125,7 +125,7 @@ SELECT
   ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at,
   COUNT(*) OVER() AS total_records
 FROM api_keys ak
-WHERE $2::bool OR ak.deleted_at IS NULL
+WHERE ($2::bool OR ak.deleted_at IS NULL)
 AND ak.user_id = $1
 AND (
   $3::text IS NULL
@@ -184,7 +184,7 @@ type QueryApiKeysByUserRow struct {
 //	  ak.id, ak.user_id, ak.key_hash, ak.name, ak.scopes, ak.rate_limit, ak.last_used_at, ak.expires_at, ak.created_at, ak.updated_at, ak.deleted_at,
 //	  COUNT(*) OVER() AS total_records
 //	FROM api_keys ak
-//	WHERE $2::bool OR ak.deleted_at IS NULL
+//	WHERE ($2::bool OR ak.deleted_at IS NULL)
 //	AND ak.user_id = $1
 //	AND (
 //	  $3::text IS NULL

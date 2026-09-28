@@ -18,10 +18,10 @@ import (
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
 )
 
-func NewUserReadRepoAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserReadDatastore {
+func NewUserReadDatastoreAdapter(dbClient database.PostgresDatabaseClient, config database.Config) identity.UserReadDatastore {
 	repo := &userReadDatastoreAdapter{
 		dbClient:  dbClient,
-		logPrefix: "UserReadRepoAdapter",
+		logPrefix: "UserReadDatastoreAdapter",
 		config:    config,
 	}
 
@@ -42,13 +42,13 @@ func (repo *userReadDatastoreAdapter) fetchOne(
 	ctx context.Context,
 	operation string,
 	logAttrs []any,
-	query func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, postgresql.UserStatus, error),
+	query func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, error),
 ) (identity.User, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<%s>", repo.logPrefix, operation)
 
-	return execute(ctx, repo.config, fmt.Sprintf("%s.%s", repo.logPrefix, operation), repo.withTx,
+	return postgresrepo.Execute(ctx, repo.config, fmt.Sprintf("%s.%s", repo.logPrefix, operation), repo.withTx,
 		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (identity.User, error) {
-			userModel, statusModel, queryErr := query(ctx, qtx)
+			userModel, queryErr := query(ctx, qtx)
 			if queryErr != nil {
 				slog.ErrorContext(ctx, fmt.Sprintf("%s Failed to retrieve User", handlerLogPrefix), append(logAttrs, "error", queryErr)...)
 				if errors.Is(queryErr, pgx.ErrNoRows) {
@@ -57,10 +57,7 @@ func (repo *userReadDatastoreAdapter) fetchOne(
 				return identity.User{}, errdefs.BadRequest(queryErr)
 			}
 
-			return MapUserModelToEntity(UserMapperParams{
-				UserModel: userModel,
-				Status:    statusModel.Name,
-			})
+			return MapUserModelToEntity(userModel)
 		})
 }
 
@@ -68,13 +65,13 @@ func (repo *userReadDatastoreAdapter) FetchById(ctx context.Context, userId stri
 	slog.InfoContext(ctx, fmt.Sprintf("%s<FetchById> Fetching user by ID", repo.logPrefix), "id", userId)
 
 	return repo.fetchOne(ctx, "FetchById", []any{"id", userId},
-		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, postgresql.UserStatus, error) {
+		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, error) {
 			userUUID, userUUIDErr := postgres.StringToUUID(userId)
 			if userUUIDErr != nil {
-				return postgresql.User{}, postgresql.UserStatus{}, fmt.Errorf("failed to convert user ID to UUID: %w", userUUIDErr)
+				return postgresql.User{}, fmt.Errorf("failed to convert user ID to UUID: %w", userUUIDErr)
 			}
 			row, err := qtx.QueryUserById(ctx, userUUID)
-			return row.User, row.UserStatus, err
+			return row.User, err
 		})
 }
 
@@ -82,9 +79,9 @@ func (repo *userReadDatastoreAdapter) FetchByUsername(ctx context.Context, usern
 	slog.InfoContext(ctx, fmt.Sprintf("%s<FetchByUsername> Fetching user by username", repo.logPrefix), "username", username)
 
 	return repo.fetchOne(ctx, "FetchByUsername", []any{"username", username},
-		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, postgresql.UserStatus, error) {
+		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, error) {
 			row, err := qtx.QueryUserByUsername(ctx, username)
-			return row.User, row.UserStatus, err
+			return row.User, err
 		})
 }
 
@@ -92,9 +89,9 @@ func (repo *userReadDatastoreAdapter) FetchByEmail(ctx context.Context, email st
 	slog.InfoContext(ctx, fmt.Sprintf("%s<FetchByEmail> Fetching user by email", repo.logPrefix), "email", email)
 
 	return repo.fetchOne(ctx, "FetchByEmail", []any{"email", email},
-		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, postgresql.UserStatus, error) {
+		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, error) {
 			row, err := qtx.QueryUserByEmail(ctx, email)
-			return row.User, row.UserStatus, err
+			return row.User, err
 		})
 }
 
@@ -103,9 +100,9 @@ func (repo *userReadDatastoreAdapter) FetchByVerificationToken(ctx context.Conte
 
 	// The token is deliberately kept out of the log attributes: it is a bearer credential.
 	return repo.fetchOne(ctx, "FetchByVerificationToken", nil,
-		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, postgresql.UserStatus, error) {
+		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (postgresql.User, error) {
 			row, err := qtx.QueryUserByVerificationToken(ctx, pgtype.Text{String: token, Valid: true})
-			return row.User, row.UserStatus, err
+			return row.User, err
 		})
 }
 
@@ -125,7 +122,7 @@ func (repo *userReadDatastoreAdapter) FetchByStatus(ctx context.Context, status 
 func (repo *userReadDatastoreAdapter) fetchMany(ctx context.Context, operation string, queryParams postgresql.QueryAllUsersParams) (repository.FetchRecordsResponse[identity.User], error) {
 	handlerLogPrefix := fmt.Sprintf("%s<%s>", repo.logPrefix, operation)
 
-	return execute(ctx, repo.config, fmt.Sprintf("%s.%s", repo.logPrefix, operation), repo.withTx,
+	return postgresrepo.Execute(ctx, repo.config, fmt.Sprintf("%s.%s", repo.logPrefix, operation), repo.withTx,
 		func(ctx context.Context, qtx postgresrepo.UserReadQuerier) (repository.FetchRecordsResponse[identity.User], error) {
 			rows, queryErr := qtx.QueryAllUsers(ctx, queryParams)
 			if queryErr != nil {
@@ -137,10 +134,7 @@ func (repo *userReadDatastoreAdapter) fetchMany(ctx context.Context, operation s
 			var total int64
 			for _, row := range rows {
 				total = row.TotalRecords
-				user, mapErr := MapUserModelToEntity(UserMapperParams{
-					UserModel: row.User,
-					Status:    row.UserStatus.Name,
-				})
+				user, mapErr := MapUserModelToEntity(row.User)
 				if mapErr != nil {
 					return repository.FetchRecordsResponse[identity.User]{}, mapErr
 				}
@@ -172,7 +166,7 @@ func toQueryAllUsersParams(params common.RequestParams, status *identity.UserSta
 		LimitBy:        int32(params.Limit),
 	}
 	if status != nil {
-		queryParams.UserStatus = string(*status)
+		queryParams.UserStatus = postgresql.NullUserStatus{UserStatus: postgresql.UserStatus(*status), Valid: true}
 	}
 	if params.DateRangeOption.DateFieldOption != "" {
 		queryParams.DateField = pgtype.Text{String: string(params.DateRangeOption.DateFieldOption), Valid: true}
