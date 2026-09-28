@@ -14,14 +14,6 @@ INSERT INTO urls (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *;
 
--- name: QueryUpdateUrlDetails :one
-UPDATE urls
-SET
-  short_code=$2,
-  custom_alias=$3,
-  updated_at=NOW()
-WHERE id = $1 RETURNING *;
-
 -- name: QueryUpdateUrlMetadata :one
 UPDATE urls SET metadata=$2, updated_at=NOW() WHERE id = $1 RETURNING *;
 

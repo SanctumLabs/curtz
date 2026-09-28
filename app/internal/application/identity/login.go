@@ -20,6 +20,9 @@ func (svc *Service) Login(ctx context.Context, email, password string) (identity
 
 	user, fetchErr := svc.users.FetchByEmail(ctx, email)
 	if fetchErr != nil {
+		if !errdefs.IsNotFound(fetchErr) {
+			return identity.User{}, TokenPair{}, fetchErr
+		}
 		slog.WarnContext(ctx, fmt.Sprintf("%s Login attempted for an unknown email", handlerLogPrefix))
 		return identity.User{}, TokenPair{}, errdefs.Unauthorized(errdefs.ErrInvalidCredentials)
 	}
@@ -31,15 +34,8 @@ func (svc *Service) Login(ctx context.Context, email, password string) (identity
 		return identity.User{}, TokenPair{}, errdefs.Unauthorized(errdefs.ErrInvalidCredentials)
 	}
 
-	// A user who has not verified their email may still sign in, matching the pre-v2 behaviour.
-	// Suspended and deleted accounts may not.
-	switch user.Status() {
-	case identity.UserStatusSuspended, identity.UserStatusDeleted:
-		slog.WarnContext(ctx, fmt.Sprintf("%s Login rejected: account not permitted to sign in", handlerLogPrefix),
-			"userId", entity.IDToString(user.ID()),
-			"status", user.Status(),
-		)
-		return identity.User{}, TokenPair{}, errdefs.Forbidden(fmt.Errorf("account is %s", user.Status()))
+	if signInErr := ensureCanSignIn(ctx, handlerLogPrefix, user); signInErr != nil {
+		return identity.User{}, TokenPair{}, signInErr
 	}
 
 	tokens, tokenErr := svc.issueTokens(entity.IDToString(user.ID()))
@@ -50,4 +46,19 @@ func (svc *Service) Login(ctx context.Context, email, password string) (identity
 	slog.InfoContext(ctx, fmt.Sprintf("%s Logged in user", handlerLogPrefix), "userId", entity.IDToString(user.ID()))
 
 	return user, tokens, nil
+}
+
+// ensureCanSignIn applies the sign-in policy shared by Login and Refresh. A user who has not
+// verified their email may still sign in, matching the pre-v2 behaviour. Suspended and deleted
+// accounts may not.
+func ensureCanSignIn(ctx context.Context, handlerLogPrefix string, user identity.User) error {
+	switch user.Status() {
+	case identity.UserStatusSuspended, identity.UserStatusDeleted:
+		slog.WarnContext(ctx, fmt.Sprintf("%s Rejected: account not permitted to sign in", handlerLogPrefix),
+			"userId", entity.IDToString(user.ID()),
+			"status", user.Status(),
+		)
+		return errdefs.Forbidden(fmt.Errorf("account is %s", user.Status()))
+	}
+	return nil
 }

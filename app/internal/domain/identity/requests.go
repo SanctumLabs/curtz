@@ -1,16 +1,5 @@
 package identity
 
-import "time"
-
-// CreateUserRequest represents the request payload for creating a new user
-type CreateUserRequest struct {
-	Username     string         `json:"username"`
-	FullName     UserFullName   `json:"full_name"`
-	Email        Email          `json:"email"`
-	PasswordHash string         `json:"password_hash"`
-	Metadata     map[string]any `json:"metadata,omitempty"`
-}
-
 // UpdateUserRequest represents the request payload for updating an existing user
 type UpdateUserRequest struct {
 	ID           string  `json:"id"`
@@ -19,13 +8,6 @@ type UpdateUserRequest struct {
 	LastName     *string `json:"last_name,omitempty"`
 	Email        *string `json:"email,omitempty"`
 	PasswordHash *string `json:"password_hash,omitempty"`
-}
-
-type UpdateUserVerificationRequest struct {
-	ID                  string    `json:"id"`
-	Verified            bool      `json:"verified"`
-	VerificationToken   string    `json:"verification_token"`
-	VerificationExpires time.Time `json:"verification_expires"`
 }
 
 type UpdateUserMetadataVerificationRequest struct {
@@ -41,11 +23,6 @@ type UpdateUserPasswordRequest struct {
 // MarkUserVerifiedRequest records a completed email verification. Status is the status the
 // aggregate transitioned to, applied in the same transaction as the verification flags.
 type MarkUserVerifiedRequest struct {
-	ID     string     `json:"id"`
-	Status UserStatus `json:"status"`
-}
-
-type UpdateUserStatusRequest struct {
 	ID     string     `json:"id"`
 	Status UserStatus `json:"status"`
 }

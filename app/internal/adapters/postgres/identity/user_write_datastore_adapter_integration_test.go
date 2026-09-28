@@ -63,42 +63,12 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 		})
 	})
 
-	ginkgo.Describe("Create", func() {
-		ginkgo.It("creates a new user successfully", func() {
-			mockUser, mockUserErr := mockidentity.MockUser()
-			assert.NoError(ginkgo.GinkgoT(), mockUserErr)
-
-			username := mockUser.Username()
-			fullName := mockUser.FullName()
-			createNewUserRequest := identity.CreateUserRequest{
-				Username:     username,
-				FullName:     fullName,
-				Email:        mockUser.Email(),
-				PasswordHash: mockUser.PasswordHash(),
-				Metadata:     mockUser.Metadata(),
-			}
-
-			actual, actualErr := userWriteDatastoreAdapter.Create(ctx, createNewUserRequest)
-			assert.NoError(ginkgo.GinkgoT(), actualErr)
-			assert.NotNil(ginkgo.GinkgoT(), actual)
-		})
-	})
-
 	ginkgo.Describe("Update", func() {
 		mockUser, mockUserErr := mockidentity.MockUser()
 		assert.NoError(ginkgo.GinkgoT(), mockUserErr)
-		username := mockUser.Username()
-		fullName := mockUser.FullName()
-		createNewUserRequest := identity.CreateUserRequest{
-			Username:     username,
-			FullName:     fullName,
-			Email:        mockUser.Email(),
-			PasswordHash: mockUser.PasswordHash(),
-			Metadata:     mockUser.Metadata(),
-		}
 
 		ginkgo.It("updates an existing user successfully", func() {
-			actualCreatedUser, createError := userWriteDatastoreAdapter.Create(ctx, createNewUserRequest)
+			actualCreatedUser, createError := userWriteDatastoreAdapter.Save(ctx, *mockUser)
 			assert.NoError(ginkgo.GinkgoT(), createError)
 			assert.NotNil(ginkgo.GinkgoT(), actualCreatedUser)
 
@@ -131,16 +101,8 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 			)
 			assert.NoError(ginkgo.GinkgoT(), anotherMockUserErr)
 
-			anotherNewUserRequest := identity.CreateUserRequest{
-				Username:     anotherMockUser.Username(),
-				FullName:     anotherMockUser.FullName(),
-				Email:        anotherMockUser.Email(),
-				PasswordHash: anotherMockUser.PasswordHash(),
-				Metadata:     anotherMockUser.Metadata(),
-			}
-
 			ginkgo.It("updates an existing user metadata successfully", func() {
-				actualAnotherCreatedUser, anotherCreatedError := userWriteDatastoreAdapter.Create(ctx, anotherNewUserRequest)
+				actualAnotherCreatedUser, anotherCreatedError := userWriteDatastoreAdapter.Save(ctx, *anotherMockUser)
 				assert.NoError(ginkgo.GinkgoT(), anotherCreatedError)
 				assert.NotNil(ginkgo.GinkgoT(), actualAnotherCreatedUser)
 
@@ -183,13 +145,7 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 		)
 		assert.NoError(ginkgo.GinkgoT(), mockUserErr)
 
-		created, createErr := userWriteDatastoreAdapter.Create(ctx, identity.CreateUserRequest{
-			Username:     mockUser.Username(),
-			FullName:     mockUser.FullName(),
-			Email:        mockUser.Email(),
-			PasswordHash: mockUser.PasswordHash(),
-			Metadata:     mockUser.Metadata(),
-		})
+		created, createErr := userWriteDatastoreAdapter.Save(ctx, *mockUser)
 		if createErr != nil {
 			assert.FailNow(ginkgo.GinkgoT(), "failed to create user: %s", createErr.Error())
 		}
@@ -218,31 +174,26 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 		})
 	})
 
-	ginkgo.Describe("UpdateStatus", func() {
-		ginkgo.It("transitions an existing user to a new status", func() {
+	ginkgo.Describe("Update status", func() {
+		ginkgo.It("persists a status transition made by the aggregate", func() {
 			created := createUser()
-			assert.Equal(ginkgo.GinkgoT(), identity.UserStatusInactive, created.Status())
+			assert.NoError(ginkgo.GinkgoT(), created.MarkDeleted())
 
-			actual, actualErr := userWriteDatastoreAdapter.UpdateStatus(ctx, identity.UpdateUserStatusRequest{
-				ID:     created.ID().String(),
-				Status: identity.UserStatusActive,
+			_, updateErr := userWriteDatastoreAdapter.Update(ctx, created)
+			assert.NoError(ginkgo.GinkgoT(), updateErr)
+
+			readDatastore := NewUserReadRepoAdapter(testPostgresDatabaseClient, database.Config{
+				OperationTimeout: 5 * time.Minute,
+				RetryConfig:      recoveryutils.DefaultRetryConfig,
 			})
+			actual, actualErr := readDatastore.FetchById(ctx, created.ID().String())
 			assert.NoError(ginkgo.GinkgoT(), actualErr)
-			assert.Equal(ginkgo.GinkgoT(), created.ID(), actual.ID())
-			assert.Equal(ginkgo.GinkgoT(), identity.UserStatusActive, actual.Status())
-		})
-
-		ginkgo.It("returns not found when the user does not exist", func() {
-			_, actualErr := userWriteDatastoreAdapter.UpdateStatus(ctx, identity.UpdateUserStatusRequest{
-				ID:     entity.NewID().String(),
-				Status: identity.UserStatusActive,
-			})
-			assert.True(ginkgo.GinkgoT(), errdefs.IsNotFound(actualErr), "expected NotFound, got %v", actualErr)
+			assert.Equal(ginkgo.GinkgoT(), identity.UserStatusDeleted, actual.Status())
 		})
 	})
 
 	ginkgo.Describe("SoftDelete", func() {
-		ginkgo.It("marks an existing user as deleted without removing it", func() {
+		ginkgo.It("hides a soft-deleted user from reads", func() {
 			created := createUser()
 
 			assert.NoError(ginkgo.GinkgoT(), userWriteDatastoreAdapter.SoftDelete(ctx, created.ID().String()))
@@ -251,9 +202,8 @@ var _ = ginkgo.Describe("User Write Datastore Adapter Integration Test Suite", g
 				OperationTimeout: 5 * time.Minute,
 				RetryConfig:      recoveryutils.DefaultRetryConfig,
 			})
-			actual, actualErr := readDatastore.FetchById(ctx, created.ID().String())
-			assert.NoError(ginkgo.GinkgoT(), actualErr)
-			assert.True(ginkgo.GinkgoT(), actual.IsDeleted())
+			_, actualErr := readDatastore.FetchById(ctx, created.ID().String())
+			assert.True(ginkgo.GinkgoT(), errdefs.IsNotFound(actualErr), "expected NotFound, got %v", actualErr)
 		})
 
 		ginkgo.It("returns not found when the user does not exist", func() {

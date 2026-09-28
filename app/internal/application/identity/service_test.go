@@ -335,6 +335,17 @@ func (suite *IdentityServiceTestSuite) TestLogin_UnknownEmailIsIndistinguishable
 	suite.False(errdefs.IsNotFound(err), "must not leak that the account does not exist")
 }
 
+// A failing datastore is an outage, not bad credentials, and must not be reported as one.
+func (suite *IdentityServiceTestSuite) TestLogin_PropagatesDatastoreFailure() {
+	datastoreErr := errors.New("connection refused")
+	suite.mockUsers.EXPECT().FetchByEmail(gomock.Any(), gomock.Any()).Return(identity.User{}, datastoreErr).Times(1)
+	suite.mockTokens.EXPECT().GenerateAccessToken(gomock.Any()).Times(0)
+
+	_, _, err := suite.service.Login(context.Background(), "john.doe@curtz.com", "any-password")
+	suite.Require().ErrorIs(err, datastoreErr)
+	suite.False(errdefs.IsUnauthorized(err), "an outage must not look like bad credentials")
+}
+
 func (suite *IdentityServiceTestSuite) TestLogin_RejectsSuspendedAndDeletedAccounts() {
 	const password = "s3cret-password"
 
@@ -413,6 +424,44 @@ func (suite *IdentityServiceTestSuite) TestRefresh_RejectsTokenForDeletedUser() 
 	_, err := suite.service.Refresh(context.Background(), "orphan-token")
 	suite.Require().Error(err)
 	suite.True(errdefs.IsUnauthorized(err), "expected Unauthorized, got %v", err)
+}
+
+// Refresh applies the same sign-in policy as Login, so a suspended or deleted account cannot
+// keep minting tokens.
+func (suite *IdentityServiceTestSuite) TestRefresh_RejectsSuspendedAndDeletedAccounts() {
+	for _, status := range []identity.UserStatus{identity.UserStatusSuspended, identity.UserStatusDeleted} {
+		suite.Run(string(status), func() {
+			user, err := identity.NewUser(identity.UserParams{
+				Username:  "johndoe",
+				FirstName: "John",
+				Email:     "john.doe@curtz.com",
+				Status:    status,
+			})
+			suite.Require().NoError(err)
+			userID := entity.IDToString(user.ID())
+
+			suite.mockTokens.EXPECT().Authenticate("a-refresh-token").Return(userID, nil).Times(1)
+			suite.mockUsers.EXPECT().FetchById(gomock.Any(), userID).Return(*user, nil).Times(1)
+			suite.mockTokens.EXPECT().GenerateAccessToken(gomock.Any()).Times(0)
+
+			_, refreshErr := suite.service.Refresh(context.Background(), "a-refresh-token")
+			suite.Require().Error(refreshErr)
+			suite.True(errdefs.IsForbidden(refreshErr), "expected Forbidden, got %v", refreshErr)
+		})
+	}
+}
+
+// A failing datastore is an outage, not a bad token, and must not be reported as one.
+func (suite *IdentityServiceTestSuite) TestRefresh_PropagatesDatastoreFailure() {
+	userID := entity.IDToString(entity.NewID())
+	datastoreErr := errors.New("connection refused")
+
+	suite.mockTokens.EXPECT().Authenticate("a-refresh-token").Return(userID, nil).Times(1)
+	suite.mockUsers.EXPECT().FetchById(gomock.Any(), userID).Return(identity.User{}, datastoreErr).Times(1)
+
+	_, err := suite.service.Refresh(context.Background(), "a-refresh-token")
+	suite.Require().ErrorIs(err, datastoreErr)
+	suite.False(errdefs.IsUnauthorized(err), "an outage must not look like a bad token")
 }
 
 func TestNewService_WiresPorts(t *testing.T) {

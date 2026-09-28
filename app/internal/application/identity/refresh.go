@@ -10,7 +10,8 @@ import (
 
 // Refresh exchanges a valid refresh token for a fresh token pair.
 //
-// The user is re-read so that a token belonging to a since-deleted account stops working.
+// The user is re-read so that a token belonging to a since-deleted or suspended account stops
+// working.
 func (svc *Service) Refresh(ctx context.Context, refreshToken string) (TokenPair, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<Refresh>", svc.logPrefix)
 
@@ -24,9 +25,17 @@ func (svc *Service) Refresh(ctx context.Context, refreshToken string) (TokenPair
 		return TokenPair{}, errdefs.Unauthorized(errdefs.ErrTokenInvalid)
 	}
 
-	if _, fetchErr := svc.users.FetchById(ctx, userID); fetchErr != nil {
+	user, fetchErr := svc.users.FetchById(ctx, userID)
+	if fetchErr != nil {
+		if !errdefs.IsNotFound(fetchErr) {
+			return TokenPair{}, fetchErr
+		}
 		slog.WarnContext(ctx, fmt.Sprintf("%s Refresh rejected: user no longer exists", handlerLogPrefix), "userId", userID)
 		return TokenPair{}, errdefs.Unauthorized(errdefs.ErrTokenInvalid)
+	}
+
+	if signInErr := ensureCanSignIn(ctx, handlerLogPrefix, user); signInErr != nil {
+		return TokenPair{}, signInErr
 	}
 
 	tokens, tokenErr := svc.issueTokens(userID)

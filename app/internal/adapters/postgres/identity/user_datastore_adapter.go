@@ -67,7 +67,7 @@ func execute[T any, Q any](
 	withTx txExecutor[Q],
 	fn func(ctx context.Context, qtx Q) (T, error),
 ) (T, error) {
-	operationCtx, operationCancel := context.WithTimeout(ctx, config.OperationTimeout)
+	operationCtx, operationCancel := context.WithTimeout(ctx, config.Timeout())
 	defer operationCancel()
 
 	return recoveryutils.ExecuteWithRetry(

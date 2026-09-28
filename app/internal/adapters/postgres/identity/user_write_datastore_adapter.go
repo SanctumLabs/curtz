@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
 	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
@@ -110,50 +109,6 @@ func (writeDatastore *userWriteDatastoreAdapter) Save(ctx context.Context, userE
 	})
 }
 
-func (writeDatastore *userWriteDatastoreAdapter) Create(ctx context.Context, request identity.CreateUserRequest) (identity.User, error) {
-	handlerLogPrefix := fmt.Sprintf("%s<Create>", writeDatastore.logPrefix)
-	slog.InfoContext(ctx, fmt.Sprintf("%s Creating User", handlerLogPrefix), "user", request)
-
-	return writeDatastore.run(ctx, "Create", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
-		status, statusErr := queryUserStatusByName(ctx, qtx, string(identity.UserStatusInactive))
-		if statusErr != nil {
-			return identity.User{}, statusErr
-		}
-
-		metadata, metadataErr := utils.MapToBytes(request.Metadata)
-		if metadataErr != nil {
-			slog.WarnContext(ctx, fmt.Sprintf("%s Failed to convert user metadata to bytes", handlerLogPrefix),
-				"user", request,
-				"error", metadataErr)
-		}
-
-		createdUser, createdUserErr := qtx.QueryCreateUser(
-			ctx,
-			postgresql.QueryCreateUserParams{
-				ID:           pgtype.UUID{Bytes: entity.NewID(), Valid: true},
-				Username:     request.Username,
-				FirstName:    pgtype.Text{String: request.FullName.FirstName(), Valid: true},
-				LastName:     pgtype.Text{String: request.FullName.LastName(), Valid: true},
-				Email:        request.Email.Value(),
-				PasswordHash: request.PasswordHash,
-				StatusID:     status.ID,
-				Metadata:     metadata,
-			},
-		)
-		if createdUserErr != nil {
-			slog.ErrorContext(
-				ctx,
-				fmt.Sprintf("%s Failed to create user", handlerLogPrefix),
-				"username", request.Username,
-				"error", createdUserErr,
-			)
-			return identity.User{}, asConflict(fmt.Errorf("failed to create user: %w", createdUserErr))
-		}
-
-		return mapUser(ctx, handlerLogPrefix, createdUser, status.Name)
-	})
-}
-
 func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, userEntity identity.User) (identity.User, error) {
 	handlerLogPrefix := fmt.Sprintf("%s<Update>", writeDatastore.logPrefix)
 	slog.InfoContext(ctx, fmt.Sprintf("%s Updating User", handlerLogPrefix), "userId", userEntity.ID())
@@ -173,6 +128,7 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 				FirstName: pgtype.Text{String: userEntity.FirstName(), Valid: true},
 				LastName:  pgtype.Text{String: userEntity.LastName(), Valid: true},
 				Email:     email.Value(),
+				StatusID:  status.ID,
 			},
 		)
 		if updatedUserErr != nil {
@@ -186,39 +142,6 @@ func (writeDatastore *userWriteDatastoreAdapter) Update(ctx context.Context, use
 		}
 
 		return mapUser(ctx, handlerLogPrefix, updatedUser, status.Name)
-	})
-}
-
-func (writeDatastore *userWriteDatastoreAdapter) UpdateVerification(ctx context.Context, request identity.UpdateUserVerificationRequest) (identity.User, error) {
-	handlerLogPrefix := fmt.Sprintf("%s<UpdateVerification>", writeDatastore.logPrefix)
-	slog.InfoContext(ctx, fmt.Sprintf("%s Updating User Verification", handlerLogPrefix), "userId", request.ID)
-
-	return writeDatastore.run(ctx, "UpdateVerification", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
-		existingUser, existingUserErr := queryUserById(ctx, qtx, request.ID)
-		if existingUserErr != nil {
-			return identity.User{}, existingUserErr
-		}
-
-		updatedUser, updatedUserErr := qtx.QueryUpdateUserVerification(
-			ctx,
-			postgresql.QueryUpdateUserVerificationParams{
-				ID:                  existingUser.User.ID,
-				Verified:            request.Verified,
-				VerificationToken:   pgtype.Text{String: request.VerificationToken, Valid: true},
-				VerificationExpires: pgtype.Timestamptz{Time: request.VerificationExpires, Valid: true},
-			},
-		)
-		if updatedUserErr != nil {
-			slog.ErrorContext(
-				ctx,
-				fmt.Sprintf("%s Failed to update user verification", handlerLogPrefix),
-				"id", request.ID,
-				"error", updatedUserErr,
-			)
-			return identity.User{}, fmt.Errorf("failed to update user %s verification: %w", request.ID, updatedUserErr)
-		}
-
-		return mapUser(ctx, handlerLogPrefix, updatedUser, existingUser.UserStatus.Name)
 	})
 }
 
@@ -338,46 +261,6 @@ func (writeDatastore *userWriteDatastoreAdapter) UpdatePassword(ctx context.Cont
 		}
 
 		return mapUser(ctx, handlerLogPrefix, updatedUser, existingUser.UserStatus.Name)
-	})
-}
-
-// UpdateStatus updates the status of a User entity based on the provided request and returns the updated User entity
-func (writeDatastore *userWriteDatastoreAdapter) UpdateStatus(ctx context.Context, request identity.UpdateUserStatusRequest) (identity.User, error) {
-	handlerLogPrefix := fmt.Sprintf("%s<UpdateStatus>", writeDatastore.logPrefix)
-	slog.InfoContext(ctx, fmt.Sprintf("%s Updating User status", handlerLogPrefix), "userId", request.ID, "status", request.Status)
-
-	return writeDatastore.run(ctx, "UpdateStatus", func(ctx context.Context, qtx postgresrepo.UserWriteQuerier) (identity.User, error) {
-		status, statusErr := queryUserStatusByName(ctx, qtx, string(request.Status))
-		if statusErr != nil {
-			return identity.User{}, statusErr
-		}
-
-		userUUID, userUUIDErr := postgres.StringToUUID(request.ID)
-		if userUUIDErr != nil {
-			return identity.User{}, fmt.Errorf("failed to convert user ID to UUID: %w", userUUIDErr)
-		}
-
-		updatedUser, updatedUserErr := qtx.QueryUpdateUserStatusId(
-			ctx,
-			postgresql.QueryUpdateUserStatusIdParams{
-				ID:       userUUID,
-				StatusID: status.ID,
-			},
-		)
-		if updatedUserErr != nil {
-			slog.ErrorContext(
-				ctx,
-				fmt.Sprintf("%s Failed to update user status", handlerLogPrefix),
-				"id", request.ID,
-				"error", updatedUserErr,
-			)
-			if errors.Is(updatedUserErr, pgx.ErrNoRows) {
-				return identity.User{}, errdefs.NotFound(updatedUserErr)
-			}
-			return identity.User{}, fmt.Errorf("failed to update user %s status: %w", request.ID, updatedUserErr)
-		}
-
-		return mapUser(ctx, handlerLogPrefix, updatedUser, status.Name)
 	})
 }
 

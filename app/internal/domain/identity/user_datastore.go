@@ -18,12 +18,6 @@ type (
 	UserWriteDatastore interface {
 		repository.WriteRepositoryPort[User]
 
-		// Create creates a new User entity based on the provided request and returns the created User entity
-		Create(ctx context.Context, request CreateUserRequest) (User, error)
-
-		// UpdateVerification updates the verification details of a User entity based on the provided request and returns the updated User entity
-		UpdateVerification(ctx context.Context, request UpdateUserVerificationRequest) (User, error)
-
 		// MarkVerified atomically records a completed email verification and moves the User to the
 		// status the aggregate transitioned to
 		MarkVerified(ctx context.Context, request MarkUserVerifiedRequest) (User, error)
@@ -33,9 +27,6 @@ type (
 
 		// UpdatePassword updates the password of a User entity based on the provided request and returns the updated User entity
 		UpdatePassword(ctx context.Context, request UpdateUserPasswordRequest) (User, error)
-
-		// UpdateStatus updates the status of a User entity based on the provided request and returns the updated User entity
-		UpdateStatus(ctx context.Context, request UpdateUserStatusRequest) (User, error)
 	}
 
 	// UserReadDatastore defines the interface for reading User entities from an underlying storage implementation

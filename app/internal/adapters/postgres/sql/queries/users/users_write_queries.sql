@@ -8,6 +8,7 @@ SET
   first_name=$3,
   last_name=$4,
   email=$5,
+  status_id=$6,
   updated_at=NOW()
 WHERE id = $1 RETURNING *;
 

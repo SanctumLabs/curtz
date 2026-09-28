@@ -172,7 +172,7 @@ SELECT
   us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at 
 FROM users u
 JOIN user_status us ON u.status_id = us.id
-WHERE u.email = $1
+WHERE u.email = $1 AND u.deleted_at IS NULL
 `
 
 type QueryUserByEmailRow struct {
@@ -187,7 +187,7 @@ type QueryUserByEmailRow struct {
 //	  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
 //	FROM users u
 //	JOIN user_status us ON u.status_id = us.id
-//	WHERE u.email = $1
+//	WHERE u.email = $1 AND u.deleted_at IS NULL
 func (q *Queries) QueryUserByEmail(ctx context.Context, email string) (QueryUserByEmailRow, error) {
 	row := q.db.QueryRow(ctx, queryUserByEmail, email)
 	var i QueryUserByEmailRow
@@ -222,7 +222,7 @@ SELECT
   us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
 FROM users u
 JOIN user_status us ON u.status_id = us.id 
-WHERE u.id = $1
+WHERE u.id = $1 AND u.deleted_at IS NULL
 `
 
 type QueryUserByIdRow struct {
@@ -237,7 +237,7 @@ type QueryUserByIdRow struct {
 //	  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
 //	FROM users u
 //	JOIN user_status us ON u.status_id = us.id
-//	WHERE u.id = $1
+//	WHERE u.id = $1 AND u.deleted_at IS NULL
 func (q *Queries) QueryUserById(ctx context.Context, id pgtype.UUID) (QueryUserByIdRow, error) {
 	row := q.db.QueryRow(ctx, queryUserById, id)
 	var i QueryUserByIdRow
@@ -272,7 +272,7 @@ SELECT
   us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at 
 FROM users u 
 JOIN user_status us ON u.status_id = us.id
-WHERE u.username = $1
+WHERE u.username = $1 AND u.deleted_at IS NULL
 `
 
 type QueryUserByUsernameRow struct {
@@ -287,7 +287,7 @@ type QueryUserByUsernameRow struct {
 //	  us.id, us.name, us.description, us.created_at, us.updated_at, us.deleted_at
 //	FROM users u
 //	JOIN user_status us ON u.status_id = us.id
-//	WHERE u.username = $1
+//	WHERE u.username = $1 AND u.deleted_at IS NULL
 func (q *Queries) QueryUserByUsername(ctx context.Context, username string) (QueryUserByUsernameRow, error) {
 	row := q.db.QueryRow(ctx, queryUserByUsername, username)
 	var i QueryUserByUsernameRow

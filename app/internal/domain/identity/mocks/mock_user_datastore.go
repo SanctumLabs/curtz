@@ -43,21 +43,6 @@ func (m *MockUserDatastore) EXPECT() *MockUserDatastoreMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method.
-func (m *MockUserDatastore) Create(ctx context.Context, request identity.CreateUserRequest) (identity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, request)
-	ret0, _ := ret[0].(identity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockUserDatastoreMockRecorder) Create(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockUserDatastore)(nil).Create), ctx, request)
-}
-
 // Delete mocks base method.
 func (m *MockUserDatastore) Delete(ctx context.Context, id string) error {
 	m.ctrl.T.Helper()
@@ -251,36 +236,6 @@ func (mr *MockUserDatastoreMockRecorder) UpdatePassword(ctx, request any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePassword", reflect.TypeOf((*MockUserDatastore)(nil).UpdatePassword), ctx, request)
 }
 
-// UpdateStatus mocks base method.
-func (m *MockUserDatastore) UpdateStatus(ctx context.Context, request identity.UpdateUserStatusRequest) (identity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateStatus", ctx, request)
-	ret0, _ := ret[0].(identity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateStatus indicates an expected call of UpdateStatus.
-func (mr *MockUserDatastoreMockRecorder) UpdateStatus(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockUserDatastore)(nil).UpdateStatus), ctx, request)
-}
-
-// UpdateVerification mocks base method.
-func (m *MockUserDatastore) UpdateVerification(ctx context.Context, request identity.UpdateUserVerificationRequest) (identity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateVerification", ctx, request)
-	ret0, _ := ret[0].(identity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateVerification indicates an expected call of UpdateVerification.
-func (mr *MockUserDatastoreMockRecorder) UpdateVerification(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVerification", reflect.TypeOf((*MockUserDatastore)(nil).UpdateVerification), ctx, request)
-}
-
 // MockUserWriteDatastore is a mock of UserWriteDatastore interface.
 type MockUserWriteDatastore struct {
 	ctrl     *gomock.Controller
@@ -303,21 +258,6 @@ func NewMockUserWriteDatastore(ctrl *gomock.Controller) *MockUserWriteDatastore 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUserWriteDatastore) EXPECT() *MockUserWriteDatastoreMockRecorder {
 	return m.recorder
-}
-
-// Create mocks base method.
-func (m *MockUserWriteDatastore) Create(ctx context.Context, request identity.CreateUserRequest) (identity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", ctx, request)
-	ret0, _ := ret[0].(identity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockUserWriteDatastoreMockRecorder) Create(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockUserWriteDatastore)(nil).Create), ctx, request)
 }
 
 // Delete mocks base method.
@@ -421,36 +361,6 @@ func (m *MockUserWriteDatastore) UpdatePassword(ctx context.Context, request ide
 func (mr *MockUserWriteDatastoreMockRecorder) UpdatePassword(ctx, request any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePassword", reflect.TypeOf((*MockUserWriteDatastore)(nil).UpdatePassword), ctx, request)
-}
-
-// UpdateStatus mocks base method.
-func (m *MockUserWriteDatastore) UpdateStatus(ctx context.Context, request identity.UpdateUserStatusRequest) (identity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateStatus", ctx, request)
-	ret0, _ := ret[0].(identity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateStatus indicates an expected call of UpdateStatus.
-func (mr *MockUserWriteDatastoreMockRecorder) UpdateStatus(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockUserWriteDatastore)(nil).UpdateStatus), ctx, request)
-}
-
-// UpdateVerification mocks base method.
-func (m *MockUserWriteDatastore) UpdateVerification(ctx context.Context, request identity.UpdateUserVerificationRequest) (identity.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateVerification", ctx, request)
-	ret0, _ := ret[0].(identity.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateVerification indicates an expected call of UpdateVerification.
-func (mr *MockUserWriteDatastoreMockRecorder) UpdateVerification(ctx, request any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateVerification", reflect.TypeOf((*MockUserWriteDatastore)(nil).UpdateVerification), ctx, request)
 }
 
 // MockUserReadDatastore is a mock of UserReadDatastore interface.

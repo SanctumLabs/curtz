@@ -46,16 +46,11 @@ var _ = ginkgo.Describe("User Read Datastore Adapter Integration Test Suite", gi
 		mockUser, mockUserErr := mockidentity.MockUser(
 			mockidentity.WithUsername(faker.Username()),
 			mockidentity.WithEmail(faker.Email()),
+			mockidentity.WithStatus(identity.UserStatusInactive),
 		)
 		assert.NoError(ginkgo.GinkgoT(), mockUserErr)
 
-		seeded, err = userWriteDatastoreAdapter.Create(ctx, identity.CreateUserRequest{
-			Username:     mockUser.Username(),
-			FullName:     mockUser.FullName(),
-			Email:        mockUser.Email(),
-			PasswordHash: mockUser.PasswordHash(),
-			Metadata:     mockUser.Metadata(),
-		})
+		seeded, err = userWriteDatastoreAdapter.Save(ctx, *mockUser)
 		if err != nil {
 			assert.FailNow(ginkgo.GinkgoT(), "failed to seed user: %s", err.Error())
 		}
@@ -135,7 +130,7 @@ var _ = ginkgo.Describe("User Read Datastore Adapter Integration Test Suite", gi
 
 	ginkgo.Describe("FetchByStatus", func() {
 		ginkgo.It("returns only users with the requested status", func() {
-			// Create() always persists users as INACTIVE
+			// the seeded user is INACTIVE
 			actual, actualErr := userReadDatastoreAdapter.FetchByStatus(ctx, identity.UserStatusInactive)
 			assert.NoError(ginkgo.GinkgoT(), actualErr)
 			assert.GreaterOrEqual(ginkgo.GinkgoT(), actual.Total, 1)

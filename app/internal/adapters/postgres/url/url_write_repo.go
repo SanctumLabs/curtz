@@ -42,15 +42,13 @@ func (repo *urlWriteRepositoryAdapter) Save(ctx context.Context, urlEntity url.U
 	handlerLogPrefix := fmt.Sprintf("%s<Create>", repo.logPrefix)
 	slog.InfoContext(ctx, fmt.Sprintf("%s Creating URL", handlerLogPrefix), "url", urlEntity)
 
-	operationCtx, operationCancel := context.WithTimeout(ctx, repo.config.OperationTimeout)
+	operationCtx, operationCancel := context.WithTimeout(ctx, repo.config.Timeout())
 	defer operationCancel()
 
 	return recoveryutils.ExecuteWithRetry(
 		operationCtx,
 		func(retryCtx context.Context) (url.URL, error) {
-			// Use repo.withTx instead of postgres.WithTransaction directly.
-			// This is the only change to the business logic — everything inside
-			// the closure is identical to the original implementation.
+			// repo.withTx wraps postgres.WithTransaction so tests can swap in a mock querier.
 			return repo.withTx(retryCtx, func(qtx postgresrepo.UrlWriteQuerier) (url.URL, error) {
 				// Check context before proceeding
 				select {
@@ -159,8 +157,8 @@ func (repo *urlWriteRepositoryAdapter) Save(ctx context.Context, urlEntity url.U
 							"keyword", keyword.Value,
 							"error", createKeywordErr,
 						)
-						// We log a warning, but wwe don't fail the entire operation if keyword creation fails, since the URL itself was created successfully.
-						// This is a design choice that can be revisited based on requirements.
+						// A failed statement aborts the transaction, and ADR-0003 forbids silently dropping a keyword.
+						return url.URL{}, fmt.Errorf("failed to create keyword %q for URL: %w", keyword.Value, createKeywordErr)
 					}
 				}
 
@@ -188,15 +186,17 @@ func (repo *urlWriteRepositoryAdapter) Save(ctx context.Context, urlEntity url.U
 	)
 }
 
+// Update is not implemented yet. It fails loudly rather than reporting a write that never happened.
 func (repo *urlWriteRepositoryAdapter) Update(ctx context.Context, urlEntity url.URL) (url.URL, error) {
-	return urlEntity, nil
+	return url.URL{}, errdefs.NotImplemented(errors.New("url update is not implemented"))
 }
 
+// SoftDelete is not implemented yet.
 func (repo *urlWriteRepositoryAdapter) SoftDelete(ctx context.Context, id string) error {
-	panic("not implemented")
+	return errdefs.NotImplemented(errors.New("url soft delete is not implemented"))
 }
 
-// Delete deletes a given entity by its ID
+// Delete is not implemented yet.
 func (repo *urlWriteRepositoryAdapter) Delete(ctx context.Context, id string) error {
-	panic("not implemented")
+	return errdefs.NotImplemented(errors.New("url delete is not implemented"))
 }

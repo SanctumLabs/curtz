@@ -144,6 +144,7 @@ SET
   first_name=$3,
   last_name=$4,
   email=$5,
+  status_id=$6,
   updated_at=NOW()
 WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 `
@@ -154,6 +155,7 @@ type QueryUpdateUserDetailsParams struct {
 	FirstName pgtype.Text `db:"first_name" json:"first_name"`
 	LastName  pgtype.Text `db:"last_name" json:"last_name"`
 	Email     string      `db:"email" json:"email"`
+	StatusID  pgtype.UUID `db:"status_id" json:"status_id"`
 }
 
 // QueryUpdateUserDetails
@@ -164,6 +166,7 @@ type QueryUpdateUserDetailsParams struct {
 //	  first_name=$3,
 //	  last_name=$4,
 //	  email=$5,
+//	  status_id=$6,
 //	  updated_at=NOW()
 //	WHERE id = $1 RETURNING id, username, first_name, last_name, email, password_hash, verified, verification_token, verification_expires, status_id, metadata, created_at, updated_at, deleted_at
 func (q *Queries) QueryUpdateUserDetails(ctx context.Context, arg QueryUpdateUserDetailsParams) (User, error) {
@@ -173,6 +176,7 @@ func (q *Queries) QueryUpdateUserDetails(ctx context.Context, arg QueryUpdateUse
 		arg.FirstName,
 		arg.LastName,
 		arg.Email,
+		arg.StatusID,
 	)
 	var i User
 	err := row.Scan(

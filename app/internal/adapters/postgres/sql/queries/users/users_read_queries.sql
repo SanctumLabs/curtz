@@ -4,7 +4,7 @@ SELECT
   sqlc.embed(us)
 FROM users u
 JOIN user_status us ON u.status_id = us.id 
-WHERE u.id = $1;
+WHERE u.id = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryUserByUsername :one
 SELECT 
@@ -12,7 +12,7 @@ SELECT
   sqlc.embed(us) 
 FROM users u 
 JOIN user_status us ON u.status_id = us.id
-WHERE u.username = $1;
+WHERE u.username = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryUserByVerificationToken :one
 SELECT
@@ -28,7 +28,7 @@ SELECT
   sqlc.embed(us) 
 FROM users u
 JOIN user_status us ON u.status_id = us.id
-WHERE u.email = $1;
+WHERE u.email = $1 AND u.deleted_at IS NULL;
 
 -- name: QueryAllUsers :many
 SELECT 

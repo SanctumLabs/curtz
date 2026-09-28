@@ -70,6 +70,7 @@ COMMENT ON COLUMN user_status.deleted_at IS 'Timestamp when the status was delet
 INSERT INTO user_status (name, description) VALUES ('ACTIVE', 'Indicates that the user account is active');
 INSERT INTO user_status (name, description) VALUES ('SUSPENDED', 'Indicates that the user account is suspended');
 INSERT INTO user_status (name, description) VALUES ('INACTIVE', 'Indicates that the user account is inactive');
+INSERT INTO user_status (name, description) VALUES ('DELETED', 'Indicates that the user account is deleted');
 
 CREATE TABLE IF NOT EXISTS users (
     id                   UUID PRIMARY KEY NOT NULL,
