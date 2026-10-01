@@ -1,0 +1,382 @@
+package urldatastore
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
+	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
+	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
+	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	domainurl "github.com/sanctumlabs/curtz/app/internal/domain/url"
+	urlmock "github.com/sanctumlabs/curtz/app/internal/domain/url/mocks"
+	"github.com/sanctumlabs/curtz/app/internal/pkg/common"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
+	mockdatabase "github.com/sanctumlabs/curtz/app/pkg/infra/database/mocks"
+	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
+	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
+)
+
+type UrlReadDatastoreAdapterTestSuite struct {
+	suite.Suite
+	mockCtrl                *gomock.Controller
+	mockDbClient            *mockdatabase.MockPostgresDatabaseClient
+	mockUrlReadQuerier      *mockpostgresrepo.MockUrlReadQuerier
+	urlReadDatastoreAdapter *urlReadDatastoreAdapter
+	config                  database.Config
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) SetupTest() {
+	config := database.Config{
+		OperationTimeout: 30 * time.Second,
+		RetryConfig:      recoveryutils.DefaultRetryConfig,
+	}
+	mockCtrl := gomock.NewController(suite.T())
+	suite.mockCtrl = mockCtrl
+	suite.mockDbClient = mockdatabase.NewMockPostgresDatabaseClient(mockCtrl)
+	suite.mockUrlReadQuerier = mockpostgresrepo.NewMockUrlReadQuerier(mockCtrl)
+	suite.urlReadDatastoreAdapter = &urlReadDatastoreAdapter{
+		logPrefix: "UrlReadDatastoreAdapter",
+		dbClient:  suite.mockDbClient,
+		config:    config,
+	}
+	suite.config = config
+
+	injectMockUrlReadTx(suite.urlReadDatastoreAdapter, suite.mockUrlReadQuerier)
+}
+
+func TestUrlReadDatastoreAdapterTestSuite(t *testing.T) {
+	suite.Run(t, new(UrlReadDatastoreAdapterTestSuite))
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) AfterTest(_, _ string) {
+	suite.mockCtrl.Finish()
+}
+
+// newMockUrlRow builds a URL entity together with the sqlc row a query would return for it.
+// mockpostgresql.WithUrl does not carry the entity id across, so it is set explicitly here to keep
+// the two representations referring to the same URL.
+func (suite *UrlReadDatastoreAdapterTestSuite) newMockUrlRow(options ...urlmock.MockUrlOption) (*domainurl.URL, postgresql.Url) {
+	defaults := []urlmock.MockUrlOption{urlmock.WithId(entity.NewID())}
+
+	mockUrl, mockUrlErr := urlmock.MockUrl(append(defaults, options...)...)
+	suite.Require().NoError(mockUrlErr)
+
+	urlRecord := mockpostgresql.MockUrl(mockpostgresql.WithUrl(*mockUrl))
+	urlRecord.ID = pgtype.UUID{Bytes: mockUrl.ID(), Valid: true}
+
+	return mockUrl, urlRecord
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchById_Success() {
+	ctx := context.Background()
+	mockUrl, urlRecord := suite.newMockUrlRow()
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlById(gomock.Any(), pgtype.UUID{Bytes: mockUrl.ID(), Valid: true}).
+		Return(postgresql.QueryUrlByIdRow{Url: urlRecord}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchById(ctx, mockUrl.ID().String())
+	suite.NoError(err)
+	suite.Equal(mockUrl.ID(), actual.ID())
+	suite.Equal(mockUrl.UserId(), actual.UserId())
+	suite.Equal(mockUrl.ShortCode(), actual.ShortCode())
+	suite.Equal(mockUrl.OriginalURL(), actual.OriginalURL())
+	suite.Equal(domainurl.URLStatusActive, actual.Status())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchById_NotFound() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlById(gomock.Any(), gomock.Any()).
+		Return(postgresql.QueryUrlByIdRow{}, pgx.ErrNoRows).
+		Times(1)
+
+	_, err := suite.urlReadDatastoreAdapter.FetchById(context.Background(), entity.NewID().String())
+	suite.Error(err)
+	suite.True(errdefs.IsNotFound(err), "expected a NotFound error, got %v", err)
+}
+
+// TestFetchById_InvalidId asserts a malformed id never reaches the database.
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchById_InvalidId() {
+	_, err := suite.urlReadDatastoreAdapter.FetchById(context.Background(), "not-a-uuid")
+	suite.Error(err)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByShortCode_Success() {
+	ctx := context.Background()
+	mockUrl, urlRecord := suite.newMockUrlRow(urlmock.WithShortCode("abc1234"))
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByUrlShortCode(gomock.Any(), "abc1234").
+		Return(postgresql.QueryUrlByUrlShortCodeRow{Url: urlRecord}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByShortCode(ctx, "abc1234")
+	suite.NoError(err)
+	suite.Equal(mockUrl.ID(), actual.ID())
+	suite.Equal("abc1234", actual.ShortCode().Value())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByShortCode_NotFound() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByUrlShortCode(gomock.Any(), "missing").
+		Return(postgresql.QueryUrlByUrlShortCodeRow{}, pgx.ErrNoRows).
+		Times(1)
+
+	_, err := suite.urlReadDatastoreAdapter.FetchByShortCode(context.Background(), "missing")
+	suite.Error(err)
+	suite.True(errdefs.IsNotFound(err), "expected a NotFound error, got %v", err)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByCustomAlias_Success() {
+	ctx := context.Background()
+	mockUrl, urlRecord := suite.newMockUrlRow(urlmock.WithCustomAlias("alias"))
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByCustomAlias(gomock.Any(), pgtype.Text{String: "alias", Valid: true}).
+		Return(postgresql.QueryUrlByCustomAliasRow{Url: urlRecord}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByCustomAlias(ctx, "alias")
+	suite.NoError(err)
+	suite.Equal(mockUrl.ID(), actual.ID())
+	suite.Equal("alias", actual.CustomAlias().Value())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByCustomAlias_NotFound() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByCustomAlias(gomock.Any(), pgtype.Text{String: "nope", Valid: true}).
+		Return(postgresql.QueryUrlByCustomAliasRow{}, pgx.ErrNoRows).
+		Times(1)
+
+	_, err := suite.urlReadDatastoreAdapter.FetchByCustomAlias(context.Background(), "nope")
+	suite.Error(err)
+	suite.True(errdefs.IsNotFound(err), "expected a NotFound error, got %v", err)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByOriginalUrl_Success() {
+	ctx := context.Background()
+	mockUrl, urlRecord := suite.newMockUrlRow(urlmock.WithOriginalUrl("https://example.com/target"))
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByOriginalUrl(gomock.Any(), "https://example.com/target").
+		Return(postgresql.QueryUrlByOriginalUrlRow{Url: urlRecord}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByOriginalUrl(ctx, "https://example.com/target")
+	suite.NoError(err)
+	suite.Equal(mockUrl.ID(), actual.ID())
+	suite.Equal("https://example.com/target", actual.OriginalURL().Value())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByOriginalUrl_NotFound() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByOriginalUrl(gomock.Any(), "https://example.com/missing").
+		Return(postgresql.QueryUrlByOriginalUrlRow{}, pgx.ErrNoRows).
+		Times(1)
+
+	_, err := suite.urlReadDatastoreAdapter.FetchByOriginalUrl(context.Background(), "https://example.com/missing")
+	suite.Error(err)
+	suite.True(errdefs.IsNotFound(err), "expected a NotFound error, got %v", err)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchAll_Success() {
+	ctx := context.Background()
+	first, firstRecord := suite.newMockUrlRow()
+	second, secondRecord := suite.newMockUrlRow()
+
+	params := common.NewRequestParams(common.WithRequestLimit(2), common.WithOffset(2))
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryAllUrls(gomock.Any(), gomock.Cond(func(p postgresql.QueryAllUrlsParams) bool {
+			return p.LimitBy == 2 && p.CurrentOffset == 2 && !p.UrlStatus.Valid && !p.IncludeDeleted &&
+				p.OrderBy == string(common.OrderByCreatedAt) && p.SortOrder == string(common.SortOrderDesc)
+		})).
+		Return([]postgresql.QueryAllUrlsRow{
+			{Url: firstRecord, TotalRecords: 5},
+			{Url: secondRecord, TotalRecords: 5},
+		}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchAll(ctx, params)
+	suite.NoError(err)
+	suite.Equal(5, actual.Total)
+	suite.Equal(2, actual.Size)
+	suite.Equal(2, actual.Page)
+	suite.Require().Len(actual.Records, 2)
+	suite.Equal(first.ID(), actual.Records[0].ID())
+	suite.Equal(second.ID(), actual.Records[1].ID())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchAll_QueryError() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryAllUrls(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("boom")).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchAll(context.Background(), common.NewRequestParams())
+	suite.Error(err)
+	suite.Empty(actual.Records)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByStatus_FiltersByStatus() {
+	ctx := context.Background()
+	mockUrl, urlRecord := suite.newMockUrlRow()
+	urlRecord.Status = postgresql.UrlStatusEXPIRED
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryAllUrls(gomock.Any(), gomock.Cond(func(p postgresql.QueryAllUrlsParams) bool {
+			return p.UrlStatus.Valid && p.UrlStatus.UrlStatus == postgresql.UrlStatusEXPIRED
+		})).
+		Return([]postgresql.QueryAllUrlsRow{{Url: urlRecord, TotalRecords: 1}}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByStatus(ctx, domainurl.URLStatusExpired)
+	suite.NoError(err)
+	suite.Equal(1, actual.Total)
+	suite.Require().Len(actual.Records, 1)
+	suite.Equal(mockUrl.ID(), actual.Records[0].ID())
+	suite.Equal(domainurl.URLStatusExpired, actual.Records[0].Status())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByStatus_Empty() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryAllUrls(gomock.Any(), gomock.Any()).
+		Return([]postgresql.QueryAllUrlsRow{}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByStatus(context.Background(), domainurl.URLStatusExpired)
+	suite.NoError(err)
+	suite.Equal(0, actual.Total)
+	suite.Empty(actual.Records)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByUserId_FiltersByUser() {
+	ctx := context.Background()
+	userId := entity.NewID()
+	mockUrl, urlRecord := suite.newMockUrlRow(urlmock.WithUserId(userId.String()))
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryAllUrlsByUserId(gomock.Any(), gomock.Cond(func(p postgresql.QueryAllUrlsByUserIdParams) bool {
+			return p.UserID == pgtype.UUID{Bytes: userId, Valid: true}
+		})).
+		Return([]postgresql.QueryAllUrlsByUserIdRow{{Url: urlRecord, TotalRecords: 1}}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByUserId(ctx, userId.String())
+	suite.NoError(err)
+	suite.Equal(1, actual.Total)
+	suite.Require().Len(actual.Records, 1)
+	suite.Equal(mockUrl.ID(), actual.Records[0].ID())
+	suite.Equal(userId, actual.Records[0].UserId())
+}
+
+// TestFetchByUserId_InvalidId asserts a malformed user id never reaches the database.
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByUserId_InvalidId() {
+	actual, err := suite.urlReadDatastoreAdapter.FetchByUserId(context.Background(), "not-a-uuid")
+	suite.Error(err)
+	suite.Empty(actual.Records)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByUserId_QueryError() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryAllUrlsByUserId(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("boom")).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByUserId(context.Background(), entity.NewID().String())
+	suite.Error(err)
+	suite.Empty(actual.Records)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchExpiredActive_ReturnsRows() {
+	ctx := context.Background()
+	before := time.Now()
+	first, firstRecord := suite.newMockUrlRow()
+	second, secondRecord := suite.newMockUrlRow()
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryExpiredActiveUrls(gomock.Any(), gomock.Cond(func(p postgresql.QueryExpiredActiveUrlsParams) bool {
+			return p.LimitBy == 10 && p.ExpiresBefore.Valid && p.ExpiresBefore.Time.Equal(before)
+		})).
+		Return([]postgresql.QueryExpiredActiveUrlsRow{
+			{Url: firstRecord},
+			{Url: secondRecord},
+		}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchExpiredActive(ctx, before, 10)
+	suite.NoError(err)
+	suite.Require().Len(actual, 2)
+	suite.Equal(first.ID(), actual[0].ID())
+	suite.Equal(second.ID(), actual[1].ID())
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchExpiredActive_Empty() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryExpiredActiveUrls(gomock.Any(), gomock.Any()).
+		Return([]postgresql.QueryExpiredActiveUrlsRow{}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchExpiredActive(context.Background(), time.Now(), 10)
+	suite.NoError(err)
+	suite.Empty(actual)
+}
+
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchExpiredActive_QueryError() {
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryExpiredActiveUrls(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("boom")).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchExpiredActive(context.Background(), time.Now(), 10)
+	suite.Error(err)
+	suite.Empty(actual)
+}
+
+// TestFetchByOriginalUrl_NormalizesLookup matters because original_url is stored canonically: a
+// caller passing a trailing slash, an uppercase host or a utm parameter must still find the row.
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByOriginalUrl_NormalizesLookup() {
+	ctx := context.Background()
+	mockUrl, urlRecord := suite.newMockUrlRow(urlmock.WithOriginalUrl("https://example.com/target"))
+
+	suite.mockUrlReadQuerier.
+		EXPECT().
+		QueryUrlByOriginalUrl(gomock.Any(), "https://example.com/target").
+		Return(postgresql.QueryUrlByOriginalUrlRow{Url: urlRecord}, nil).
+		Times(1)
+
+	actual, err := suite.urlReadDatastoreAdapter.FetchByOriginalUrl(ctx, "HTTPS://EXAMPLE.COM:443/target/?utm_source=news")
+	suite.NoError(err)
+	suite.Equal(mockUrl.ID(), actual.ID())
+}
+
+// TestFetchByOriginalUrl_RejectsMalformedUrl asserts an unstorable URL never reaches the database.
+func (suite *UrlReadDatastoreAdapterTestSuite) TestFetchByOriginalUrl_RejectsMalformedUrl() {
+	_, err := suite.urlReadDatastoreAdapter.FetchByOriginalUrl(context.Background(), "nope")
+	suite.Error(err)
+}

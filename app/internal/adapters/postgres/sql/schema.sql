@@ -149,6 +149,10 @@ CREATE TABLE IF NOT EXISTS urls (
 CREATE UNIQUE INDEX idx_urls_short_code   ON urls (short_code);
 CREATE UNIQUE INDEX idx_urls_custom_alias ON urls (custom_alias) WHERE custom_alias IS NOT NULL;
 
+-- A given target URL may be shortened only once, across all users. Partial on deleted_at so that
+-- soft-deleting a URL releases its target for reuse.
+CREATE UNIQUE INDEX idx_urls_original_url ON urls (original_url) WHERE deleted_at IS NULL;
+
 CREATE INDEX idx_urls_user_id    ON urls (user_id);
 CREATE INDEX idx_urls_status     ON urls (status) WHERE status = 'ACTIVE';
 CREATE INDEX idx_urls_expires_on ON urls (expires_on) WHERE status = 'ACTIVE';

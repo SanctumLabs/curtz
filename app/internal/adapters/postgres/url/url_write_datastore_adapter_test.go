@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	mockpostgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/mocks"
 	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
 	mockpostgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql/mocks"
@@ -151,4 +152,57 @@ func (suite *UrlWriteDatastoreAdapterTestSuite) TestUnimplementedWrites_ReportNo
 	suite.True(errdefs.IsNotImplemented(updateErr), "expected NotImplemented, got %v", updateErr)
 	suite.True(errdefs.IsNotImplemented(suite.urlWriteDatastoreAdapter.SoftDelete(ctx, mockUrl.ID().String())))
 	suite.True(errdefs.IsNotImplemented(suite.urlWriteDatastoreAdapter.Delete(ctx, mockUrl.ID().String())))
+}
+
+// TestSave_MapsOriginalUrlUniqueViolationToConflict covers the global uniqueness rule on
+// urls.original_url: the partial unique index raises SQLSTATE 23505, and callers need to tell "this
+// target is already shortened" apart from a genuine write failure.
+func (suite *UrlWriteDatastoreAdapterTestSuite) TestSave_MapsOriginalUrlUniqueViolationToConflict() {
+	ctx, cancel := context.WithTimeout(context.Background(), suite.config.OperationTimeout)
+	defer cancel()
+
+	mockUrl, mockUrlErr := urlmock.MockUrl()
+	suite.Require().NoError(mockUrlErr)
+
+	suite.mockUrlWriteQuerier.
+		EXPECT().
+		QueryCreateUrl(gomock.Any(), gomock.Any()).
+		Return(postgresql.Url{}, &pgconn.PgError{
+			Code:           "23505",
+			ConstraintName: "idx_urls_original_url",
+			Message:        `duplicate key value violates unique constraint "idx_urls_original_url"`,
+		}).
+		Times(1)
+
+	actual, actualErr := suite.urlWriteDatastoreAdapter.Save(ctx, *mockUrl)
+	suite.Require().Error(actualErr)
+	suite.True(errdefs.IsConflict(actualErr), "expected a Conflict error, got %v", actualErr)
+	suite.ErrorIs(actualErr, errdefs.ErrURLAlreadyExists)
+	suite.Empty(actual)
+}
+
+// TestSave_MapsShortCodeUniqueViolationToConflictWithoutUrlExistsError guards against reporting a
+// short code collision as "this url is already shortened": they are different failures.
+func (suite *UrlWriteDatastoreAdapterTestSuite) TestSave_MapsShortCodeUniqueViolationToConflictWithoutUrlExistsError() {
+	ctx, cancel := context.WithTimeout(context.Background(), suite.config.OperationTimeout)
+	defer cancel()
+
+	mockUrl, mockUrlErr := urlmock.MockUrl()
+	suite.Require().NoError(mockUrlErr)
+
+	suite.mockUrlWriteQuerier.
+		EXPECT().
+		QueryCreateUrl(gomock.Any(), gomock.Any()).
+		Return(postgresql.Url{}, &pgconn.PgError{
+			Code:           "23505",
+			ConstraintName: "idx_urls_short_code",
+			Message:        `duplicate key value violates unique constraint "idx_urls_short_code"`,
+		}).
+		Times(1)
+
+	actual, actualErr := suite.urlWriteDatastoreAdapter.Save(ctx, *mockUrl)
+	suite.Require().Error(actualErr)
+	suite.True(errdefs.IsConflict(actualErr), "expected a Conflict error, got %v", actualErr)
+	suite.NotErrorIs(actualErr, errdefs.ErrURLAlreadyExists)
+	suite.Empty(actual)
 }

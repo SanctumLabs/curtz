@@ -18,6 +18,8 @@ type (
 	urlReadDatastoreAdapter struct {
 		logPrefix string
 		dbClient  database.PostgresDatabaseClient
+		config    database.Config
+		withTx    postgresrepo.TxExecutor[postgresrepo.UrlReadQuerier]
 	}
 
 	urlDatastoreAdapter struct {
@@ -38,7 +40,7 @@ var (
 
 func NewUrlDatastoreAdapter(dbClient database.PostgresDatabaseClient, config database.Config) url.UrlDatastore {
 	return &urlDatastoreAdapter{
-		urlReadDatastoreAdapter:  *NewUrlReadDatastoreAdapter(dbClient).(*urlReadDatastoreAdapter),
+		urlReadDatastoreAdapter:  *NewUrlReadDatastoreAdapter(dbClient, config).(*urlReadDatastoreAdapter),
 		urlWriteDatastoreAdapter: *NewUrlWriteDatastoreAdapter(dbClient, config).(*urlWriteDatastoreAdapter),
 	}
 }
