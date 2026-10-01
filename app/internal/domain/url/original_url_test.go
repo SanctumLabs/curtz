@@ -1,6 +1,7 @@
 package url
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
@@ -73,13 +74,23 @@ var originalURLTestCases = []originalURLTestCase{
 		input: "https://sub.example.com/path",
 		err:   nil,
 	},
+	{
+		name:  "localhost URL should be filtered",
+		input: "http://localhost:8080/path",
+		err:   errdefs.ErrFilteredURL,
+	},
+	{
+		name:  "shortener URL should be filtered",
+		input: "https://urlssh.xyz/abc123",
+		err:   errdefs.ErrFilteredURL,
+	},
 }
 
 func TestNewOriginalURL(t *testing.T) {
 	for _, tc := range originalURLTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			originalURL, err := NewOriginalURL(tc.input)
-			if err != tc.err {
+			if !errors.Is(err, tc.err) {
 				t.Errorf("NewOriginalURL(%s) = (%v, %v), expected error %v, got %v", tc.input, originalURL, err, tc.err, err)
 			}
 			if err == nil && originalURL.Value() != tc.input {
