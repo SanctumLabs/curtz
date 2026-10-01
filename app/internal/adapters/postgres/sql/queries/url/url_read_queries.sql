@@ -108,3 +108,15 @@ ORDER BY
     THEN u.deleted_at END DESC
 LIMIT sqlc.arg(limit_by)
 OFFSET sqlc.arg(current_offset);
+
+-- idx_urls_original_url makes original_url unique among non-deleted rows, so at most one row can
+-- match. The ORDER BY and LIMIT are kept as cheap insurance so the result stays deterministic even
+-- if that index were ever dropped.
+-- name: QueryUrlByOriginalUrl :one
+SELECT
+  sqlc.embed(u)
+FROM urls u
+WHERE u.original_url = $1
+  AND u.deleted_at IS NULL
+ORDER BY u.created_at ASC
+LIMIT 1;

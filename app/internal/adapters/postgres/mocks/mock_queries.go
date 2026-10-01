@@ -72,6 +72,135 @@ func (mr *MockUrlWriteQuerierMockRecorder) QueryCreateUrl(ctx, params any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryCreateUrl", reflect.TypeOf((*MockUrlWriteQuerier)(nil).QueryCreateUrl), ctx, params)
 }
 
+// MockUrlReadQuerier is a mock of UrlReadQuerier interface.
+type MockUrlReadQuerier struct {
+	ctrl     *gomock.Controller
+	recorder *MockUrlReadQuerierMockRecorder
+	isgomock struct{}
+}
+
+// MockUrlReadQuerierMockRecorder is the mock recorder for MockUrlReadQuerier.
+type MockUrlReadQuerierMockRecorder struct {
+	mock *MockUrlReadQuerier
+}
+
+// NewMockUrlReadQuerier creates a new mock instance.
+func NewMockUrlReadQuerier(ctrl *gomock.Controller) *MockUrlReadQuerier {
+	mock := &MockUrlReadQuerier{ctrl: ctrl}
+	mock.recorder = &MockUrlReadQuerierMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockUrlReadQuerier) EXPECT() *MockUrlReadQuerierMockRecorder {
+	return m.recorder
+}
+
+// QueryAllUrls mocks base method.
+func (m *MockUrlReadQuerier) QueryAllUrls(ctx context.Context, arg postgresql.QueryAllUrlsParams) ([]postgresql.QueryAllUrlsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryAllUrls", ctx, arg)
+	ret0, _ := ret[0].([]postgresql.QueryAllUrlsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryAllUrls indicates an expected call of QueryAllUrls.
+func (mr *MockUrlReadQuerierMockRecorder) QueryAllUrls(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAllUrls", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryAllUrls), ctx, arg)
+}
+
+// QueryAllUrlsByUserId mocks base method.
+func (m *MockUrlReadQuerier) QueryAllUrlsByUserId(ctx context.Context, arg postgresql.QueryAllUrlsByUserIdParams) ([]postgresql.QueryAllUrlsByUserIdRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryAllUrlsByUserId", ctx, arg)
+	ret0, _ := ret[0].([]postgresql.QueryAllUrlsByUserIdRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryAllUrlsByUserId indicates an expected call of QueryAllUrlsByUserId.
+func (mr *MockUrlReadQuerierMockRecorder) QueryAllUrlsByUserId(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryAllUrlsByUserId", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryAllUrlsByUserId), ctx, arg)
+}
+
+// QueryExpiredActiveUrls mocks base method.
+func (m *MockUrlReadQuerier) QueryExpiredActiveUrls(ctx context.Context, arg postgresql.QueryExpiredActiveUrlsParams) ([]postgresql.QueryExpiredActiveUrlsRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryExpiredActiveUrls", ctx, arg)
+	ret0, _ := ret[0].([]postgresql.QueryExpiredActiveUrlsRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryExpiredActiveUrls indicates an expected call of QueryExpiredActiveUrls.
+func (mr *MockUrlReadQuerierMockRecorder) QueryExpiredActiveUrls(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryExpiredActiveUrls", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryExpiredActiveUrls), ctx, arg)
+}
+
+// QueryUrlByCustomAlias mocks base method.
+func (m *MockUrlReadQuerier) QueryUrlByCustomAlias(ctx context.Context, customAlias pgtype.Text) (postgresql.QueryUrlByCustomAliasRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUrlByCustomAlias", ctx, customAlias)
+	ret0, _ := ret[0].(postgresql.QueryUrlByCustomAliasRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUrlByCustomAlias indicates an expected call of QueryUrlByCustomAlias.
+func (mr *MockUrlReadQuerierMockRecorder) QueryUrlByCustomAlias(ctx, customAlias any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUrlByCustomAlias", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryUrlByCustomAlias), ctx, customAlias)
+}
+
+// QueryUrlById mocks base method.
+func (m *MockUrlReadQuerier) QueryUrlById(ctx context.Context, id pgtype.UUID) (postgresql.QueryUrlByIdRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUrlById", ctx, id)
+	ret0, _ := ret[0].(postgresql.QueryUrlByIdRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUrlById indicates an expected call of QueryUrlById.
+func (mr *MockUrlReadQuerierMockRecorder) QueryUrlById(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUrlById", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryUrlById), ctx, id)
+}
+
+// QueryUrlByOriginalUrl mocks base method.
+func (m *MockUrlReadQuerier) QueryUrlByOriginalUrl(ctx context.Context, originalUrl string) (postgresql.QueryUrlByOriginalUrlRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUrlByOriginalUrl", ctx, originalUrl)
+	ret0, _ := ret[0].(postgresql.QueryUrlByOriginalUrlRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUrlByOriginalUrl indicates an expected call of QueryUrlByOriginalUrl.
+func (mr *MockUrlReadQuerierMockRecorder) QueryUrlByOriginalUrl(ctx, originalUrl any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUrlByOriginalUrl", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryUrlByOriginalUrl), ctx, originalUrl)
+}
+
+// QueryUrlByUrlShortCode mocks base method.
+func (m *MockUrlReadQuerier) QueryUrlByUrlShortCode(ctx context.Context, shortCode string) (postgresql.QueryUrlByUrlShortCodeRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryUrlByUrlShortCode", ctx, shortCode)
+	ret0, _ := ret[0].(postgresql.QueryUrlByUrlShortCodeRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QueryUrlByUrlShortCode indicates an expected call of QueryUrlByUrlShortCode.
+func (mr *MockUrlReadQuerierMockRecorder) QueryUrlByUrlShortCode(ctx, shortCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryUrlByUrlShortCode", reflect.TypeOf((*MockUrlReadQuerier)(nil).QueryUrlByUrlShortCode), ctx, shortCode)
+}
+
 // MockUserReadQuerier is a mock of UserReadQuerier interface.
 type MockUserReadQuerier struct {
 	ctrl     *gomock.Controller

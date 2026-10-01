@@ -12,6 +12,7 @@ import (
 	mockidentity "github.com/sanctumlabs/curtz/app/internal/domain/identity/mocks"
 	domainurl "github.com/sanctumlabs/curtz/app/internal/domain/url"
 	urlmock "github.com/sanctumlabs/curtz/app/internal/domain/url/mocks"
+	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 	"github.com/sanctumlabs/curtz/app/test"
@@ -106,4 +107,108 @@ func (suite *UrlWriteDatastoreAdapterIntegrationTestSuite) TestSave_FailsWhenUse
 	actual, actualErr := suite.urlWriteDatastoreAdapter.Save(ctx, *mockUrl)
 	suite.Error(actualErr)
 	suite.Empty(actual)
+}
+
+// saveUrlForNewUser persists a fresh user and a URL owned by that user, returning the save result.
+// urls.user_id references users(id), so each URL needs its own owner to exist first.
+func (suite *UrlWriteDatastoreAdapterIntegrationTestSuite) saveUrlForNewUser(ctx context.Context, options ...urlmock.MockUrlOption) (domainurl.URL, error) {
+	mockUser, mockUserErr := mockidentity.MockUser()
+	suite.Require().NoError(mockUserErr)
+
+	_, saveUserErr := suite.userWriteDatastore.Save(ctx, *mockUser)
+	suite.Require().NoError(saveUserErr)
+
+	defaults := []urlmock.MockUrlOption{
+		urlmock.WithUserId(mockUser.ID().String()),
+		urlmock.WithExpiresOn(time.Now().Add(24 * time.Hour)),
+	}
+
+	mockUrl, mockUrlErr := urlmock.MockUrl(append(defaults, options...)...)
+	suite.Require().NoError(mockUrlErr)
+
+	return suite.urlWriteDatastoreAdapter.Save(ctx, *mockUrl)
+}
+
+// TestSave_RejectsTargetAlreadyShortenedByAnotherUser is the global uniqueness rule end to end: once
+// any user has shortened a target, nobody else may shorten it again.
+func (suite *UrlWriteDatastoreAdapterIntegrationTestSuite) TestSave_RejectsTargetAlreadyShortenedByAnotherUser() {
+	ctx, cancel := context.WithTimeout(context.Background(), suite.config.OperationTimeout)
+	defer cancel()
+
+	_, firstErr := suite.saveUrlForNewUser(ctx, urlmock.WithOriginalUrl("https://example.com/shared-target"))
+	suite.Require().NoError(firstErr)
+
+	second, secondErr := suite.saveUrlForNewUser(ctx, urlmock.WithOriginalUrl("https://example.com/shared-target"))
+	suite.Require().Error(secondErr)
+	suite.True(errdefs.IsConflict(secondErr), "expected a Conflict error, got %v", secondErr)
+	suite.ErrorIs(secondErr, errdefs.ErrURLAlreadyExists)
+	suite.Empty(second)
+}
+
+// TestSave_RejectsTargetAlreadyShortenedBySameUser checks the rule is global rather than per-user:
+// the owner cannot shorten the same target twice either.
+func (suite *UrlWriteDatastoreAdapterIntegrationTestSuite) TestSave_RejectsTargetAlreadyShortenedBySameUser() {
+	ctx, cancel := context.WithTimeout(context.Background(), suite.config.OperationTimeout)
+	defer cancel()
+
+	mockUser, mockUserErr := mockidentity.MockUser()
+	suite.Require().NoError(mockUserErr)
+	_, saveUserErr := suite.userWriteDatastore.Save(ctx, *mockUser)
+	suite.Require().NoError(saveUserErr)
+
+	newUrl := func() domainurl.URL {
+		mockUrl, mockUrlErr := urlmock.MockUrl(
+			urlmock.WithUserId(mockUser.ID().String()),
+			urlmock.WithExpiresOn(time.Now().Add(24*time.Hour)),
+			urlmock.WithOriginalUrl("https://example.com/same-owner-target"),
+		)
+		suite.Require().NoError(mockUrlErr)
+		return *mockUrl
+	}
+
+	_, firstErr := suite.urlWriteDatastoreAdapter.Save(ctx, newUrl())
+	suite.Require().NoError(firstErr)
+
+	_, secondErr := suite.urlWriteDatastoreAdapter.Save(ctx, newUrl())
+	suite.Require().Error(secondErr)
+	suite.ErrorIs(secondErr, errdefs.ErrURLAlreadyExists)
+}
+
+// TestSave_RejectsDifferentSpellingOfTheSameTarget is the reason OriginalURL normalizes: a trailing
+// slash, an uppercase host, a default port or a utm parameter must not buy a second row.
+func (suite *UrlWriteDatastoreAdapterIntegrationTestSuite) TestSave_RejectsDifferentSpellingOfTheSameTarget() {
+	ctx, cancel := context.WithTimeout(context.Background(), suite.config.OperationTimeout)
+	defer cancel()
+
+	_, firstErr := suite.saveUrlForNewUser(ctx, urlmock.WithOriginalUrl("https://example.com/respelled"))
+	suite.Require().NoError(firstErr)
+
+	respellings := []string{
+		"https://EXAMPLE.COM/respelled",
+		"https://example.com:443/respelled",
+		"https://example.com/respelled/",
+		"https://example.com/respelled?utm_source=news",
+		"HTTPS://Example.Com:443/respelled/?utm_medium=email",
+	}
+
+	for _, respelling := range respellings {
+		suite.Run(respelling, func() {
+			_, err := suite.saveUrlForNewUser(ctx, urlmock.WithOriginalUrl(respelling))
+			suite.Require().Error(err, "%q should have collided with the stored target", respelling)
+			suite.ErrorIs(err, errdefs.ErrURLAlreadyExists)
+		})
+	}
+}
+
+// TestSave_AllowsDistinctTargets is the control for the uniqueness tests above: the index must not
+// reject genuinely different URLs.
+func (suite *UrlWriteDatastoreAdapterIntegrationTestSuite) TestSave_AllowsDistinctTargets() {
+	ctx, cancel := context.WithTimeout(context.Background(), suite.config.OperationTimeout)
+	defer cancel()
+
+	_, firstErr := suite.saveUrlForNewUser(ctx, urlmock.WithOriginalUrl("https://example.com/first-target"))
+	suite.Require().NoError(firstErr)
+
+	_, secondErr := suite.saveUrlForNewUser(ctx, urlmock.WithOriginalUrl("https://example.com/second-target"))
+	suite.Require().NoError(secondErr)
 }
