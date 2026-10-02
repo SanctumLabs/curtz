@@ -48,7 +48,16 @@ case "$stack" in
   *) echo "unknown stack '$stack'" >&2; usage ;;
 esac
 
-# A service is ready when it is running and healthy (or has no healthcheck), or when a one-shot job exited 0.
+# One-shot jobs (topic creation, cluster formation, migrations, Elasticsearch setup) are named *-init-*, *-setup-* or
+# migrate. A job is ready only once it has exited 0; any other service is ready when it is running and healthy (or has
+# no healthcheck). Without this a still-running job, which has no healthcheck, would count as ready.
+is_job() {
+  case "$1" in
+    *-init-* | *-setup-* | migrate) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 wait_ready() {
   local p="$1" deadline services status pending s line state health code
   if [ -n "${DRY_RUN:-}" ]; then echo "+ wait $p"; return 0; fi
@@ -62,8 +71,11 @@ wait_ready() {
       state="$(printf '%s' "$line" | cut -d'|' -f2)"
       health="$(printf '%s' "$line" | cut -d'|' -f3)"
       code="$(printf '%s' "$line" | cut -d'|' -f4)"
-      if [ "$state" = running ] && { [ -z "$health" ] || [ "$health" = healthy ]; }; then continue; fi
-      if [ "$state" = exited ] && [ "$code" = 0 ]; then continue; fi
+      if is_job "$s"; then
+        if [ "$state" = exited ] && [ "$code" = 0 ]; then continue; fi
+      elif [ "$state" = running ] && { [ -z "$health" ] || [ "$health" = healthy ]; }; then
+        continue
+      fi
       pending="$pending $s"
     done
     if [ -z "$pending" ]; then echo "ready: $p"; return 0; fi

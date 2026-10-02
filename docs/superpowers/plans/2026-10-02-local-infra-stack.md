@@ -251,8 +251,9 @@ Create `scripts/infra_test.sh`:
 ```bash
 #!/usr/bin/env bash
 # Tests for scripts/infra.sh and scripts/infra_env_check.sh. Needs no Docker: infra.sh runs with DRY_RUN=1.
+# shellcheck disable=SC2016  # the fixtures below write a literal ${VAR:-default} and $ on purpose
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 failures=0
 pass() { echo "ok:   $1"; }
@@ -344,6 +345,42 @@ expect_exit "env check rejects a variable missing from .env.example" 1 \
   env ENV_EXAMPLE="$tmp/safe.env" COMPOSE_FILES="$tmp/unknown.yml" scripts/infra_env_check.sh
 expect_exit "env check passes on the repository" 0 scripts/infra_env_check.sh
 
+# --- infra.sh wait (a stub `docker` supplies canned compose output) ---------------------------------------------
+mkdir -p "$tmp/bin"
+cat >"$tmp/bin/docker" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  *"config --services"*) printf '%s\n' kafka-init-single kafka-single kafka-ui ;;
+  *" ps "*) cat "$STUB_STATUS" ;;
+esac
+STUB
+chmod +x "$tmp/bin/docker"
+
+wait_with() { # one status line per service: service|state|health|exitcode
+  printf '%s\n' "$1" >"$tmp/status"
+  env -u DRY_RUN PATH="$tmp/bin:$PATH" STUB_STATUS="$tmp/status" WAIT_TIMEOUT=0 scripts/infra.sh wait kafka single
+}
+
+job_running='kafka-single|running|healthy|0
+kafka-init-single|running||0
+kafka-ui|running||0'
+job_done='kafka-single|running|healthy|0
+kafka-init-single|exited||0
+kafka-ui|running||0'
+job_failed='kafka-single|running|healthy|0
+kafka-init-single|exited||1
+kafka-ui|running||0'
+broker_starting='kafka-single|running|starting|0
+kafka-init-single|exited||0
+kafka-ui|running||0'
+
+expect_exit "wait: a still-running one-shot job is not ready" 1 wait_with "$job_running"
+out="$(wait_with "$job_running" 2>&1)"
+case "$out" in *"waiting for: kafka-init-single"*) pass "wait: the message names the pending job" ;; *) fail "wait: the message names the pending job ($out)" ;; esac
+expect_exit "wait: ready when the job exited 0 and a service without a healthcheck is running" 0 wait_with "$job_done"
+expect_exit "wait: a job that exited non-zero is not ready" 1 wait_with "$job_failed"
+expect_exit "wait: a service still starting is not ready" 1 wait_with "$broker_starting"
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures failure(s)"
   exit 1
@@ -412,7 +449,16 @@ case "$stack" in
   *) echo "unknown stack '$stack'" >&2; usage ;;
 esac
 
-# A service is ready when it is running and healthy (or has no healthcheck), or when a one-shot job exited 0.
+# One-shot jobs (topic creation, cluster formation, migrations, Elasticsearch setup) are named *-init-*, *-setup-* or
+# migrate. A job is ready only once it has exited 0; any other service is ready when it is running and healthy (or has
+# no healthcheck). Without this a still-running job, which has no healthcheck, would count as ready.
+is_job() {
+  case "$1" in
+    *-init-* | *-setup-* | migrate) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 wait_ready() {
   local p="$1" deadline services status pending s line state health code
   if [ -n "${DRY_RUN:-}" ]; then echo "+ wait $p"; return 0; fi
@@ -426,8 +472,11 @@ wait_ready() {
       state="$(printf '%s' "$line" | cut -d'|' -f2)"
       health="$(printf '%s' "$line" | cut -d'|' -f3)"
       code="$(printf '%s' "$line" | cut -d'|' -f4)"
-      if [ "$state" = running ] && { [ -z "$health" ] || [ "$health" = healthy ]; }; then continue; fi
-      if [ "$state" = exited ] && [ "$code" = 0 ]; then continue; fi
+      if is_job "$s"; then
+        if [ "$state" = exited ] && [ "$code" = 0 ]; then continue; fi
+      elif [ "$state" = running ] && { [ -z "$health" ] || [ "$health" = healthy ]; }; then
+        continue
+      fi
       pending="$pending $s"
     done
     if [ -z "$pending" ]; then echo "ready: $p"; return 0; fi
@@ -1042,7 +1091,7 @@ make infra.kafka.up MODE=ha
 Expected: ends `ready: kafka-ha`; `make infra.ps` shows `kafka-1..3` healthy, `kafka-ui` and `kafka-exporter` running, `kafka-init-ha` exited 0.
 
 ```bash
-make infra.kafka.topics MODE=ha | grep -E "^Topic: (url\.|identity\.|security\.|webhook\.)" | awk '{print $1,$2,$4,$6}'
+make infra.kafka.topics MODE=ha | grep -E "^Topic: (url\.|identity\.|security\.|webhook\.)" | awk '{print $2, "partitions="$6, "rf="$8}' | sort
 ```
 
 Expected: six topics, each with `ReplicationFactor: 3`; `url.access` has `PartitionCount: 6`.
@@ -4239,6 +4288,8 @@ First look: `make infra.ps` (health), `make infra.logs SERVICE=<name>`, `make in
    variant, give the single service the alias of the HA node 1 so addresses do not change.
 3. Bind published ports to `127.0.0.1`, pin the image tag, and give every credential `${VAR:-default}` with the same
    default in `.env.example`.
+   Name one-shot jobs `*-init-*`, `*-setup-*` or `migrate` (with `restart: "no"` or `on-failure`): `make infra.<stack>.up`
+   waits for them to exit 0, while every other service must be running and healthy.
 4. Run `make infra.config`.
 ````
 

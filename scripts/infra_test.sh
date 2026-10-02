@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests for scripts/infra.sh and scripts/infra_env_check.sh. Needs no Docker: infra.sh runs with DRY_RUN=1.
+# shellcheck disable=SC2016  # the fixtures below write a literal ${VAR:-default} and $ on purpose
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 failures=0
 pass() { echo "ok:   $1"; }
@@ -92,6 +93,42 @@ expect_exit "env check rejects a default that differs from .env.example" 1 \
 expect_exit "env check rejects a variable missing from .env.example" 1 \
   env ENV_EXAMPLE="$tmp/safe.env" COMPOSE_FILES="$tmp/unknown.yml" scripts/infra_env_check.sh
 expect_exit "env check passes on the repository" 0 scripts/infra_env_check.sh
+
+# --- infra.sh wait (a stub `docker` supplies canned compose output) ---------------------------------------------
+mkdir -p "$tmp/bin"
+cat >"$tmp/bin/docker" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  *"config --services"*) printf '%s\n' kafka-init-single kafka-single kafka-ui ;;
+  *" ps "*) cat "$STUB_STATUS" ;;
+esac
+STUB
+chmod +x "$tmp/bin/docker"
+
+wait_with() { # one status line per service: service|state|health|exitcode
+  printf '%s\n' "$1" >"$tmp/status"
+  env -u DRY_RUN PATH="$tmp/bin:$PATH" STUB_STATUS="$tmp/status" WAIT_TIMEOUT=0 scripts/infra.sh wait kafka single
+}
+
+job_running='kafka-single|running|healthy|0
+kafka-init-single|running||0
+kafka-ui|running||0'
+job_done='kafka-single|running|healthy|0
+kafka-init-single|exited||0
+kafka-ui|running||0'
+job_failed='kafka-single|running|healthy|0
+kafka-init-single|exited||1
+kafka-ui|running||0'
+broker_starting='kafka-single|running|starting|0
+kafka-init-single|exited||0
+kafka-ui|running||0'
+
+expect_exit "wait: a still-running one-shot job is not ready" 1 wait_with "$job_running"
+out="$(wait_with "$job_running" 2>&1)"
+case "$out" in *"waiting for: kafka-init-single"*) pass "wait: the message names the pending job" ;; *) fail "wait: the message names the pending job ($out)" ;; esac
+expect_exit "wait: ready when the job exited 0 and a service without a healthcheck is running" 0 wait_with "$job_done"
+expect_exit "wait: a job that exited non-zero is not ready" 1 wait_with "$job_failed"
+expect_exit "wait: a service still starting is not ready" 1 wait_with "$broker_starting"
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures failure(s)"
