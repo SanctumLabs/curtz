@@ -197,3 +197,8 @@ infra.psql: ## Open psql as the application user on the primary (MODE=ha or sing
 .PHONY: infra.migrate
 infra.migrate: create.envfile ## Re-run the database migrations against the running Postgres
 	@$(COMPOSE) --profile '*' run --rm migrate
+
+
+.PHONY: infra.patroni.list
+infra.patroni.list: ## Show the Patroni cluster members and roles (Postgres MODE=ha only)
+	@$(COMPOSE) --profile '*' exec -T patroni-1 /opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml list
