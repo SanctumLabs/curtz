@@ -73,6 +73,13 @@ wait_ready() {
       code="$(printf '%s' "$line" | cut -d'|' -f4)"
       if is_job "$s"; then
         if [ "$state" = exited ] && [ "$code" = 0 ]; then continue; fi
+        # A job that failed will not run again (restart: "no"), so waiting out the timeout only delays the error.
+        # migrate is the exception: it restarts on failure until the database accepts connections.
+        if [ "$state" = exited ] && [ "$s" != migrate ]; then
+          echo "$s exited with code $code" >&2
+          "${compose[@]}" --profile "$p" logs --no-log-prefix --tail 20 "$s" >&2 || true
+          return 1
+        fi
       elif [ "$state" = running ] && { [ -z "$health" ] || [ "$health" = healthy ]; }; then
         continue
       fi

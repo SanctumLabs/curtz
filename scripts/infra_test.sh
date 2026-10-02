@@ -129,6 +129,46 @@ case "$out" in *"waiting for: kafka-init-single"*) pass "wait: the message names
 expect_exit "wait: ready when the job exited 0 and a service without a healthcheck is running" 0 wait_with "$job_done"
 expect_exit "wait: a job that exited non-zero is not ready" 1 wait_with "$job_failed"
 expect_exit "wait: a service still starting is not ready" 1 wait_with "$broker_starting"
+job_failed_out="$(wait_with "$job_failed" 2>&1)"
+case "$job_failed_out" in *"kafka-init-single exited with code 1"*) pass "wait: a failed job is reported by name with its exit code" ;; *) fail "wait: a failed job is reported by name with its exit code ($job_failed_out)" ;; esac
+
+
+# --- deploy/redis/init-cluster.sh (a stub redis-cli records the cluster-changing calls) ---------------------------
+cat >"$tmp/bin/redis-cli" <<'STUB'
+#!/usr/bin/env bash
+# Records the calls that change the cluster; reports a formed cluster once one happened, or when STUB_FORMED=1.
+case "$*" in
+  *"--cluster create"* | *addslotsrange*) echo "$*" >>"$STUB_LOG"; touch "$STUB_DIR/formed" ;;
+  *ping*) echo PONG ;;
+  *"cluster info"*)
+    if [ -e "$STUB_DIR/formed" ] || [ "${STUB_FORMED:-}" = 1 ]; then echo "cluster_state:ok"; else echo "cluster_state:fail"; fi
+    ;;
+esac
+STUB
+chmod +x "$tmp/bin/redis-cli"
+
+redis_init() { # mode already-formed(0|1); the recorded calls end up in $tmp/rstub/log
+  rm -rf "$tmp/rstub"
+  mkdir -p "$tmp/rstub"
+  : >"$tmp/rstub/log"
+  env PATH="$tmp/bin:$PATH" STUB_DIR="$tmp/rstub" STUB_LOG="$tmp/rstub/log" STUB_FORMED="$2" \
+    CLUSTER_MODE="$1" REDIS_ADMIN_PASSWORD=x NET_PREFIX=172.29.0 sh deploy/redis/init-cluster.sh
+}
+expect_calls() { # name expected
+  local actual
+  actual="$(cat "$tmp/rstub/log")"
+  if [ "$actual" = "$2" ]; then pass "$1"; else fail "$1"; printf -- '--- expected\n%s\n--- actual\n%s\n' "$2" "$actual"; fi
+}
+
+redis_init ha 0 >/dev/null 2>&1
+expect_calls "redis init (ha): creates the cluster over the fixed addresses .11 to .16" \
+  "--cluster create 172.29.0.11:7001 172.29.0.12:7002 172.29.0.13:7003 172.29.0.14:7004 172.29.0.15:7005 172.29.0.16:7006 --cluster-replicas 1 --cluster-yes"
+redis_init ha 1 >/dev/null 2>&1
+expect_calls "redis init (ha): does nothing when the cluster is already formed" ""
+redis_init single 0 >/dev/null 2>&1
+expect_calls "redis init (single): assigns every slot to the one node" "-h redis-1 -p 7001 cluster addslotsrange 0 16383"
+redis_init single 1 >/dev/null 2>&1
+expect_calls "redis init (single): does nothing when the slots are already assigned" ""
 
 if [ "$failures" -ne 0 ]; then
   echo "$failures failure(s)"
