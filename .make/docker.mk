@@ -202,3 +202,8 @@ infra.migrate: create.envfile ## Re-run the database migrations against the runn
 .PHONY: infra.patroni.list
 infra.patroni.list: ## Show the Patroni cluster members and roles (Postgres MODE=ha only)
 	@$(COMPOSE) --profile '*' exec -T patroni-1 /opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml list
+
+
+.PHONY: infra.es.health
+infra.es.health: ## Show the Elasticsearch cluster health (MODE=ha or single)
+	@$(COMPOSE) --profile '*' exec -T $(ES_SERVICE) sh -c 'curl -s -u elastic:"$$ELASTIC_PASSWORD" "localhost:9200/_cluster/health?pretty"'

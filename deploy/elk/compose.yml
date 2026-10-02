@@ -1,5 +1,168 @@
-# Stub: replaced by the stack's task in the implementation plan.
-services: {}
+# Elastic stack for logs (Filebeat -> Logstash -> Elasticsearch data stream logs-curtz-default -> Kibana).
+#   single  es-single (alias es-1), logstash-single (alias logstash-1), kibana-single, filebeat-single
+#   HA      added by the ELK HA task: es-1..3, logstash-1..2, kibana-1..2 + nginx, filebeat-ha
+# Security is on in both modes. HTTP TLS is off locally; transport TLS is on in HA (required by multi-node clusters).
+x-es-image: &es-image docker.elastic.co/elasticsearch/elasticsearch:9.5.4
+
+x-es-env: &es-env
+  cluster.name: curtz-logs
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-curtz-elastic-dev}
+  bootstrap.memory_lock: "false"
+  xpack.security.enabled: "true"
+  xpack.security.http.ssl.enabled: "false"
+  xpack.ml.enabled: "false"
+  ES_JAVA_OPTS: -Xms${ES_HEAP:-512m} -Xmx${ES_HEAP:-512m}
+
+x-setup-env: &setup-env
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-curtz-elastic-dev}
+  KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-curtz-kibana-dev}
+  LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-curtz-logstash-dev}
+  GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-curtz-grafana-reader}
+  METRICS_READER_PASSWORD: ${METRICS_READER_PASSWORD:-curtz-metrics-dev}
+
+x-kibana-env: &kibana-env
+  SERVER_PUBLICBASEURL: http://localhost:5601
+  ELASTICSEARCH_USERNAME: kibana_system
+  ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-curtz-kibana-dev}
+  XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:-curtz-dev-kibana-security-key-0123456789ab}
+  XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTED_OBJECTS_KEY:-curtz-dev-kibana-saved-objects-key-0123456789}
+  XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:-curtz-dev-kibana-reporting-key-0123456789ab}
+  TELEMETRY_OPTIN: "false"
+  NODE_OPTIONS: --max-old-space-size=768
+
+services:
+  es-single:
+    image: *es-image
+    profiles: [elk-single, full-single]
+    restart: unless-stopped
+    environment:
+      <<: *es-env
+      node.name: es-1
+      discovery.type: single-node
+    ports:
+      - "127.0.0.1:9200:9200"
+    ulimits:
+      memlock: {soft: -1, hard: -1}
+      nofile: {soft: 65536, hard: 65536}
+    volumes:
+      - es-single-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:$$ELASTIC_PASSWORD http://localhost:9200/_cluster/health | grep -Eq '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    networks:
+      curtz:
+        aliases: [es-1]
+
+  elk-setup-single:
+    image: *es-image
+    user: "0"
+    profiles: [elk-single, full-single]
+    restart: "no"
+    depends_on:
+      es-single: {condition: service_healthy}
+    environment:
+      <<: *setup-env
+      ELK_MODE: single
+      ES_URL: http://es-1:9200
+    entrypoint: ["/bin/bash", "/setup.sh"]
+    volumes:
+      - ./setup.sh:/setup.sh:ro
+    networks:
+      - curtz
+
+  logstash-single:
+    image: docker.elastic.co/logstash/logstash:9.5.4
+    profiles: [elk-single, full-single]
+    restart: unless-stopped
+    depends_on:
+      elk-setup-single: {condition: service_completed_successfully}
+    environment:
+      LS_JAVA_OPTS: -Xms${LS_HEAP:-512m} -Xmx${LS_HEAP:-512m}
+      LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-curtz-logstash-dev}
+    volumes:
+      - logstash-single-data:/usr/share/logstash/data
+      - ./logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./logstash/pipeline/10-input.conf:/etc/logstash/conf.d/10-input.conf:ro
+      - ./logstash/pipeline/20-filter.conf:/etc/logstash/conf.d/20-filter.conf:ro
+      - ./logstash/pipeline/30-output-single.conf:/etc/logstash/conf.d/30-output.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9600 >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    networks:
+      curtz:
+        aliases: [logstash-1]
+
+  kibana-single:
+    image: docker.elastic.co/kibana/kibana:9.5.4
+    profiles: [elk-single, full-single]
+    restart: unless-stopped
+    depends_on:
+      elk-setup-single: {condition: service_completed_successfully}
+    environment:
+      <<: *kibana-env
+      SERVER_NAME: kibana
+      ELASTICSEARCH_HOSTS: http://es-1:9200
+    ports:
+      - "127.0.0.1:5601:5601"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks:
+      - curtz
+
+  # Reads container logs, so it runs as root and mounts the Docker socket read-only: the one documented
+  # least-privilege exception in this stack.
+  filebeat-single:
+    image: docker.elastic.co/beats/filebeat:9.5.4
+    user: root
+    profiles: [elk-single, full-single]
+    restart: unless-stopped
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    depends_on:
+      logstash-single: {condition: service_healthy}
+    volumes:
+      - ./filebeat/filebeat-single.yml:/usr/share/filebeat/filebeat.yml:ro
+      - filebeat-single-data:/usr/share/filebeat/data
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - curtz
+
+  # Shared by both modes: they reach the cluster through es-1 / logstash-1.
+  elasticsearch-exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:v1.11.0
+    profiles: [elk-ha, elk-single, full-ha, full-single]
+    restart: unless-stopped
+    command:
+      - "--es.uri=http://metrics_reader:${METRICS_READER_PASSWORD:-curtz-metrics-dev}@es-1:9200"
+      - "--es.all"
+      - "--es.indices"
+    networks:
+      - curtz
+
+  logstash-exporter-1:
+    image: kuskoman/logstash-exporter:v1.9.1
+    profiles: [elk-ha, elk-single, full-ha, full-single]
+    restart: unless-stopped
+    environment:
+      LOGSTASH_URL: http://logstash-1:9600
+    networks:
+      - curtz
+
+volumes:
+  es-single-data:
+  logstash-single-data:
+  filebeat-single-data:
 
 networks:
   curtz:
