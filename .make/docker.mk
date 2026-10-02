@@ -183,3 +183,8 @@ infra.hosts: ## Print the hosts-file line needed to run the app on the host agai
 .PHONY: infra.kafka.topics
 infra.kafka.topics: ## Describe the Kafka topics (MODE=ha or single)
 	@$(COMPOSE) --profile '*' exec -T $(KAFKA_SERVICE) /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe
+
+
+.PHONY: infra.redis.cli
+infra.redis.cli: ## Open redis-cli as the application user in cluster mode (MODE=ha or single)
+	@$(COMPOSE) --profile '*' exec $(REDIS_SERVICE) sh -c 'redis-cli -p "$$NODE_PORT" --user "$$REDIS_USERNAME" --pass "$$REDIS_PASSWORD" --no-auth-warning -c'
