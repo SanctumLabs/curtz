@@ -475,7 +475,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 ENV_EXAMPLE="${ENV_EXAMPLE:-.env.example}"
-COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml $(ls deploy/*/compose.yml 2>/dev/null | tr '\n' ' ')}"
+shopt -s nullglob
+default_files=(docker-compose.yml deploy/*/compose.yml)
+COMPOSE_FILES="${COMPOSE_FILES:-${default_files[*]}}"
 status=0
 
 awk '
