@@ -4285,7 +4285,7 @@ Heaps are small on purpose (512 MB for Kafka, Elasticsearch and Logstash); tune 
 |---|---|---|
 | Kafka | `docker compose --profile '*' stop kafka-2` | produce and consume keep working; `start` it and under-replicated partitions drain |
 | Redis | stop a master (see `cluster nodes` in `make infra.redis.cli`) | a replica is promoted within ~10 seconds; writes continue |
-| Postgres | stop the leader shown by `make infra.patroni.list` | a replica becomes leader in under a minute; `localhost:5432` follows it |
+| Postgres | stop the leader shown by `make infra.patroni.list` | a replica becomes leader (a few seconds after a graceful stop, about 30 seconds after a crash, measured); `localhost:5432` follows it once HAProxy's health checks see the new primary (about 6 more seconds) |
 | Elasticsearch | stop `es-2` | cluster stays green or yellow; logs keep arriving |
 | Logstash / Kibana | stop `logstash-1` / `kibana-1` | Filebeat uses `logstash-2`; Kibana stays reachable through nginx |
 
