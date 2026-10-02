@@ -1,5 +1,63 @@
-# Stub: replaced by the stack's task in the implementation plan.
-services: {}
+# Postgres 18.
+#   single  postgres-single: one plain Postgres node. Host ports 5432 and 5433 both reach it, so code that splits
+#           reads (5433) from writes (5432) works in both modes. It answers to the alias "postgres".
+#   migrate and postgres-exporter are shared by both modes and reach the database through "postgres:5432".
+x-pg-env: &pg-env
+  PG_DATABASE: ${PG_DATABASE:-curtzdb}
+  PG_APP_USER: ${PG_APP_USER:-curtz-user}
+  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
+  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-curtz-exporter}
+
+services:
+  postgres-single:
+    image: postgres:18.6
+    profiles: [postgres-single, core-single, full-single]
+    restart: unless-stopped
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=200"]
+    environment:
+      <<: *pg-env
+      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-curtz-postgres-admin}
+    ports:
+      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-single-data:/var/lib/postgresql
+      - ./roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      curtz:
+        aliases: [postgres]
+
+  # Applies ./app/internal/adapters/postgres/migrations. Retries until the database accepts connections, so it also
+  # works while Patroni is still electing a primary. Re-running is a no-op ("no change").
+  migrate:
+    image: migrate/migrate:v4.19.1
+    profiles: [postgres-ha, postgres-single, core-ha, core-single, full-ha, full-single]
+    restart: "on-failure:10"
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${PG_APP_USER:-curtz-user}:${PG_APP_PASSWORD:-curtz-pass}@postgres:5432/${PG_DATABASE:-curtzdb}?sslmode=disable&x-migrations-table=schema_migrations"
+      - "up"
+    volumes:
+      - ../../app/internal/adapters/postgres/migrations:/migrations:ro
+    networks:
+      - curtz
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    profiles: [postgres-ha, postgres-single, core-ha, core-single, full-ha, full-single]
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-curtz-exporter}@postgres:5432/postgres?sslmode=disable"
+    networks:
+      - curtz
+
+volumes:
+  postgres-single-data:
 
 networks:
   curtz:

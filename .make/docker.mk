@@ -188,3 +188,12 @@ infra.kafka.topics: ## Describe the Kafka topics (MODE=ha or single)
 .PHONY: infra.redis.cli
 infra.redis.cli: ## Open redis-cli as the application user in cluster mode (MODE=ha or single)
 	@$(COMPOSE) --profile '*' exec $(REDIS_SERVICE) sh -c 'redis-cli -p "$$NODE_PORT" --user "$$REDIS_USERNAME" --pass "$$REDIS_PASSWORD" --no-auth-warning -c'
+
+
+.PHONY: infra.psql
+infra.psql: ## Open psql as the application user on the primary (MODE=ha or single)
+	@$(COMPOSE) --profile '*' exec $(POSTGRES_SERVICE) sh -c 'PGPASSWORD="$$PG_APP_PASSWORD" psql -h postgres -U "$$PG_APP_USER" "$$PG_DATABASE"'
+
+.PHONY: infra.migrate
+infra.migrate: create.envfile ## Re-run the database migrations against the running Postgres
+	@$(COMPOSE) --profile '*' run --rm migrate
