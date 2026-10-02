@@ -178,3 +178,8 @@ infra.hosts: ## Print the hosts-file line needed to run the app on the host agai
 	@echo "Add this line to /etc/hosts (needs sudo, not required when the app runs in a container):"
 	@echo "  127.0.0.1 redis-1 redis-2 redis-3 redis-4 redis-5 redis-6"
 	@if grep -q 'redis-1' /etc/hosts; then echo "(an entry for redis-1 already exists)"; fi
+
+
+.PHONY: infra.kafka.topics
+infra.kafka.topics: ## Describe the Kafka topics (MODE=ha or single)
+	@$(COMPOSE) --profile '*' exec -T $(KAFKA_SERVICE) /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe
