@@ -1687,7 +1687,7 @@ Expected: ends `ready: postgres-single`; `migrate` exited 0 (`dc ps` shows it `e
 
 ```bash
 Q() { dc exec -T postgres-single sh -c 'PGPASSWORD="$PG_APP_PASSWORD" psql -h postgres -U "$PG_APP_USER" -d "$PG_DATABASE" -tAc "$1"' _ "$1"; }
-Q "select version, dirty from schema_migrations"                  # expect: 1|f
+Q "select version, dirty from schema_migrations"                  # expect: <highest NNNNNN_*.up.sql number in the migrations directory>|f (2|f at the time of writing)
 Q "select to_regclass('public.outbox_events') is not null"        # expect: t
 "$SCRATCH/infracheck/infracheck" postgres localhost:5432 false    # expect: postgres ok: localhost:5432 pg_is_in_recovery=false
 "$SCRATCH/infracheck/infracheck" postgres localhost:5433 false    # expect: ok (the read port reaches the same node in single mode)
@@ -2147,7 +2147,7 @@ Expected: three members; exactly one `Leader` and two `Replica` in state `stream
 "$SCRATCH/infracheck/infracheck" postgres localhost:5432 false    # expect: ok: the write port reaches the primary
 "$SCRATCH/infracheck/infracheck" postgres localhost:5433 true     # expect: ok: the read port reaches a replica
 Q() { dc exec -T patroni-1 sh -c 'PGPASSWORD="$PG_APP_PASSWORD" psql -h postgres -U "$PG_APP_USER" -d "$PG_DATABASE" -tAc "$1"' _ "$1"; }
-Q "select version, dirty from schema_migrations"                  # expect: 1|f (migrations went through HAProxy to the primary)
+Q "select version, dirty from schema_migrations"                  # expect: the highest migration number, |f (migrations went through HAProxy to the primary)
 ```
 
 Drill — lose the primary; a replica is promoted and `:5432` follows it:
