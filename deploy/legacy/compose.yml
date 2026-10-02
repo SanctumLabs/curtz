@@ -1,0 +1,40 @@
+# Legacy stack: MongoDB and the standalone Redis used by the code behind the `legacy` build tag.
+# Kept as it was while the code base moves to Postgres (MongoDB 4.4 is end-of-life). Start with: make infra.legacy.up
+services:
+  documentdb:
+    image: mongo:4.4.14
+    container_name: curtz-documentdb
+    hostname: documentdb
+    profiles: [legacy]
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: curtzUser
+      MONGO_INITDB_ROOT_PASSWORD: curtzPassword
+      MONGO_INITDB_DATABASE: curtzdb
+      MONGO_INITDB_USER: curtzUser
+      MONGO_INITDB_PASSWORD: curtzPassword
+    volumes:
+      - docdb:/data/db
+    networks:
+      - curtz
+
+  cache:
+    image: redis:7.0.2
+    container_name: curtz-cache
+    hostname: cache
+    profiles: [legacy]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - cache:/data
+    networks:
+      - curtz
+
+volumes:
+  docdb:
+  cache:
+
+networks:
+  curtz:
+    name: curtz

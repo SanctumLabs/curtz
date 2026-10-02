@@ -1,0 +1,6 @@
+# Stub: replaced by the stack's task in the implementation plan.
+services: {}
+
+networks:
+  curtz:
+    name: curtz

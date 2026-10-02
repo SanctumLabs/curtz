@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Starts, stops or waits on a local infrastructure stack in a given mode (see docs/LocalInfrastructure.md).
+#
+# Usage: scripts/infra.sh <up|down|wait> <stack> [ha|single]
+#   stacks: kafka redis postgres elk core full (the mode applies) | observability legacy (no mode)
+# Env:    COMPOSE       compose command (default "docker compose")
+#         WAIT_TIMEOUT  seconds to wait for services to become ready (default 300)
+#         DRY_RUN=1     print the commands instead of running them
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+COMPOSE="${COMPOSE:-docker compose}"
+WAIT_TIMEOUT="${WAIT_TIMEOUT:-300}"
+read -r -a compose <<<"$COMPOSE"
+
+usage() {
+  sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2
+  exit 2
+}
+
+run() {
+  if [ -n "${DRY_RUN:-}" ]; then echo "+ $*"; else "$@"; fi
+}
+
+action="${1:-}"
+stack="${2:-}"
+mode="${3:-ha}"
+[ -n "$action" ] && [ -n "$stack" ] || usage
+
+case "$mode" in
+  ha) other=single ;;
+  single) other=ha ;;
+  *) echo "unknown mode '$mode' (use ha or single)" >&2; exit 2 ;;
+esac
+
+case "$stack" in
+  kafka | redis | postgres | elk | core | full)
+    profile="$stack-$mode"
+    other_profile="$stack-$other"
+    both=(--profile "$stack-ha" --profile "$stack-single")
+    ;;
+  observability | legacy)
+    profile="$stack"
+    other_profile=""
+    both=(--profile "$stack")
+    ;;
+  *) echo "unknown stack '$stack'" >&2; usage ;;
+esac
+
+# A service is ready when it is running and healthy (or has no healthcheck), or when a one-shot job exited 0.
+wait_ready() {
+  local p="$1" deadline services status pending s line state health code
+  if [ -n "${DRY_RUN:-}" ]; then echo "+ wait $p"; return 0; fi
+  deadline=$(($(date +%s) + WAIT_TIMEOUT))
+  services="$("${compose[@]}" --profile "$p" config --services | sort)"
+  while :; do
+    status="$("${compose[@]}" --profile "$p" ps -a --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}')"
+    pending=""
+    for s in $services; do
+      line="$(printf '%s\n' "$status" | grep "^$s|" | head -1 || true)"
+      state="$(printf '%s' "$line" | cut -d'|' -f2)"
+      health="$(printf '%s' "$line" | cut -d'|' -f3)"
+      code="$(printf '%s' "$line" | cut -d'|' -f4)"
+      if [ "$state" = running ] && { [ -z "$health" ] || [ "$health" = healthy ]; }; then continue; fi
+      if [ "$state" = exited ] && [ "$code" = 0 ]; then continue; fi
+      pending="$pending $s"
+    done
+    if [ -z "$pending" ]; then echo "ready: $p"; return 0; fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "timed out after ${WAIT_TIMEOUT}s waiting for:$pending" >&2
+      printf '%s\n' "$status" | grep -E "^($(echo "$pending" | tr ' ' '|' | sed 's/^|//'))\|" >&2 || true
+      return 1
+    fi
+    sleep 3
+  done
+}
+
+case "$action" in
+  up)
+    [ -z "$other_profile" ] || run "${compose[@]}" --profile "$other_profile" rm -sf
+    run "${compose[@]}" --profile "$profile" up -d
+    wait_ready "$profile"
+    ;;
+  down) run "${compose[@]}" "${both[@]}" rm -sf ;;
+  wait) wait_ready "$profile" ;;
+  *) usage ;;
+esac
