@@ -2970,7 +2970,7 @@ services:
     environment:
       <<: *kibana-env
       SERVER_NAME: kibana-1
-      ELASTICSEARCH_HOSTS: http://es-1:9200,http://es-2:9200,http://es-3:9200
+      ELASTICSEARCH_HOSTS: '["http://es-1:9200","http://es-2:9200","http://es-3:9200"]'
     networks:
       - curtz
 
@@ -2980,7 +2980,7 @@ services:
     environment:
       <<: *kibana-env
       SERVER_NAME: kibana-2
-      ELASTICSEARCH_HOSTS: http://es-1:9200,http://es-2:9200,http://es-3:9200
+      ELASTICSEARCH_HOSTS: '["http://es-1:9200","http://es-2:9200","http://es-3:9200"]'
     networks:
       - curtz
 
