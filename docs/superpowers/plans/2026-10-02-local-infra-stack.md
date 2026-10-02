@@ -2312,7 +2312,8 @@ echo "elk setup complete"
 `deploy/elk/logstash/logstash.yml`:
 
 ```yaml
-http.host: "0.0.0.0"
+# Bind the monitoring API to every interface so the exporter and the healthcheck can reach it (Logstash 9 name).
+api.http.host: "0.0.0.0"
 pipeline.ecs_compatibility: v8
 # Survive a Logstash restart without losing buffered events; failed events go to the dead-letter queue.
 queue.type: persisted
@@ -2341,6 +2342,9 @@ input {
 
 ```text
 filter {
+  # The container log parser keeps each line's trailing newline.
+  mutate { strip => ["message"] }
+
   # Applications log one JSON object per line (slog). Anything else is kept as a plain message.
   if [message] =~ /^\s*\{/ {
     json {
@@ -2391,9 +2395,14 @@ output {
 
 ```yaml
 filebeat.inputs:
-  - type: container
+  # Filebeat 9 dropped the container input: read the Docker json logs with filestream and its container parser.
+  - type: filestream
+    id: docker-container-logs
     paths:
       - /var/lib/docker/containers/*/*.log
+    parsers:
+      - container:
+          stream: all
 
 processors:
   - add_docker_metadata:
@@ -2608,12 +2617,12 @@ docker compose --profile elk-single config --services | sort
 bash -n deploy/elk/setup.sh && echo "bash syntax ok"
 ```
 
-Validate the assembled single-mode pipeline (pull gate; the Logstash image is needed later anyway):
+Validate the assembled single-mode pipeline together with our `logstash.yml` and `pipelines.yml` (a settings typo only shows up when the settings are loaded):
 
 ```bash
 cat deploy/elk/logstash/pipeline/10-input.conf deploy/elk/logstash/pipeline/20-filter.conf deploy/elk/logstash/pipeline/30-output-single.conf > "$SCRATCH/single.conf"
-docker run --rm -e LOGSTASH_WRITER_PASSWORD=x -v "$SCRATCH/single.conf:/c.conf:ro" docker.elastic.co/logstash/logstash:9.5.4 \
-  logstash --config.test_and_exit -f /c.conf 2>&1 | grep -E "Configuration OK|ERROR"
+docker run --rm -e LOGSTASH_WRITER_PASSWORD=x -v "$SCRATCH/single.conf:/c.conf:ro" -v "$PWD/deploy/elk/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro" -v "$PWD/deploy/elk/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro" docker.elastic.co/logstash/logstash:9.5.4 \
+  logstash --config.test_and_exit -f /c.conf 2>&1 | grep -E "Configuration OK|invalid|ERROR"
 ```
 
 Expected: `Configuration OK`.
@@ -2641,15 +2650,15 @@ End-to-end log path with a throwaway container (carries the compose project labe
 ```bash
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
-  sh -c "echo '{\"time\":\"$NOW\",\"level\":\"INFO\",\"msg\":\"hello from smoke\",\"service\":\"smoke\",\"trace_id\":\"abc123\",\"span_id\":\"def456\"}'; echo 'plain text line'"
-sleep 20
+  sh -c "echo '{\"time\":\"$NOW\",\"level\":\"INFO\",\"msg\":\"hello from smoke\",\"service\":\"smoke\",\"trace_id\":\"abc123\",\"span_id\":\"def456\"}'; echo 'plain text line'; sleep 20"
+sleep 5
 E "logs-curtz-default/_search?q=trace.id:abc123" | jq '.hits.hits[0]._source | {message, level: .log.level, service: .service.name, trace: .trace.id, span: .span.id}'
 ```
 
-Expected: `message: "hello from smoke"`, `level: "INFO"`, `service: "smoke"`, `trace: "abc123"`, `span: "def456"`. The plain line must also be there with `service.name` = `smoke` taken from the compose label:
+Expected: `message: "hello from smoke"`, `level: "INFO"`, `service: "smoke"`, `trace: "abc123"`, `span: "def456"`. The plain line must also be there with `service.name` = `smoke` taken from the compose label and its text stored without the trailing newline. The throwaway container sleeps for 20 seconds on purpose: `docker run --rm` deletes the container's log file as soon as it exits, which can happen before Filebeat's 10-second scan has found it.
 
 ```bash
-E 'logs-curtz-default/_search?q=message:"plain text line"' | jq -r '.hits.hits[0]._source.service.name'   # expect: smoke
+E 'logs-curtz-default/_search?q=message:plain&size=1' | jq -r '.hits.hits[0]._source | "\(.service.name) \(.message | @json)"'   # expect: smoke "plain text line" (no trailing newline)
 ```
 
 If no document arrives within about 40 seconds, read `dc logs filebeat-single` and `dc logs logstash-single` before changing anything. A `permission denied` or missing-path error from Filebeat means it cannot read `/var/lib/docker/containers` (spec risk: Filebeat on Docker Desktop; that path normally lives inside the Docker VM and is mountable). In that case stop and report the exact error to the user instead of working around it.
@@ -2714,9 +2723,14 @@ output {
 
 ```yaml
 filebeat.inputs:
-  - type: container
+  # Filebeat 9 dropped the container input: read the Docker json logs with filestream and its container parser.
+  - type: filestream
+    id: docker-container-logs
     paths:
       - /var/lib/docker/containers/*/*.log
+    parsers:
+      - container:
+          stream: all
 
 processors:
   - add_docker_metadata:
@@ -3150,7 +3164,7 @@ docker run --rm --add-host kibana-1:127.0.0.1 --add-host kibana-2:127.0.0.1 \
   -v "$PWD/deploy/elk/nginx/kibana.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.30.5-alpine nginx -t 2>&1 | tail -2
 # expect: "syntax is ok" and "test is successful" (the --add-host flags let nginx resolve the upstream names outside the compose network)
 cat deploy/elk/logstash/pipeline/10-input.conf deploy/elk/logstash/pipeline/20-filter.conf deploy/elk/logstash/pipeline/30-output-ha.conf > "$SCRATCH/ha.conf"
-docker run --rm -e LOGSTASH_WRITER_PASSWORD=x -v "$SCRATCH/ha.conf:/c.conf:ro" docker.elastic.co/logstash/logstash:9.5.4 logstash --config.test_and_exit -f /c.conf 2>&1 | grep -E "Configuration OK|ERROR"
+docker run --rm -e LOGSTASH_WRITER_PASSWORD=x -v "$SCRATCH/ha.conf:/c.conf:ro" -v "$PWD/deploy/elk/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro" -v "$PWD/deploy/elk/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro" docker.elastic.co/logstash/logstash:9.5.4 logstash --config.test_and_exit -f /c.conf 2>&1 | grep -E "Configuration OK|invalid|ERROR"
 ```
 
 - [ ] **Step 6: Runtime — HA (pull gate; memory gate: watch `make infra.stats`)**
@@ -3176,18 +3190,18 @@ End-to-end log path (same smoke container as Task 6), then the failure drills:
 
 ```bash
 smoke() { docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
-  sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"$1\",\"service\":\"smoke\",\"trace_id\":\"$2\"}'"; }
+  sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"$1\",\"service\":\"smoke\",\"trace_id\":\"$2\"}'; sleep 20"; }
 hits() { E "logs-curtz-default/_search?q=trace.id:$1" | jq '.hits.total.value'; }
 
-smoke "ha baseline" ha0001; sleep 20; hits ha0001                    # expect: 1
+smoke "ha baseline" ha0001; sleep 5; hits ha0001                    # expect: 1
 
 dc stop es-2; sleep 20                                               # lose one Elasticsearch node
 make infra.es.health MODE=ha | grep -E '"status"|number_of_nodes'    # expect: green or yellow, 2 nodes
-smoke "one es node down" ha0002; sleep 20; hits ha0002               # expect: 1 (writes continue)
+smoke "one es node down" ha0002; sleep 5; hits ha0002               # expect: 1 (writes continue)
 dc start es-2
 
 dc stop logstash-1; sleep 5                                          # lose one Logstash node
-smoke "one logstash down" ha0003; sleep 25; hits ha0003              # expect: 1 (Filebeat fails over to logstash-2)
+smoke "one logstash down" ha0003; sleep 10; hits ha0003              # expect: 1 (Filebeat fails over to logstash-2)
 dc start logstash-1
 
 dc stop kibana-1; sleep 5                                            # lose one Kibana instance
@@ -4017,8 +4031,8 @@ Trace-to-logs end to end: send a log line carrying a trace id (Task 6's `smoke`)
 
 ```bash
 docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
-  sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"grafana link\",\"service\":\"smoke\",\"trace_id\":\"graf0001\"}'"
-sleep 20
+  sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"grafana link\",\"service\":\"smoke\",\"trace_id\":\"graf0001\"}'; sleep 20"
+sleep 5
 curl -s -u admin:curtz-grafana-dev -H 'Content-Type: application/x-ndjson' -X POST "http://localhost:3000/api/datasources/proxy/uid/elasticsearch/logs-curtz-*/_msearch" \
   --data-binary $'{"search_type":"query_then_fetch"}\n{"size":1,"query":{"query_string":{"query":"trace.id:\\"graf0001\\""}}}\n' | jq '.responses[0].hits.total.value'     # expect: 1
 ```
