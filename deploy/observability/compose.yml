@@ -62,10 +62,36 @@ services:
     networks:
       - curtz
 
+  grafana:
+    image: grafana/grafana:13.2.3
+    profiles: [observability, full-ha, full-single]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-curtz-grafana-dev}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-curtz-grafana-reader}
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks:
+      - curtz
+
 volumes:
   tempo-data:
   prometheus-data:
   alertmanager-data:
+  grafana-data:
 
 networks:
   curtz:

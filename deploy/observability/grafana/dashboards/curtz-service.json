@@ -1,0 +1,30 @@
+{
+  "uid": "curtz-service",
+  "title": "Curtz service",
+  "tags": [
+    "curtz"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {"id":1,"type":"stat","title":"Requests per second","gridPos":{"x":0,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
+    {"id":2,"type":"stat","title":"p99 latency","gridPos":{"x":6,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"id":3,"type":"stat","title":"5xx ratio","gridPos":{"x":12,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(http_server_request_duration_seconds_count{service_name=\"curtz\",http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"percentunit","thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"red","value":0.01}]}},"overrides":[]}},
+    {"id":4,"type":"timeseries","title":"Requests per second by route","gridPos":{"x":0,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (http_route) (rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":"{{http_route}}"}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
+    {"id":5,"type":"timeseries","title":"Latency p50 / p95 / p99","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.5, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p50"},{"refId":"B","expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p95"},{"refId":"C","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"id":6,"type":"logs","title":"Application logs (Elasticsearch)","gridPos":{"x":0,"y":12,"w":24,"h":9},"datasource":{"type":"elasticsearch","uid":"elasticsearch"},"targets":[{"refId":"A","query":"service.name:curtz","timeField":"@timestamp","metrics":[{"type":"logs","id":"1","settings":{"limit":"100"}}],"bucketAggs":[]}]},
+    {"id":7,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":21,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"curtz\" }","limit":20}]}
+  ]
+}

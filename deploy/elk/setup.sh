@@ -57,7 +57,9 @@ es -X PUT "$ES/_security/role/logstash_writer" -d '{
   "cluster": ["monitor"],
   "indices": [{"names": ["logs-curtz-*"], "privileges": ["create_doc", "auto_configure", "view_index_metadata"]}]
 }' >/dev/null
+# Grafana's datasource health check calls GET / on the cluster, which needs the cluster "monitor" privilege.
 es -X PUT "$ES/_security/role/grafana_reader" -d '{
+  "cluster": ["monitor"],
   "indices": [{"names": ["logs-curtz-*"], "privileges": ["read", "view_index_metadata"]}]
 }' >/dev/null
 es -X PUT "$ES/_security/role/metrics_reader" -d '{
