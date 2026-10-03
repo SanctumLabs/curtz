@@ -207,3 +207,8 @@ infra.patroni.list: ## Show the Patroni cluster members and roles (Postgres MODE
 .PHONY: infra.es.health
 infra.es.health: ## Show the Elasticsearch cluster health (MODE=ha or single)
 	@$(COMPOSE) --profile '*' exec -T $(ES_SERVICE) sh -c 'curl -s -u elastic:"$$ELASTIC_PASSWORD" "localhost:9200/_cluster/health?pretty"'
+
+
+.PHONY: infra.wait
+infra.wait: ## Wait until a stack is healthy, usage - make infra.wait STACK=kafka MODE=single
+	@$(INFRA) wait $(STACK) $(MODE)

@@ -21,7 +21,7 @@ This is the programming language used to build the application. You will require
 
 ### [Docker](https://www.docker.com/)
 
-The application is packaged & run in a Docker container, although it can be run without Docker, it uses services that can be run in Docker as specified in the [docker-compose.yml file](./docker-compose.yml). If you want to run supporting services such as [MongoDB](https://www.mongodb.com/) & [Redis](https://redis.io/) in docker containers, then you will require docker setup. If not, you can install these services locally on your development machine.
+The application is packaged & run in a Docker container. The services it depends on (Postgres, Redis, Kafka, ELK, Prometheus and Grafana) run locally in Docker too, either as high-availability clusters or as single nodes, as described in [Local infrastructure](./docs/LocalInfrastructure.md). If you prefer, you can install these services directly on your development machine instead.
 
 ## Running the application
 
@@ -43,17 +43,15 @@ cp .env.sample .env
 
 > This will copy over those environment variables. Afterwards, you can set them up accordingly.
 
-Next step is to run the services the application needs to communicate with; The database & the cache.
-
-If you have installed these locally, you can run them in separate terminal sessions. If not, you can use Docker to do so(preferred option).
+Next step is to run the services the application needs to communicate with: Postgres, Redis and Kafka. If you have installed these locally, you can run them in separate terminal sessions. If not, use Docker (preferred); the lightest option is single-node mode:
 
 ```bash
-docker compose up
-# You can optionally attach -d flag to the command like below
-docker compose up -d
+make infra.core.up MODE=single
+# or the high-availability topology
+make infra.core.up
 ```
 
-> This will run the services in docker containers, pulling the images and building the containers for use. Using the `-d` flag runs the services in the background.
+> Nothing starts without a profile, so a bare `docker compose up` does nothing. See [Local infrastructure](./docs/LocalInfrastructure.md) for every stack, mode and debugging tip. Stop the services with `make infra.core.down`.
 
 Depending on which terminal session you are using to run the above steps(if all are in the same terminal session), you can continue to run the application as below:
 

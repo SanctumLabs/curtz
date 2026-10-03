@@ -70,3 +70,7 @@ docker run -p 8085:8085 --name=curtz-api <IMAGE_NAME>:<IMAGE_TAG>
 > The <IMAGE_NAME>:<IMAGE_TAG> are the name and the tag of the image used as specified in [Build](#build) what you used to build
 
 That should be it for deployment. Depending on your infrastructure you should be able to view the logs of the running application.
+
+## Local infrastructure
+
+The supporting services (Postgres, Redis, Kafka, ELK, Prometheus, Grafana) run locally in Docker in either HA or single-node mode. See [Local infrastructure](./LocalInfrastructure.md).
