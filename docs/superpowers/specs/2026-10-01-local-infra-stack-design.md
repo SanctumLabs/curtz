@@ -79,6 +79,9 @@ deploy/
               grafana/{provisioning/,dashboards/*.json}
   legacy/     compose.yml
 .make/docker.mk               # + infra.* targets
+scripts/infra.sh              # profile resolution, up/down/wait, DRY_RUN
+scripts/infra_test.sh         # tests for infra.sh, the env check and the Redis init script (no Docker)
+scripts/infra_env_check.sh    # compose defaults == .env.example; no unsafe characters
 docs/LocalInfrastructure.md
 ```
 
@@ -180,6 +183,9 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
 - **Single:** `redis-single` on 7001; `redis-init-single` runs `CLUSTER ADDSLOTSRANGE 0 16383`.
 - Cluster state lives in a per-node volume (`nodes.conf`); init jobs are idempotent (skip when
   `cluster_state:ok`).
+- Nodes have **fixed IP addresses** (`${CURTZ_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
+  peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `curtz` network
+  therefore has an explicit subnet, with other containers drawn from its upper half (`ip_range`).
 
 ### 6.3 Postgres
 
@@ -225,7 +231,8 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
 
 - **OTel Collector** (contrib): OTLP gRPC/HTTP in; `memory_limiter` + `batch`; traces → Tempo,
   metrics → a Prometheus exporter endpoint (`:8889`). Health extension on `:13133`.
-- **Tempo** (single binary, local storage, 72h retention).
+- **Tempo** (single binary, local storage, 72h retention, set in both places Tempo 3.x keeps it:
+  `backend_scheduler.provider.compaction.compaction.block_retention` and `backend_worker.compaction.block_retention`).
 - **Prometheus:** 7-day retention, rules loaded from `rules/`. Targets use **DNS service discovery**
   (`dns_sd_configs`) on service names, so components that exist only in HA mode (Patroni, etcd,
   HAProxy, `logstash-exporter-2`) and stacks that are not running produce no targets and no false
@@ -324,16 +331,19 @@ is done with the requester's go-ahead.
 | golang-migrate | `migrate/migrate` | `v4.19.1` (matches `go.mod`) |
 | Mongo / legacy Redis | `mongo` / `redis` | `4.4.14` / `7.0.2` (unchanged) |
 
-## 11. Memory estimates (to be replaced by measurements)
+## 11. Memory (measured)
+
+Measured with `make infra.stats` on idle stacks, Docker Desktop on Apple silicon, 7.75 GiB allocated. Estimates in the
+first revision of this spec were ~1.3 / ~3.2 GiB (core), ~2.4 / ~6.5 GiB (elk), ~2 GiB (observability), ~5.7 / ~12 GiB (full).
 
 | Profile | Single | HA |
 |---|---|---|
-| `core` (postgres + redis + kafka) | ~1.3 GiB | ~3.2 GiB |
-| `elk` | ~2.4 GiB | ~6.5 GiB |
-| `observability` | ~2 GiB | ~2 GiB |
-| `full` | **~5.7 GiB** | **~12 GiB** |
+| `core` (postgres + redis + kafka + Kafka UI) | 0.75 GiB | 2.0 GiB |
+| `elk` | 3.0 GiB | 6.2 GiB |
+| `observability` | 0.5 GiB | 0.5 GiB |
+| `full` | **4.2 GiB** (measured, 22 services) | **8.7 GiB** (sum of the measured parts; does not fit 7.75 GiB, needs ≥ 12 GiB) |
 
-Heaps are sized small (512 MB for Kafka/ES/Logstash). HA `full` needs Docker Desktop at ≥ 16 GiB.
+Heaps are sized small (512 MB for Kafka/ES/Logstash).
 
 ## 12. Risks and open items
 
@@ -347,3 +357,23 @@ Heaps are sized small (512 MB for Kafka/ES/Logstash). HA `full` needs Docker Des
 | ES in HA may exhaust the Docker VM's memory | verify alone; if it OOMs, report and lower heaps or document the minimum |
 | Redis 8 is tri-licensed (RSALv2/SSPL/AGPLv3) | fine for local dev; Valkey is a drop-in alternative if licensing matters |
 | `include` needs `.env` to exist | every `infra.*` target depends on `create.envfile`; documented for raw `docker compose` |
+
+## 13. Implementation notes
+
+- `make infra.<stack>.up MODE=...` removes the other mode's containers first (`docker compose rm -sf`, volumes kept) and
+  waits for readiness. One-shot jobs are recognised by name (`*-init-*`, `*-setup-*`, `migrate`) and are ready only once
+  they have exited 0; every other service must be running and healthy (or have no healthcheck). A failed job (other than
+  `migrate`, which restarts until the database is up) fails the wait immediately with its logs. Shared services (Kafka UI,
+  exporters, `migrate`) belong to both modes' profiles, so switching mode recreates them.
+- Every included compose file redeclares the `curtz` network as `name: curtz` with no `external:` flag; the root file owns
+  the driver and subnet. An `external: true` declaration in an included file merges into the root's definition, makes
+  Compose treat the network as pre-existing, and drops the subnet the Redis static IPs need.
+- Prometheus targets use DNS service discovery; etcd is scraped on its metrics port `2381`, Patroni on its REST port `8008`.
+- Alert rules have unit tests (`prometheus/tests/stack_test.yml`, run with `promtool test rules`).
+- `scripts/infra_env_check.sh` enforces that every compose fallback equals `.env.example`, which is what keeps a stale
+  `.env` working.
+- Version-specific settings found by running the stack: Logstash 9 uses `api.http.host`; Filebeat 9 needs the
+  `filestream` input with the `container` parser; Kibana wants a JSON array for a multi-host `ELASTICSEARCH_HOSTS`;
+  Grafana's Elasticsearch health check needs the cluster `monitor` privilege.
+- Measured failover: Patroni promotes within seconds after a graceful stop and about 30 seconds after a crash; HAProxy then
+  needs about 6 seconds of health checks to route `:5432` to the new primary.

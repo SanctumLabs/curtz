@@ -4076,7 +4076,7 @@ If total memory exceeds roughly 7 GiB or a container is OOM-killed, record that 
 
 Then stop everything: `make infra.full.down && echo y | make infra.clean`.
 
-`full-ha` cannot run in the current Docker allocation. Verify it statically only and say so: `docker compose --profile full-ha config --services | wc -l` (42 services) and `make infra.config`.
+`full-ha` cannot run in the current Docker allocation. Verify it statically only and say so: `docker compose --profile full-ha config --services | wc -l` (41 services) and `make infra.config`.
 
 - [ ] **Step 3: Write `docs/LocalInfrastructure.md`**
 
@@ -4262,14 +4262,18 @@ backslashes or `$` (`make infra.config` checks this).
 ## Memory budget
 
 Docker Desktop has a fixed memory allocation (Settings, Resources). If a container dies with exit code 137 it was killed
-for lack of memory. Numbers marked "measured" come from `make infra.stats` on an idle stack; the others are estimates.
+for lack of memory. These figures were measured with `make infra.stats` on idle stacks (Docker Desktop on Apple silicon,
+7.75 GiB allocated); expect more once Elasticsearch holds data. `full-ha` is the sum of the measured parts.
 
 | Profile | Single | HA |
 |---|---|---|
-| `core` (Postgres, Redis, Kafka) | ~1.3 GiB (estimate) | ~3.2 GiB (estimate) |
-| `elk` | ~2.4 GiB (estimate) | ~6.5 GiB (estimate) |
-| `observability` | ~2 GiB (estimate) | ~2 GiB (estimate) |
-| `full` | **~5.7 GiB (estimate)** | **~12 GiB (estimate)**: set Docker to at least 16 GiB |
+| `core` (Postgres, Redis, Kafka, Kafka UI) | 0.75 GiB | 2.0 GiB |
+| `elk` | 3.0 GiB | 6.2 GiB |
+| `observability` | 0.5 GiB | 0.5 GiB |
+| `full` | **4.2 GiB** | **8.7 GiB**: does not fit 7.75 GiB, raise Docker to at least 12 GiB |
+
+`full-single` therefore runs comfortably in the default allocation, and `elk-ha` alone needs most of it. Per-container
+numbers: `make infra.stats`.
 
 Heaps are small on purpose (512 MB for Kafka, Elasticsearch and Logstash); tune them with `KAFKA_HEAP`, `ES_HEAP` and
 `LS_HEAP` in `.env`. On a small allocation run one stack at a time.
