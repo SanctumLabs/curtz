@@ -3230,7 +3230,7 @@ git commit -m "feat(infra): add HA mode for ELK with 3 Elasticsearch nodes and n
   -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 ```
 
-## Task 8: Observability core — OTel Collector, Tempo, Prometheus, Alertmanager, cAdvisor
+## Task 8: Observability core — OTel Collector, Tempo, Prometheus, Alertmanager
 
 **Files:**
 - Replace stub: `deploy/observability/compose.yml`
@@ -3239,7 +3239,7 @@ git commit -m "feat(infra): add HA mode for ELK with 3 Elasticsearch nodes and n
 
 **Interfaces:**
 - Consumes: the exporter service names from Tasks 2–7 (`kafka-exporter:9308`, `redis-exporter:9121`, `postgres-exporter:9187`, `elasticsearch-exporter:9114`, `logstash-exporter-1/2:9198`, `patroni-1..3:8008`, `etcd-1..3:2381`, `haproxy:8404`).
-- Produces: `otel-collector` (OTLP gRPC `4317` / HTTP `4318` on the host; app metrics re-exposed on `:8889`, its own on `:8888`), `tempo` (`3200` on the host), `prometheus` (`9090`), `alertmanager` (`9093`), `cadvisor` (`:8080` in-network); named volumes `tempo-data`, `prometheus-data`, `alertmanager-data`; alert names `PatroniNoLeader`, `RedisClusterNotOk`, `KafkaUnderReplicatedPartitions`, `ElasticsearchClusterRed`, `RedirectLatencyHigh`. Grafana is added in Task 9.
+- Produces: `otel-collector` (OTLP gRPC `4317` / HTTP `4318` on the host; app metrics re-exposed on `:8889`, its own on `:8888`), `tempo` (`3200` on the host), `prometheus` (`9090`), `alertmanager` (`9093`); named volumes `tempo-data`, `prometheus-data`, `alertmanager-data`; alert names `PatroniNoLeader`, `RedisClusterNotOk`, `KafkaUnderReplicatedPartitions`, `ElasticsearchClusterRed`, `RedirectLatencyHigh`. Grafana is added in Task 9.
 
 - [ ] **Step 1: Write the failing alert-rule tests first**
 
@@ -3451,13 +3451,6 @@ scrape_configs:
         port: 9093
     relabel_configs: *by_dns_name
 
-  - job_name: cadvisor
-    dns_sd_configs:
-      - names: [cadvisor]
-        type: A
-        port: 8080
-    relabel_configs: *by_dns_name
-
   - job_name: kafka
     dns_sd_configs:
       - names: [kafka-exporter]
@@ -3608,7 +3601,14 @@ storage:
     local:
       path: /var/tempo/blocks
 
-# Tempo 3.x keeps block retention under the backend worker.
+# Tempo 3.x keeps block retention in two places: the scheduler's provider decides what to delete and the worker
+# compacts. Set both so the 72h limit does not depend on which one applies.
+backend_scheduler:
+  provider:
+    compaction:
+      compaction:
+        block_retention: 72h
+
 backend_worker:
   compaction:
     block_retention: 72h
@@ -3684,20 +3684,6 @@ services:
     networks:
       - curtz
 
-  # Container CPU and memory. Best effort on Docker Desktop for Mac (see the verification step).
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.55.1
-    profiles: [observability, full-ha, full-single]
-    restart: unless-stopped
-    command: ["--docker_only=true", "--housekeeping_interval=15s", "--store_container_labels=false"]
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    networks:
-      - curtz
-
 volumes:
   tempo-data:
   prometheus-data:
@@ -3712,7 +3698,7 @@ networks:
 
 ```bash
 make infra.config
-docker compose --profile observability config --services | sort      # alertmanager cadvisor otel-collector prometheus tempo
+docker compose --profile observability config --services | sort      # alertmanager otel-collector prometheus tempo
 docker run --rm -v "$PWD/deploy/observability/otel-collector.yml:/c.yaml:ro" otel/opentelemetry-collector-contrib:0.161.0 validate --config=/c.yaml && echo "collector config valid"
 docker run --rm --entrypoint promtool -v "$PWD/deploy/observability/prometheus:/etc/prometheus:ro" prom/prometheus:v3.15.0 check config /etc/prometheus/prometheus.yml
 docker run --rm --entrypoint promtool -v "$PWD/deploy/observability/prometheus:/p:ro" prom/prometheus:v3.15.0 test rules /p/tests/stack_test.yml
@@ -3743,7 +3729,7 @@ Scrape targets exist only for what is running (the design point of DNS discovery
 ```bash
 sleep 30
 curl -s http://localhost:9090/api/v1/targets | jq -r '.data.activeTargets[] | "\(.labels.job) \(.health)"' | sort
-# expect: alertmanager up, cadvisor up, otel-collector up, otel-collector-internal up, prometheus up, tempo up. No kafka/redis/postgres/... jobs.
+# expect: alertmanager up, otel-collector up, otel-collector-internal up, prometheus up, tempo up. No kafka/redis/postgres/... jobs.
 curl -s http://localhost:9090/api/v1/targets | jq '[.data.activeTargets[] | select(.health != "up")] | length'     # expect: 0
 ```
 
@@ -3760,13 +3746,7 @@ curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=gen{ser
 
 If the telemetrygen tag does not exist, use the newest tag listed at `https://github.com/open-telemetry/opentelemetry-collector-contrib/pkgs/container/opentelemetry-collector-contrib%2Ftelemetrygen`.
 
-cAdvisor (best effort):
-
-```bash
-curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=container_memory_working_set_bytes{name=~"curtz-.*"}' | jq '.data.result | length'   # expect: >= 5
-```
-
-If this is `0`, try `privileged: true` on `cadvisor`. If it is still `0`, remove the `cadvisor` service, its Prometheus job, and the "Container memory" panel (Task 9), and say so in the docs: `make infra.stats` remains the supported way to see memory.
+Container memory: cAdvisor was tried and removed. On Docker Desktop it cannot register the Docker or containerd factories (it reports "unable to create containerd client", with the Docker socket mounted and with `privileged: true`), so it exports no per-container series. `make infra.stats` is the supported way to see per-container memory and CPU, and the stack overview dashboard has no container-memory panel.
 
 Discovery follows the stacks (start Kafka alongside; stop it and the target disappears without a "down"):
 
@@ -3902,8 +3882,7 @@ providers:
     {"id":8,"type":"timeseries","title":"Kafka messages per second by topic","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (topic) (rate(kafka_topic_partition_current_offset[5m]))","legendFormat":"{{topic}}"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
     {"id":9,"type":"timeseries","title":"Redis memory used","gridPos":{"x":0,"y":12,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (instance) (redis_memory_used_bytes)","legendFormat":"{{instance}}"}],"fieldConfig":{"defaults":{"unit":"bytes"},"overrides":[]}},
     {"id":10,"type":"timeseries","title":"Postgres connections","gridPos":{"x":12,"y":12,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (datname) (pg_stat_database_numbackends)","legendFormat":"{{datname}}"}],"fieldConfig":{"defaults":{},"overrides":[]}},
-    {"id":11,"type":"timeseries","title":"Elasticsearch JVM heap used","gridPos":{"x":0,"y":20,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max by (name) (elasticsearch_jvm_memory_used_bytes{area=\"heap\"})","legendFormat":"{{name}}"}],"fieldConfig":{"defaults":{"unit":"bytes"},"overrides":[]}},
-    {"id":12,"type":"timeseries","title":"Container memory (compose project)","gridPos":{"x":12,"y":20,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"topk(15, container_memory_working_set_bytes{name=~\"curtz-.*\"})","legendFormat":"{{name}}"}],"fieldConfig":{"defaults":{"unit":"bytes"},"overrides":[]}}
+    {"id":11,"type":"timeseries","title":"Elasticsearch JVM heap used","gridPos":{"x":0,"y":20,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max by (name) (elasticsearch_jvm_memory_used_bytes{area=\"heap\"})","legendFormat":"{{name}}"}],"fieldConfig":{"defaults":{"unit":"bytes"},"overrides":[]}}
   ]
 }
 ```
