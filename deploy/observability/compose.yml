@@ -1,5 +1,71 @@
-# Stub: replaced by the stack's task in the implementation plan.
-services: {}
+# Observability: the OTel Collector receives OTLP from the app and fans out (traces -> Tempo, metrics -> a Prometheus
+# endpoint). Prometheus scrapes the Collector and every exporter; Alertmanager receives alerts; Grafana (added in the
+# next task) reads Prometheus, Tempo and Elasticsearch. Logs go to ELK, not through the Collector.
+# Single instance in every mode: production HA for these (Thanos/Mimir, replicated Grafana) is not emulated.
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    profiles: [observability, full-ha, full-single]
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - curtz
+
+  tempo:
+    image: grafana/tempo:3.1.0
+    profiles: [observability, full-ha, full-single]
+    restart: unless-stopped
+    command: ["-target=all", "-config.file=/etc/tempo.yaml"]
+    ports:
+      - "127.0.0.1:3200:3200"
+    volumes:
+      - ./tempo.yml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    networks:
+      - curtz
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    profiles: [observability, full-ha, full-single]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    networks:
+      - curtz
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    profiles: [observability, full-ha, full-single]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks:
+      - curtz
+
+volumes:
+  tempo-data:
+  prometheus-data:
+  alertmanager-data:
 
 networks:
   curtz:

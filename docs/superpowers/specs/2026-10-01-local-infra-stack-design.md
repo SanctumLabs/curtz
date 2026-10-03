@@ -100,7 +100,7 @@ One profile per stack **per mode**, plus aggregates. A service lists every profi
 | `redis-ha` / `redis-single` | Redis nodes, cluster init, Redis exporter |
 | `postgres-ha` / `postgres-single` | Postgres (Patroni+etcd+HAProxy, or one node), migrate job, Postgres exporter |
 | `elk-ha` / `elk-single` | Elasticsearch, Logstash, Kibana, Filebeat, setup job, exporters |
-| `observability` | OTel Collector, Prometheus, Alertmanager, Grafana, Tempo, cAdvisor |
+| `observability` | OTel Collector, Prometheus, Alertmanager, Grafana, Tempo |
 | `legacy` | Mongo + the old standalone Redis, unchanged |
 | `core-ha` / `core-single` | `postgres` + `redis` + `kafka` in that mode (all the app needs) |
 | `full-ha` / `full-single` | `core` + `elk` + `observability` in that mode (never `legacy`) |
@@ -233,8 +233,8 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
   `up == 0`; rules for stack health therefore use the exporters' own signals.
 - **Exporters** (each carries its stack's profiles so it starts with the stack): Kafka (consumer lag,
   under-replicated partitions), Redis (cluster mode), Postgres, Elasticsearch, Logstash; Patroni, etcd,
-  HAProxy, Collector, Tempo and Grafana expose native `/metrics`. cAdvisor for container CPU/memory —
-  best-effort on Docker Desktop for Mac, verified before it is documented as supported.
+  HAProxy, Collector, Tempo and Grafana expose native `/metrics`. Per-container CPU and memory come from
+  `make infra.stats`; cAdvisor was tried and dropped because it cannot see containers on Docker Desktop.
 - **Alertmanager** with a small rule set — Patroni has nodes but no leader, Redis `cluster_state` not ok,
   Kafka under-replicated partitions, ES cluster red, p99 redirect latency high (inert until the app
   emits it) — and a stub receiver; the docs show how to add Slack/email.
@@ -321,7 +321,6 @@ is done with the requester's go-ahead.
 | kafka_exporter | `danielqsj/kafka-exporter` | `v1.10.0` |
 | logstash_exporter | `kuskoman/logstash-exporter` | `v1.9.1` |
 | elasticsearch_exporter | `quay.io/prometheuscommunity/elasticsearch-exporter` | `v1.11.0` |
-| cAdvisor | `gcr.io/cadvisor/cadvisor` | `v0.55.1` |
 | golang-migrate | `migrate/migrate` | `v4.19.1` (matches `go.mod`) |
 | Mongo / legacy Redis | `mongo` / `redis` | `4.4.14` / `7.0.2` (unchanged) |
 
@@ -343,7 +342,7 @@ Heaps are sized small (512 MB for Kafka/ES/Logstash). HA `full` needs Docker Des
 | `redis-cli --cluster create` may require IPs rather than hostnames | resolve with `getent` in the init script; verify first thing |
 | Patroni image build size/time; `pg_rewind` and bootstrap ordering | build once, cached; the drill in §9 is the acceptance test |
 | Tempo 3.x config format differs from older docs | start from Tempo's current example; validate by running it |
-| cAdvisor is unreliable on Docker Desktop for Mac | verify; drop from the stack and document if it does not work |
+| cAdvisor is unreliable on Docker Desktop for Mac | **happened**: it cannot see containers there (no Docker or containerd factory), so it was dropped; `make infra.stats` covers per-container memory |
 | Filebeat reading `/var/lib/docker/containers` on Docker Desktop | verify early; fall back to the `docker` log driver input if needed |
 | ES in HA may exhaust the Docker VM's memory | verify alone; if it OOMs, report and lower heaps or document the minimum |
 | Redis 8 is tri-licensed (RSALv2/SSPL/AGPLv3) | fine for local dev; Valkey is a drop-in alternative if licensing matters |

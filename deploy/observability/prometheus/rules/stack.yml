@@ -1,0 +1,44 @@
+groups:
+  - name: curtz-stack
+    rules:
+      # "no leader" is only meaningful when Patroni members exist, so single mode (no Patroni) never alerts.
+      - alert: PatroniNoLeader
+        expr: sum(patroni_primary) == 0 and count(patroni_postgres_running) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Patroni has members but no leader
+
+      - alert: RedisClusterNotOk
+        expr: redis_cluster_state == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Redis cluster state is not ok
+
+      - alert: KafkaUnderReplicatedPartitions
+        expr: sum(kafka_topic_partition_under_replicated_partition) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Kafka has under-replicated partitions
+
+      - alert: ElasticsearchClusterRed
+        expr: elasticsearch_cluster_health_status{color="red"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Elasticsearch cluster status is red
+
+      # Inert until the application exports OpenTelemetry HTTP metrics (a later slice).
+      - alert: RedirectLatencyHigh
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="curtz"}[5m]))) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: p99 request latency is above 100ms
