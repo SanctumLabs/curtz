@@ -2267,7 +2267,9 @@ es -X PUT "$ES/_security/role/logstash_writer" -d '{
   "cluster": ["monitor"],
   "indices": [{"names": ["logs-curtz-*"], "privileges": ["create_doc", "auto_configure", "view_index_metadata"]}]
 }' >/dev/null
+# Grafana's datasource health check calls GET / on the cluster, which needs the cluster "monitor" privilege.
 es -X PUT "$ES/_security/role/grafana_reader" -d '{
+  "cluster": ["monitor"],
   "indices": [{"names": ["logs-curtz-*"], "privileges": ["read", "view_index_metadata"]}]
 }' >/dev/null
 es -X PUT "$ES/_security/role/metrics_reader" -d '{
@@ -4012,8 +4014,8 @@ Trace-to-logs end to end: send a log line carrying a trace id (Task 6's `smoke`)
 docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
   sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"grafana link\",\"service\":\"smoke\",\"trace_id\":\"graf0001\"}'; sleep 20"
 sleep 5
-curl -s -u admin:curtz-grafana-dev -H 'Content-Type: application/x-ndjson' -X POST "http://localhost:3000/api/datasources/proxy/uid/elasticsearch/logs-curtz-*/_msearch" \
-  --data-binary $'{"search_type":"query_then_fetch"}\n{"size":1,"query":{"query_string":{"query":"trace.id:\\"graf0001\\""}}}\n' | jq '.responses[0].hits.total.value'     # expect: 1
+curl -s -u admin:curtz-grafana-dev -H 'Content-Type: application/x-ndjson' -X POST "http://localhost:3000/api/datasources/proxy/uid/elasticsearch/_msearch" \
+  --data-binary $'{"index":"logs-curtz-*","search_type":"query_then_fetch"}\n{"size":1,"query":{"query_string":{"query":"trace.id:\\"graf0001\\""}}}\n' | jq '.responses[0].hits.total.value'     # expect: 1
 ```
 
 Re-run idempotency and restart persistence: `make infra.observability.up` again is a no-op; after `make infra.observability.down && make infra.observability.up` the two dashboards are still provisioned.
