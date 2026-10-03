@@ -71,7 +71,7 @@ docker-compose.yml            # entry point: name, network, include: of every st
 deploy/
   kafka/      compose.yml  create-topics.sh
   redis/      compose.yml  redis.conf  init-cluster.sh
-  postgres/   compose.yml  Dockerfile  patroni.yml  haproxy.cfg  entrypoint.sh  roles.sql
+  postgres/   compose.yml  Dockerfile  patroni.yml  haproxy.cfg  entrypoint.sh  roles.sh
   elk/        compose.yml  setup.sh  logstash/{logstash.yml,pipelines.yml,pipeline/*.conf}
               filebeat/{filebeat-ha.yml,filebeat-single.yml}  nginx/kibana.conf
   observability/ compose.yml  otel-collector.yml  tempo.yml
@@ -214,10 +214,11 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
   `logs-curtz-default` with an ILM policy (roll over daily, delete after 7 days). One log store; no Loki.
 - **Logstash pipeline:** parse a JSON `message` when present (the app's format), otherwise keep the raw
   line; map to `service.name`, `trace.id`, `span.id`, `log.level`; persistent queue and dead-letter queue.
-- **`elk-setup-*`** (one-shot, idempotent): HA generates a CA and node certs with `elasticsearch-certutil`
-  into a shared volume; both modes then set `kibana_system`'s password and create `logstash_writer`
-  (write to `logs-curtz-*` only), `grafana_reader` and `metrics_reader` (read-only), and install the ILM
-  policy and index template.
+- **One-shot setup jobs** (idempotent): in HA, `elk-setup-certs-ha` generates a CA and node certs with
+  `elasticsearch-certutil` into a shared volume and exits (the Elasticsearch nodes wait for it to complete). In both modes
+  `elk-setup-{ha,single}` then waits for Elasticsearch (with a deadline), sets `kibana_system`'s password, creates
+  `logstash_writer` (write to `logs-curtz-*` only), `grafana_reader` and `metrics_reader` (read-only, plus cluster
+  `monitor` for Grafana's health check) and installs the ILM policy and index template.
 - **HA:** `es-1..3` (all master+data, quorum of 3, heap 512 MB, `bootstrap.memory_lock=false`;
   `es-1/2/3` published on 9200/9201/9202), `logstash-1..2` (Filebeat load-balances across both),
   `kibana-1..2` behind `kibana-lb` (nginx, round-robin, published on 5601) sharing the same encryption keys.
@@ -264,7 +265,8 @@ that is called out in the docs and left as is by request.
 |---|---|
 | `infra.{kafka,redis,postgres,elk,observability,legacy,core,full}.up` | start a stack (`MODE=ha\|single`); stops the other mode of that stack first |
 | `infra.{…}.down` | stop (volumes kept) |
-| `infra.clean` | `down -v` for everything, behind the existing `confirm` prompt |
+| `infra.clean` | `down -v` for every stack except `legacy`, behind the existing `confirm` prompt |
+| `infra.clean.legacy` | `down -v` for the legacy MongoDB and Redis only (their data predates this slice), behind `confirm` |
 | `infra.ps` · `infra.logs SERVICE=x` · `infra.stats` | status, logs, live memory/CPU |
 | `infra.config` | render-validate every profile combination (`docker compose config`) |
 | `infra.hosts` | print the `/etc/hosts` line for host-run apps against Redis HA |
@@ -377,3 +379,10 @@ Heaps are sized small (512 MB for Kafka/ES/Logstash).
   Grafana's Elasticsearch health check needs the cluster `monitor` privilege.
 - Measured failover: Patroni promotes within seconds after a graceful stop and about 30 seconds after a crash; HAProxy then
   needs about 6 seconds of health checks to route `:5432` to the new primary.
+- Post-review changes: (1) the one setup job that turned healthy and then exited was split into `elk-setup-certs-ha` (nodes
+  depend on its completion) and `elk-setup-ha` (depends on `es-1` being healthy): re-running `up` on a running HA stack
+  failed 2 times in 5 with "dependency failed to start: container ... exited (0)" and now passes 10 of 10; (2) the
+  setup job's wait for Elasticsearch has a 240s deadline, because Compose waits for a job with no timeout of its own;
+  (3) the unsafe-character check became an allowlist (`A-Za-z0-9._-`), covers the Redis application user and password,
+  and runs on the developer's `.env` as well, at the start of every `infra.sh up`; (4) every Docker-touching `infra.*`
+  target now depends on `create.envfile`, as §4 requires; (5) `infra.clean` no longer deletes the legacy volumes.

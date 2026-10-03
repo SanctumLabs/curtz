@@ -4481,3 +4481,20 @@ git commit -m "docs(infra): document the local infrastructure stack and add infr
 ```
 
 Report to the user: what was verified at runtime (list each stack and mode), what was verified statically only (`full-ha`, any HA stack that could not run in the Docker allocation), measured memory, and every deviation from the spec found during implementation.
+
+---
+
+## Post-review changes (after the final whole-branch review)
+
+The code blocks above are the plan as written; where the repository differs, the repository wins. The final review led
+to these changes, each made test-first:
+
+- `scripts/infra_env_check.sh`: allowlist `A-Za-z0-9._-` instead of a forbidden-character list; checks `.env` (override
+  with `ENV_FILE`) and the Redis user/password; `scripts/infra.sh up` runs it first and refuses to start on a bad value.
+- `deploy/elk/setup.sh` and `deploy/elk/compose.yml`: new mode `ELK_MODE=certs` run by `elk-setup-certs-ha`; `elk-setup-ha`
+  provisions only and waits for `es-1`; the Elasticsearch nodes depend on `elk-setup-certs-ha` with
+  `service_completed_successfully`; the provisioning wait has a deadline (`ES_WAIT_TIMEOUT`, default 240s).
+- `.make/docker.mk`: every Docker-touching `infra.*` target depends on `create.envfile`; `infra.clean` skips the `legacy`
+  profile and drops `--remove-orphans`; new `infra.clean.legacy`.
+- `docs/LocalInfrastructure.md`: `.env` rules, first-start-only passwords, the clean targets, and the verified platform.
+- Tests added to `scripts/infra_test.sh` for each of the above.

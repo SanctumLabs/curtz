@@ -14,6 +14,8 @@ Nothing starts without a profile: a bare `docker compose up` does nothing. Use t
 - Docker with Compose v2.20 or newer (`docker compose version`) and `make`.
 - Docker Desktop memory (Settings, Resources): see the [memory budget](#memory-budget). HA stacks need much more than single mode.
 - Linux hosts running ELK: `sudo sysctl -w vm.max_map_count=262144` (Docker Desktop already sets it).
+- Verified on Docker Desktop for Mac (Apple silicon). Linux, rootless Docker, SELinux labels and non-default log drivers have not
+  been exercised; Filebeat in particular reads `/var/lib/docker/containers` and assumes the default `json-file` log driver.
 - Every `make infra.*` target creates `.env` from `.env.example` when it is missing. Raw `docker compose` commands need
   `.env` to exist, so run `make create.envfile` first.
 
@@ -27,7 +29,7 @@ make infra.elk.up MODE=single       # Elasticsearch, Logstash, Kibana, Filebeat
 make infra.full.up MODE=single      # every stack except legacy
 make infra.ps                       # what is running and whether it is healthy
 make infra.core.down                # stop (data is kept)
-make infra.clean                    # remove every container AND volume (asks for confirmation)
+make infra.clean                    # remove every container AND volume except the legacy MongoDB and Redis (asks first)
 ```
 
 `up` waits until every service is healthy and every one-shot job (topic creation, cluster formation, migrations,
@@ -61,7 +63,8 @@ Elasticsearch setup) has finished, or fails after five minutes and prints what i
 | `make infra.ps` / `infra.stats` | status and health / live memory and CPU |
 | `make infra.logs SERVICE=kafka-1` | follow logs (omit `SERVICE` for everything) |
 | `make infra.config` | check that every profile renders and the env defaults agree |
-| `make infra.clean` | remove all containers and volumes |
+| `make infra.clean` | remove all containers and volumes except the legacy MongoDB and Redis data |
+| `make infra.clean.legacy` | remove the legacy MongoDB and Redis containers and their volumes (their data is lost) |
 | `make infra.hosts` | print the `/etc/hosts` line needed for Redis HA from an app on your host |
 | `make infra.migrate` | re-run the database migrations |
 | `make infra.psql` | `psql` as the application user on the primary |
@@ -156,7 +159,14 @@ build tag. They are unchanged apart from binding to `127.0.0.1`.
 
 ## Credentials and ports
 
-All credentials are development defaults from `.env.example`. Override any of them in `.env`.
+All credentials are development defaults from `.env.example`. You can override them in `.env`, with two rules:
+
+- Values may only contain letters, digits, `.`, `_` and `-`. They end up in shell scripts, SQL, JSON bodies and connection
+  URLs, where anything else (`$`, `#`, `@`, `/`, `:`, `%`, quotes, spaces) silently changes the meaning. `make infra.<stack>.up`
+  and `make infra.config` refuse to continue when a value breaks this.
+- Passwords are applied when a volume is first created (Postgres roles, the Elasticsearch `elastic` user, Grafana's admin).
+  Changing one later does not change the stored password, and the stack then fails to authenticate. Run `make infra.clean`
+  (all data is lost) or change the password inside the service as well.
 
 | Service | Address | Login |
 |---|---|---|
@@ -171,8 +181,7 @@ All credentials are development defaults from `.env.example`. Override any of th
 | OTLP | `4317` gRPC, `4318` HTTP | none |
 | Legacy MongoDB / Redis | `27017` / `6379` | `curtzUser` / `curtzPassword` / none |
 
-Every published port is bound to `127.0.0.1`. Do not reuse these values anywhere else; passwords must not contain quotes,
-backslashes or `$` (`make infra.config` checks this).
+Every published port is bound to `127.0.0.1`. Do not reuse these values anywhere else.
 
 ## Memory budget
 
@@ -218,6 +227,8 @@ First look: `make infra.ps` (health), `make infra.logs SERVICE=<name>`, `make in
 | Kafka client from the host cannot connect | use the `localhost:19092,...` addresses; inside the network use `kafka-1:9092` |
 | Kafka produce fails with `NOT_ENOUGH_REPLICAS` | HA needs 2 of 3 brokers for `acks=all`; start the stopped broker |
 | Redis `lookup redis-2: no such host` | app on the host without the hosts entry: `make infra.hosts` |
+| `make infra.<stack>.up` stops with "may only contain letters, digits..." | a value in `.env` has a character outside `A-Za-z0-9._-`; fix it there |
+| Authentication fails after changing a password in `.env` | passwords are fixed when a volume is first created: `make infra.clean` (data is lost) or change it in the service too |
 | Redis `CLUSTERDOWN` | wait ~10 seconds after a failure; check `cluster info`; if volumes were partly wiped, `make infra.clean` and start again |
 | Redis `CROSSSLOT` | a multi-key command spans slots; use hash tags (`{user42}:a`). This is the same in production |
 | Postgres connection refused right after start (HA) | no primary elected yet: `make infra.patroni.list`, wait for a Leader |
