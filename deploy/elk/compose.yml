@@ -1,6 +1,7 @@
 # Elastic stack for logs (Filebeat -> Logstash -> Elasticsearch data stream logs-curtz-default -> Kibana).
 #   HA      es-1..3 (3 master+data nodes), logstash-1..2, kibana-1..2 behind nginx (kibana-lb), filebeat-ha.
-#           elk-setup-ha creates the CA and node certificates (transport TLS is required by multi-node clusters).
+#           elk-setup-certs-ha creates the CA and node certificates (transport TLS is required by multi-node clusters);
+#           elk-setup-ha provisions users, roles, ILM and the index template.
 #   single  es-single (alias es-1), logstash-single (alias logstash-1), kibana-single, filebeat-single.
 # Security is on in both modes. HTTP TLS is off locally.
 x-es-image: &es-image docker.elastic.co/elasticsearch/elasticsearch:9.5.4
@@ -26,7 +27,7 @@ x-es-common: &es-common
   image: *es-image
   restart: unless-stopped
   depends_on:
-    elk-setup-ha: {condition: service_healthy}
+    elk-setup-certs-ha: {condition: service_completed_successfully}
   ulimits:
     memlock: {soft: -1, hard: -1}
     nofile: {soft: 65536, hard: 65536}
@@ -81,25 +82,36 @@ x-logstash-common: &logstash-common
 
 services:
   # ---- HA ------------------------------------------------------------------------------------------------------
+  # Creates the CA and node certificates (idempotent) and exits. The Elasticsearch nodes wait for it to complete.
+  elk-setup-certs-ha:
+    image: *es-image
+    user: "0"
+    profiles: [elk-ha, full-ha]
+    restart: "no"
+    environment:
+      ELK_MODE: certs
+    entrypoint: ["/bin/bash", "/setup.sh"]
+    volumes:
+      - es-certs:/usr/share/elasticsearch/config/certs
+      - ./setup.sh:/setup.sh:ro
+    networks:
+      - curtz
+
+  # Provisions users, roles, the ILM policy and the index template once the cluster is up (idempotent), then exits.
   elk-setup-ha:
     image: *es-image
     user: "0"
     profiles: [elk-ha, full-ha]
     restart: "no"
+    depends_on:
+      es-1: {condition: service_healthy}
     environment:
       <<: *setup-env
       ELK_MODE: ha
       ES_URL: http://es-1:9200
     entrypoint: ["/bin/bash", "/setup.sh"]
     volumes:
-      - es-certs:/usr/share/elasticsearch/config/certs
       - ./setup.sh:/setup.sh:ro
-    # Healthy as soon as the certificates exist, so the nodes can start; the container then goes on to provision.
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /usr/share/elasticsearch/config/certs/.ready"]
-      interval: 2s
-      timeout: 2s
-      retries: 90
     networks:
       - curtz
 

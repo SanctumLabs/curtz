@@ -1,14 +1,13 @@
 #!/bin/bash
 # Elastic setup job. Idempotent: safe to run on every `up`.
-#   ELK_MODE=ha   first generates a CA and the node certificates into the shared certs volume
-#   both modes    then wait for Elasticsearch and provision users, roles, the ILM policy and the index template
-# Env: ELK_MODE (ha|single), ES_URL, ELASTIC_PASSWORD, KIBANA_SYSTEM_PASSWORD, LOGSTASH_WRITER_PASSWORD,
-#      GRAFANA_READER_PASSWORD, METRICS_READER_PASSWORD
+#   ELK_MODE=certs   generates the CA and the node certificates into the shared certs volume, then exits (HA only; the
+#                    Elasticsearch nodes wait for this job to complete)
+#   ELK_MODE=ha|single   waits for Elasticsearch, then provisions users, roles, the ILM policy and the index template
+# Env: ELK_MODE, ES_URL, ES_WAIT_TIMEOUT (seconds, default 240), ELASTIC_PASSWORD, KIBANA_SYSTEM_PASSWORD,
+#      LOGSTASH_WRITER_PASSWORD, GRAFANA_READER_PASSWORD, METRICS_READER_PASSWORD
 set -euo pipefail
 
-ES="${ES_URL:?}"
-
-if [ "${ELK_MODE:?}" = ha ]; then
+if [ "${ELK_MODE:?}" = certs ]; then
   CERTS=/usr/share/elasticsearch/config/certs
   if [ ! -f "$CERTS/ca/ca.crt" ]; then
     echo "generating the certificate authority"
@@ -38,12 +37,22 @@ YAML
   find "$CERTS" -type d -exec chmod 755 {} +
   find "$CERTS" -type f -exec chmod 644 {} +
   touch "$CERTS/.ready"
+  echo "certificates ready"
+  exit 0
 fi
 
+ES="${ES_URL:?}"
 es() { curl -sS --fail-with-body -u "elastic:${ELASTIC_PASSWORD}" -H 'Content-Type: application/json' "$@"; }
 
+# Without a deadline a stack that never comes up (Docker out of memory, a changed ELASTIC_PASSWORD) would block
+# `docker compose up` forever, because Compose waits for this job with no timeout of its own.
+deadline=$(($(date +%s) + ${ES_WAIT_TIMEOUT:-240}))
 echo "waiting for Elasticsearch at $ES"
 until [ "$(curl -s -o /dev/null -w '%{http_code}' -u "elastic:${ELASTIC_PASSWORD}" "$ES/_cluster/health?wait_for_status=yellow&timeout=5s")" = 200 ]; do
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    echo "Elasticsearch did not become ready within ${ES_WAIT_TIMEOUT:-240}s: check its logs (out of memory? ELASTIC_PASSWORD changed after the first start?)" >&2
+    exit 1
+  fi
   sleep 3
 done
 

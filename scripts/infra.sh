@@ -95,6 +95,11 @@ wait_ready() {
   done
 }
 
+# The values in .env end up in shell scripts, SQL, JSON and connection URLs: refuse to start when one would break them.
+if [ "$action" = up ]; then
+  "$(dirname "$0")/infra_env_check.sh" >&2 || { echo "fix the values above in .env (see docs/LocalInfrastructure.md), then run again" >&2; exit 1; }
+fi
+
 case "$action" in
   up)
     [ -z "$other_profile" ] || run "${compose[@]}" --profile "$other_profile" rm -sf

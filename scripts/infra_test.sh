@@ -170,6 +170,72 @@ expect_calls "redis init (single): assigns every slot to the one node" "-h redis
 redis_init single 1 >/dev/null 2>&1
 expect_calls "redis init (single): does nothing when the slots are already assigned" ""
 
+# --- the developer's own .env is checked too, against an allowlist ----------------------------------------------------
+cat >"$tmp/example2.env" <<'EOF'
+REDIS_USERNAME=curtz-svc
+REDIS_PASSWORD=curtz-svc
+LOG_FORMAT="json"
+
+# --- Local infrastructure
+PG_APP_PASSWORD=safe
+EOF
+env_check_with() { # contents of the developer's .env
+  printf '%s\n' "$1" >"$tmp/dev.env"
+  ENV_EXAMPLE="$tmp/example2.env" ENV_FILE="$tmp/dev.env" COMPOSE_FILES=/dev/null scripts/infra_env_check.sh
+}
+for bad in 'pa$word' 'p#ss' 'x@y' 'p ss' 'a/b' 'a:b' 'a%41b' 'a?b' 'a"b'; do
+  expect_exit "env check rejects '$bad' in .env" 1 env_check_with "PG_APP_PASSWORD=$bad"
+done
+expect_exit "env check accepts a safe .env value" 0 env_check_with "PG_APP_PASSWORD=Pa55.w_rd-1"
+expect_exit "env check ignores keys outside the infrastructure section (quotes in LOG_FORMAT are fine)" 0 env_check_with 'LOG_FORMAT="json"'
+expect_exit "env check covers the Redis application password" 1 env_check_with "REDIS_PASSWORD=a\$b"
+expect_exit "env check accepts a missing .env" 0 \
+  env ENV_EXAMPLE="$tmp/example2.env" ENV_FILE="$tmp/does-not-exist" COMPOSE_FILES=/dev/null scripts/infra_env_check.sh
+printf '# --- Local infrastructure\nPG_APP_PASSWORD=a@b\n' >"$tmp/unsafe-at.env"
+expect_exit "env check also applies the allowlist to .env.example" 1 \
+  env ENV_EXAMPLE="$tmp/unsafe-at.env" ENV_FILE=/dev/null COMPOSE_FILES=/dev/null scripts/infra_env_check.sh
+printf 'PG_APP_PASSWORD=pa$word\n' >"$tmp/bad.env"
+expect_exit "infra.sh up refuses to start with an unsafe .env" 1 env ENV_FILE="$tmp/bad.env" scripts/infra.sh up kafka single
+
+# --- deploy/elk/setup.sh gives up instead of waiting forever for Elasticsearch ------------------------------------
+cat >"$tmp/bin/curl" <<'STUB'
+#!/usr/bin/env bash
+echo 000
+STUB
+chmod +x "$tmp/bin/curl"
+setup_without_es() { # the alarm turns a hang into a failure instead of blocking the test run
+  perl -e 'alarm 15; exec @ARGV' env PATH="$tmp/bin:$PATH" ELK_MODE=single ES_URL=http://es-1:9200 ELASTIC_PASSWORD=x ES_WAIT_TIMEOUT=1 \
+    bash deploy/elk/setup.sh
+}
+expect_exit "elk setup: exits 1 when Elasticsearch never becomes ready" 1 setup_without_es
+out="$(setup_without_es 2>&1)"
+case "$out" in *"did not become ready"*) pass "elk setup: says why it gave up" ;; *) fail "elk setup: says why it gave up ($out)" ;; esac
+
+# --- Make targets (make -n prints the plan without running it) -------------------------------------------------------
+infra_targets="$(make help 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | awk '{print $1}' | grep '^infra\.')"
+missing_env=""
+for t in $infra_targets; do
+  plan="$(make -n "$t" STACK=kafka 2>/dev/null)"
+  case "$plan" in
+    *"docker compose"* | *"scripts/infra.sh"* | *"docker stats"*)
+      case "$plan" in *"cp .env.example .env"*) ;; *) missing_env="$missing_env $t" ;; esac
+      ;;
+  esac
+done
+if [ -z "$missing_env" ]; then pass "every infra target that talks to Docker creates .env first"; else fail "targets without the .env prerequisite:$missing_env"; fi
+
+clean_plan="$(make -n infra.clean 2>/dev/null)"
+case "$clean_plan" in
+  *"--profile legacy"* | *"--profile '*'"* | *"remove-orphans"*) fail "infra.clean must leave the legacy MongoDB and Redis data alone" ;;
+  *) pass "infra.clean leaves the legacy MongoDB and Redis data alone" ;;
+esac
+case "$clean_plan" in *"down -v"*) pass "infra.clean still removes the volumes of the other stacks" ;; *) fail "infra.clean still removes the volumes of the other stacks" ;; esac
+legacy_plan="$(make -n infra.clean.legacy 2>/dev/null)"
+case "$legacy_plan" in
+  *"--profile legacy"*"down -v"*) pass "infra.clean.legacy removes the legacy containers and volumes" ;;
+  *) fail "infra.clean.legacy removes the legacy containers and volumes" ;;
+esac
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures failure(s)"
   exit 1
