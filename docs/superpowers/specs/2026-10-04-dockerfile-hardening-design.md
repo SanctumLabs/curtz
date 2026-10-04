@@ -266,3 +266,18 @@ Findings:
   Trivy's vulnerability database is about 121 MB and is cached in the named volume `curtz-trivy-cache`.
 - `make scan.docker` bind-mounts a temporary directory into the scanner. That works on a developer machine but not under Docker-in-Docker,
   where the path would refer to the daemon's filesystem, so the mirror CI jobs do not reuse that target.
+
+Mirror CI (GitLab and Bitbucket):
+
+- `scripts/mirror_ci_check.sh` failed on the old files with 32 findings: neither file ran the test commands, golangci-lint, hadolint, a
+  Docker build, `scripts/image_test.sh` or Trivy; both called `make setup-linting`, which is not a target (so both pipelines failed at
+  their first step); and both used `golang:1.18`, as did `.gitlab/.gitlab-webide.yml` (`go:1.18`, not a valid image). It passes on the new
+  files, and it fails, with a message naming the problem, when I break each file in six ways: a Go image that differs from `go.mod`, a dropped
+  Trivy flag, a different golangci-lint version, a make target that does not exist, an `:latest` image, and Ryuk left on.
+- Run locally exactly as the jobs run them: `make test.coverage` (total coverage 26.8%), `make test.integration`, `make test.e2e` (Task 7),
+  `docker build` with the build arguments, `scripts/image_test.sh image`, and Trivy from a saved tar with the pipelines' flags (0 findings).
+  The pipelines themselves could not be run: the first real run is the first push GitHub makes to each mirror.
+- `golangci-lint run` (v2.13.2, the version the mirrors pin) reports 35 findings in code that predates these slices (logger, jwtauth,
+  errdefs, the in-memory queue, and others), and GitHub's Lint workflow is red on this branch for the same reason (its last five runs).
+  Seven more findings were in code written for these slices (unchecked errors in the healthcheck and three tests) and were fixed. The
+  mirror lint jobs will fail until the 35 are fixed or baselined; that is a separate decision.
