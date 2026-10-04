@@ -1,161 +1,74 @@
 //go:build integration
-// +build integration
 
-package redis
+package redis_test
 
 import (
 	"context"
-	"fmt"
+	"strings"
 	"testing"
+	"time"
 
-	"github.com/docker/go-connections/nat"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
+	cacheredis "github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
 	"github.com/stretchr/testify/assert"
-
-	"parksys/internal/pkg/sharedkernel"
-	"parksys/pkg/infra/cache"
-	redisClient "parksys/pkg/infra/redis"
-
-	"github.com/testcontainers/testcontainers-go"
+	"github.com/stretchr/testify/require"
 	redisContainer "github.com/testcontainers/testcontainers-go/modules/redis"
 )
 
-func TestRedisCache(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "Redis Cache Client Suite")
-}
-
-var _ = ginkgo.Describe("Redis Cache Client", ginkgo.Ordered, func() {
+func startRedis(t *testing.T) (cache.CacheClient, *redisContainer.RedisContainer) {
+	t.Helper()
 	ctx := context.Background()
 
-	var (
-		container   *redisContainer.RedisContainer
-		client      *redisClient.RedisClient
-		cacheClient cache.CacheClient
-	)
+	container, err := redisContainer.Run(ctx, "redis:7-alpine")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
 
-	ginkgo.BeforeAll(func() {
-		var err error
-		container, err = redisContainer.RunContainer(ctx,
-			testcontainers.WithImage("docker.io/redis:7"),
-			redisContainer.WithSnapshotting(10, 1),
-			redisContainer.WithLogLevel(redisContainer.LogLevelVerbose),
-		)
+	uri, err := container.ConnectionString(ctx)
+	require.NoError(t, err)
 
-		if err != nil {
-			panic(err)
-		}
+	client, err := cacheredis.NewRedisClient(cacheredis.RedisClientConfig{Address: []string{strings.TrimPrefix(uri, "redis://")}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
 
-		redisHost, err := container.Host(ctx)
-		if err != nil {
-			panic(err)
-		}
+	return client, container
+}
 
-		port, err := container.MappedPort(ctx, nat.Port("6379"))
-		if err != nil {
-			panic(err)
-		}
+func TestRedisClient_SetGetExistsDelete(t *testing.T) {
+	ctx := context.Background()
+	client, _ := startRedis(t)
 
-		client = redisClient.NewRedisClient(redisClient.RedisClientParams{
-			Address:  []string{fmt.Sprintf("%s:%s", redisHost, port.Port())},
-			Database: 0,
-		})
+	require.NoError(t, client.Ping(ctx))
+	require.NoError(t, client.Set(ctx, cache.CacheItem{Key: "short:abc", Value: "https://example.com"}))
 
-		cacheClient = NewRedisCache(*client)
-	})
+	assert.True(t, client.Exists(ctx, "short:abc"))
+	item, err := client.Get(ctx, "short:abc")
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com", item.Value)
 
-	ginkgo.AfterAll(func() {
-		if err := container.Terminate(ctx); err != nil {
-			panic(fmt.Sprintf("failed to terminate redis container: %s", err))
-		}
-	})
+	require.NoError(t, client.Delete(ctx, "short:abc"))
+	assert.False(t, client.Exists(ctx, "short:abc"))
+	_, err = client.Get(ctx, "short:abc")
+	assert.Error(t, err, "a missing key is an error, not an empty item")
+}
 
-	type object struct {
-		sharedkernel.Entity
-		name string
-	}
+func TestRedisClient_ItemsExpireAfterTheirTTL(t *testing.T) {
+	ctx := context.Background()
+	client, _ := startRedis(t)
 
-	ginkgo.Describe("Adding items to cache", func() {
+	require.NoError(t, client.Set(ctx, cache.CacheItem{Key: "k", Value: "v"}, cache.WithTTL(time.Second)))
+	require.True(t, client.Exists(ctx, "k"))
 
-		// TODO: fix failing integration test for retrieval of cache item
-		ginkgo.XIt("should return nil error on successful addition of item to cache", func() {
-			objectEntity := sharedkernel.NewEntity()
+	require.Eventually(t, func() bool { return !client.Exists(ctx, "k") }, 5*time.Second, 100*time.Millisecond)
+}
 
-			itemToCache := object{
-				Entity: objectEntity,
-				name:   "Item",
-			}
-			itemId := objectEntity.ID.String()
+func TestRedisClient_PingReportsAStoppedRedis(t *testing.T) {
+	ctx := context.Background()
+	client, container := startRedis(t)
+	require.NoError(t, client.Ping(ctx))
 
-			err := cacheClient.Set(ctx, cache.CacheItem{Key: itemId, Value: itemToCache})
-			assert.NoError(ginkgo.GinkgoT(), err)
+	require.NoError(t, container.Stop(ctx, nil))
 
-			// check that item was added to cache
-			var payload object
-			cacheItem, err := cacheClient.Get(ctx, itemId, &payload)
-			assert.NoError(ginkgo.GinkgoT(), err)
-			assert.NotNil(ginkgo.GinkgoT(), cacheItem.Value)
-
-			assert.Equal(ginkgo.GinkgoT(), &itemToCache, cacheItem.Value)
-		})
-	})
-
-	ginkgo.Describe("Checking existence of items", func() {
-
-		ginkgo.It("should return true on successful check of an existing item in cache", func() {
-			objectEntity := sharedkernel.NewEntity()
-
-			itemToCache := object{
-				Entity: objectEntity,
-				name:   "Item",
-			}
-
-			itemId := objectEntity.ID.String()
-
-			err := cacheClient.Set(ctx, cache.CacheItem{Key: itemId, Value: itemToCache})
-			assert.NoError(ginkgo.GinkgoT(), err)
-
-			actual := cacheClient.Exists(ctx, itemId)
-			assert.True(ginkgo.GinkgoT(), actual)
-		})
-
-		ginkgo.It("should return false on successful check of an existing item in cache", func() {
-			objectEntity := sharedkernel.NewEntity()
-
-			itemId := objectEntity.ID.String()
-
-			actual := cacheClient.Exists(ctx, itemId)
-			assert.False(ginkgo.GinkgoT(), actual)
-		})
-	})
-
-	ginkgo.Describe("Deleting cache items", func() {
-
-		ginkgo.It("should return nil error on successful deletion of an existing item in cache", func() {
-			objectEntity := sharedkernel.NewEntity()
-
-			itemToCache := object{
-				Entity: objectEntity,
-				name:   "Item",
-			}
-
-			itemId := objectEntity.ID.String()
-
-			err := cacheClient.Set(ctx, cache.CacheItem{Key: itemId, Value: itemToCache})
-			assert.NoError(ginkgo.GinkgoT(), err)
-
-			actual := cacheClient.Delete(ctx, itemId)
-			assert.NoError(ginkgo.GinkgoT(), actual)
-		})
-
-		ginkgo.It("should return nil even if key does not exist in cache", func() {
-			objectEntity := sharedkernel.NewEntity()
-
-			itemId := objectEntity.ID.String()
-
-			actual := cacheClient.Delete(ctx, itemId)
-			assert.NoError(ginkgo.GinkgoT(), actual)
-		})
-	})
-})
+	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	assert.Error(t, client.Ping(pingCtx))
+}

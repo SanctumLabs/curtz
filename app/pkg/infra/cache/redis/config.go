@@ -11,8 +11,6 @@ const (
 
 // RedisClientConfig provides parameter options used to create a new redis client
 type RedisClientConfig struct {
-	Host string `env-description:"Redis Host" env:"REDIS_HOST"`
-	Port int    `env-description:"Redis Port" env:"REDIS_PORT"`
 	// Address specifies the host:port mapping to use to connect to Redis
 	// If the Address parameter provided is a single item in the slice, e.g. [":6379"], a single node client is created
 	// If it is more than 2 or more, a ClusterClient is created

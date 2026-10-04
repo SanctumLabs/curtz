@@ -2,26 +2,17 @@ package redis
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
-	"time"
+	"errors"
 
 	"github.com/google/wire"
 	redisGo "github.com/redis/go-redis/v9"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
 )
 
-const (
-	_statsEnabled        = true
-	_defaultConnAttempts = 3
-	_defaultConnTimeout  = time.Second
-)
+const _statsEnabled = true
 
-// redisClient is a wrapper around
+// redisClient is a wrapper around a go-redis universal client
 type redisClient struct {
-	connAttempts int
-	connTimeout  time.Duration
-
 	// statsEnabled sets enabling stats to true
 	statsEnabled bool
 
@@ -40,50 +31,23 @@ var (
 	RedisCacheSet                   = wire.NewSet(NewRedisClient)
 )
 
-// NewRedisClient creates a new redis client
+// NewRedisClient builds a client for the configured addresses: one address gives a plain client, several give a
+// cluster client. It performs no I/O. go-redis dials lazily and reconnects by itself, so Redis may come up after the
+// caller and the client picks it up; use Ping to check reachability.
 func NewRedisClient(config RedisClientConfig) (cache.CacheClient, error) {
-	rc := &redisClient{
-		connAttempts: _defaultConnAttempts,
-		connTimeout:  _defaultConnTimeout,
+	if len(config.Address) == 0 {
+		return nil, errors.New("redis: at least one address is required")
 	}
 
-	var err error
-	for rc.connAttempts > 0 {
-		options := &redisGo.UniversalOptions{
+	return &redisClient{
+		client: redisGo.NewUniversalClient(&redisGo.UniversalOptions{
 			Addrs:      config.Address,
 			Username:   config.Username,
 			Password:   config.Password,
 			DB:         config.Database,
 			MasterName: config.MasterName,
-		}
-
-		client := redisGo.NewUniversalClient(options)
-		rc.client = client
-
-		statusCmd := client.Ping(context.Background())
-		err = statusCmd.Err()
-		if err != nil {
-			slog.Error(fmt.Sprintf("RedisClient> 🚫 Redis failed to connect with error %s, attempts left: %d", statusCmd, rc.connAttempts))
-			break
-		}
-
-		slog.Warn(fmt.Sprintf("RedisClient> Redis is trying to connect, attempts left: %d", rc.connAttempts))
-
-		time.Sleep(rc.connTimeout)
-
-		rc.connAttempts--
-	}
-	if err != nil {
-		slog.Error(fmt.Sprintf("RedisClient> 🚫 failed to connect to Redis, Error: %s", err))
-		return nil, err
-	}
-
-	slog.Info(
-		"RedisClient> ✅ connected to Redis",
-		"host", config.Host,
-		"port", config.Port,
-	)
-	return rc, nil
+		}),
+	}, nil
 }
 
 func (p *redisClient) Configure(opts ...Option) cache.CacheClient {
@@ -92,6 +56,16 @@ func (p *redisClient) Configure(opts ...Option) cache.CacheClient {
 	}
 
 	return p
+}
+
+// Ping checks that Redis answers
+func (rc *redisClient) Ping(ctx context.Context) error {
+	return rc.client.Ping(ctx).Err()
+}
+
+// Close closes the connections held by the client
+func (rc *redisClient) Close() error {
+	return rc.client.Close()
 }
 
 // Set adds an item with a given key to the cache
