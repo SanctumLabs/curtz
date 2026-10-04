@@ -7,9 +7,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -39,7 +43,14 @@ const (
 	redisStartupPingTimeout = 2 * time.Second
 )
 
+// healthcheckTimeout bounds the container health probe. It is a variable so a test can shorten it.
+var healthcheckTimeout = 2 * time.Second
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck(os.LookupEnv, os.Stdout))
+	}
+
 	if err := godotenv.Load(); err != nil {
 		slog.Warn("no .env file found, relying on the environment", "error", err)
 	}
@@ -67,6 +78,50 @@ func main() {
 		slog.Error("curtz stopped", "error", err)
 		os.Exit(1)
 	}
+}
+
+// healthcheck probes the API running on this host and returns the process exit code: 0 when GET /health answers 200,
+// 1 otherwise. It reads only the server settings, so the container's HEALTHCHECK needs no database or Redis settings and
+// works in an image that has no shell, curl or wget. It does not read .env: the container's environment is the contract.
+func healthcheck(lookup config.Lookup, out io.Writer) int {
+	server, err := config.LoadServer(lookup)
+	if err != nil {
+		fmt.Fprintf(out, "healthcheck: invalid configuration: %v\n", err)
+		return 1
+	}
+
+	target := "http://" + net.JoinHostPort(probeHost(server.Host), strconv.Itoa(server.Port)) + probes.LivePath
+	ctx, cancel := context.WithTimeout(context.Background(), healthcheckTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		fmt.Fprintf(out, "healthcheck: %v\n", err)
+		return 1
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Fprintf(out, "healthcheck: %v\n", err)
+		return 1
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(out, "healthcheck: %s answered %d\n", target, resp.StatusCode)
+		return 1
+	}
+	fmt.Fprintln(out, "healthcheck: ok")
+	return 0
+}
+
+// probeHost turns a wildcard bind address, which cannot be dialed, into the loopback address that reaches it. Server
+// binds exactly the configured host, so any other host is dialed as given.
+func probeHost(host string) string {
+	switch host {
+	case "", "0.0.0.0", "::":
+		return "127.0.0.1"
+	}
+	return host
 }
 
 // run builds the API from cfg and serves it until ctx is cancelled, then drains in-flight requests and closes the

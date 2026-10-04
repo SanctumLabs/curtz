@@ -1,10 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/sanctumlabs/curtz/app/api/probes"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,4 +41,108 @@ func TestRun_ReturnsAnErrorWhenPostgresIsUnreachable(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "postgres")
+}
+
+// healthServer answers GET /health with status and every other path with 404, like the API's liveness route.
+func healthServer(t *testing.T, status int) (host, port string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != probes.LivePath {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(status)
+	}))
+	t.Cleanup(srv.Close)
+
+	host, port, err := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+	require.NoError(t, err)
+	return host, port
+}
+
+func probeEnv(host, port string) config.Lookup {
+	return lookupOf(map[string]string{"SERVER_HOST": host, "HTTP_PORT": port})
+}
+
+func TestHealthcheck_ExitsZeroWhenTheAPIIsAlive(t *testing.T) {
+	host, port := healthServer(t, http.StatusOK)
+	var out bytes.Buffer
+
+	code := healthcheck(probeEnv(host, port), &out)
+
+	assert.Equal(t, 0, code, out.String())
+	assert.Contains(t, out.String(), "ok")
+}
+
+func TestHealthcheck_ExitsOneOnAnUnhealthyAnswer(t *testing.T) {
+	host, port := healthServer(t, http.StatusServiceUnavailable)
+	var out bytes.Buffer
+
+	code := healthcheck(probeEnv(host, port), &out)
+
+	assert.Equal(t, 1, code)
+	assert.Contains(t, out.String(), "503")
+}
+
+func TestHealthcheck_ExitsOneWhenNothingListens(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	port := strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
+	require.NoError(t, ln.Close())
+	var out bytes.Buffer
+
+	code := healthcheck(probeEnv("127.0.0.1", port), &out)
+
+	assert.Equal(t, 1, code)
+	assert.Contains(t, out.String(), "healthcheck:")
+}
+
+func TestHealthcheck_GivesUpAfterTheTimeout(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-release }))
+	t.Cleanup(func() {
+		close(release)
+		srv.Close()
+	})
+	previous := healthcheckTimeout
+	healthcheckTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { healthcheckTimeout = previous })
+	host, port, err := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+	require.NoError(t, err)
+	var out bytes.Buffer
+
+	start := time.Now()
+	code := healthcheck(probeEnv(host, port), &out)
+
+	assert.Equal(t, 1, code)
+	assert.Less(t, time.Since(start), 2*time.Second)
+}
+
+// A wildcard bind address cannot be dialed, so the probe goes through loopback; any other host is dialed as configured.
+func TestHealthcheck_ReachesAWildcardBindThroughLoopback(t *testing.T) {
+	_, port := healthServer(t, http.StatusOK)
+
+	for _, host := range []string{"0.0.0.0", "::", ""} {
+		var out bytes.Buffer
+		code := healthcheck(probeEnv(host, port), &out)
+		assert.Equal(t, 0, code, "SERVER_HOST=%q: %s", host, out.String())
+	}
+}
+
+func TestProbeHost(t *testing.T) {
+	for host, want := range map[string]string{
+		"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "127.0.0.1",
+		"127.0.0.1": "127.0.0.1", "10.1.2.3": "10.1.2.3", "localhost": "localhost",
+	} {
+		assert.Equal(t, want, probeHost(host), "host %q", host)
+	}
+}
+
+func TestHealthcheck_RejectsAnInvalidPort(t *testing.T) {
+	var out bytes.Buffer
+
+	code := healthcheck(lookupOf(map[string]string{"HTTP_PORT": "abc"}), &out)
+
+	assert.Equal(t, 1, code)
+	assert.Contains(t, out.String(), "HTTP_PORT")
 }
