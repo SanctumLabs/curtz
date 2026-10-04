@@ -97,7 +97,6 @@ func New(cfg *LogConfig) Logger {
 		Development:       cfg.Development,
 		DisableCaller:     cfg.EnableCaller,
 		DisableStacktrace: cfg.EnableStackTrace,
-		Sampling:          &zap.SamplingConfig{},
 		Encoding:          cfg.Format,
 		EncoderConfig:     defaultEncodingConfig,
 		OutputPaths: []string{
