@@ -5,78 +5,108 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/joho/godotenv"
 	apimiddleware "github.com/sanctumlabs/curtz/app/api/middleware"
+	"github.com/sanctumlabs/curtz/app/api/probes"
 	identityapi "github.com/sanctumlabs/curtz/app/api/v1/identity"
 	"github.com/sanctumlabs/curtz/app/config"
 	"github.com/sanctumlabs/curtz/app/internal/adapters/jwtauth"
 	"github.com/sanctumlabs/curtz/app/internal/adapters/notifications"
 	identitydatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/identity"
 	identityapp "github.com/sanctumlabs/curtz/app/internal/application/identity"
+	cacheredis "github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/env"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/server"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
 	"github.com/sanctumlabs/curtz/app/pkg/jwt"
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
 
-const baseURI = "/api/v1/curtz"
+const (
+	baseURI = "/api/v1/curtz"
+
+	// redisStartupPingTimeout bounds the one ping that only decides which startup line is logged.
+	redisStartupPingTimeout = 2 * time.Second
+)
 
 func main() {
 	if err := godotenv.Load(); err != nil {
 		slog.Warn("no .env file found, relying on the environment", "error", err)
 	}
 
-	envConfig := env.NewEnvConfig()
-
-	dbClient, dbErr := postgres.NewPostgresClient(postgres.PostgresDatabaseConfig{
-		Host:            envConfig.EnvOr("DATABASE_HOST", "localhost"),
-		Username:        envConfig.EnvOr("DATABASE_USERNAME", "curtz-user"),
-		Password:        envConfig.EnvOr("DATABASE_PASSWORD", "curtz-pass"),
-		Name:            envConfig.EnvOr("DATABASE_NAME", "curtzdb"),
-		Port:            envConfig.EnvOr("DATABASE_PORT", "5433"),
-		Url:             envConfig.EnvOr("DATABASE_URL", ""),
-		SslMode:         envConfig.EnvOr("DATABASE_SSL_MODE", "disable"),
-		MaxConns:        envConfig.EnvInt32Or("DATABASE_MAX_CONNS", 30),
-		MinConns:        envConfig.EnvInt32Or("DATABASE_MIN_CONNS", 5),
-		MaxConnLifetime: envConfig.EnvDurationOr("DATABASE_MAX_CONN_LIFETIME", 1, time.Hour),
-		MaxConnIdleTime: envConfig.EnvDurationOr("DATABASE_MAX_CONN_IDLE_TIME", 30, time.Minute),
-		ConnTimeout:     envConfig.EnvDurationOr("DATABASE_CONN_TIMEOUT", 30, time.Second),
-		QueryTimeout:    envConfig.EnvDurationOr("DATABASE_QUERY_TIMEOUT", 10, time.Second),
-	})
-	if dbErr != nil {
-		slog.Error("failed to connect to the database", "error", dbErr)
+	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		slog.Error("invalid configuration", "error", err)
 		os.Exit(1)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ctx.Done()
+		// Hand signal handling back to the runtime as soon as the first signal arrives, so a second Ctrl-C ends a
+		// stuck drain immediately instead of being swallowed.
+		stop()
+	}()
+
+	err = run(ctx, cfg)
+	stop()
+	if err != nil {
+		slog.Error("curtz stopped", "error", err)
+		os.Exit(1)
+	}
+}
+
+// run builds the API from cfg and serves it until ctx is cancelled, then drains in-flight requests and closes the
+// data clients. Postgres is required: failing to reach it is an error. Redis is optional: failing to reach it is
+// logged and the API carries on (readiness reports it as down).
+func run(ctx context.Context, cfg config.App) error {
+	dbClient, err := postgres.NewPostgresClient(cfg.Database.Postgres)
+	if err != nil {
+		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer dbClient.Close()
 
+	cache, err := cacheredis.NewRedisClient(cfg.Redis)
+	if err != nil {
+		return fmt.Errorf("create redis client: %w", err)
+	}
+	defer func() {
+		if closeErr := cache.Close(); closeErr != nil {
+			slog.Warn("closing redis", "error", closeErr)
+		}
+	}()
+
+	pingCtx, cancel := context.WithTimeout(ctx, redisStartupPingTimeout)
+	if pingErr := cache.Ping(pingCtx); pingErr != nil {
+		slog.Warn("redis is down, continuing without it", "addresses", cfg.Redis.Address, "error", pingErr)
+	} else {
+		slog.Info("redis is up", "addresses", cfg.Redis.Address)
+	}
+	cancel()
+
+	registry := health.NewRegistry(health.DefaultCheckTimeout)
+	registry.Add(health.Check{Name: "postgres", Required: true, Fn: dbClient.HealthCheck})
+	registry.Add(health.Check{Name: "redis", Required: false, Fn: cache.Ping})
+
 	dbConfig := database.Config{
-		OperationTimeout: envConfig.EnvDurationOr("DATABASE_OPERATION_TIMEOUT", 30, time.Second),
+		OperationTimeout: cfg.Database.OperationTimeout,
 		RetryConfig:      recoveryutils.DefaultRetryConfig,
 	}
 
-	authConfig := config.AuthConfig{
-		Jwt: config.Jwt{
-			Secret:             envConfig.EnvOr("AUTH_SECRET", "curtz-secret"),
-			Issuer:             envConfig.EnvOr("AUTH_ISSUER", "curtz"),
-			ExpireDelta:        envConfig.EnvIntOr("AUTH_EXPIRE_DELTA", 15),
-			RefreshExpireDelta: envConfig.EnvIntOr("AUTH_REFRESH_EXPIRE_DELTA", 24),
-		},
-	}
-
-	tokenService := jwtauth.NewTokenService(authConfig, jwt.New())
+	tokenService := jwtauth.NewTokenService(cfg.Auth, jwt.New())
 
 	// No email transport is configured yet, so verification links are logged rather than sent.
-	notifier := notifications.NewEmailNotifier(
-		envConfig.EnvOr("APP_BASE_URL", "http://localhost:8085"),
-		notifications.NewLoggingEmailSender(),
-	)
+	notifier := notifications.NewEmailNotifier(cfg.Server.BaseURL, notifications.NewLoggingEmailSender())
 
 	identityService := identityapp.NewService(
 		identitydatastore.NewUserDatastoreAdapter(dbClient, dbConfig),
@@ -85,16 +115,16 @@ func main() {
 	)
 
 	srv := server.NewServer(server.ServerConfig{
-		Header:      envConfig.EnvOr("SERVER_HEADER", "Curtz"),
-		Host:        envConfig.EnvOr("SERVER_HOST", "0.0.0.0"),
-		Port:        envConfig.EnvIntOr("HTTP_PORT", 8085),
-		AppName:     envConfig.EnvOr("SERVER_NAME", "Curtz"),
-		Version:     envConfig.EnvOr("SERVER_VERSION", "1.0.0"),
-		Environment: envConfig.EnvOr("ENVIRONMENT", "development"),
+		Header:      cfg.Server.Header,
+		Host:        cfg.Server.Host,
+		Port:        cfg.Server.Port,
+		AppName:     cfg.Server.Name,
+		Version:     cfg.Server.Version,
+		Environment: cfg.Environment,
 	})
 
 	// Everything is authenticated unless it is listed here. Registration, login, token refresh
-	// and email verification must be reachable without a token, by definition.
+	// and email verification must be reachable without a token, by definition, and so must the probes.
 	srv.Use(apimiddleware.AuthMiddleware(apimiddleware.AuthConfig{
 		TokenService: tokenService,
 		PublicPaths: []string{
@@ -102,18 +132,17 @@ func main() {
 			baseURI + "/auth/login",
 			baseURI + "/auth/oauth/token",
 			baseURI + "/auth/verify",
-			"/health",
+			probes.LivePath,
+			probes.ReadyPath,
 			"/metrics",
 		},
 		PublicPrefixes: []string{"/docs/"},
 	}))
 
 	srv.RegisterHandlers([]router.Router{
+		probes.NewRouter(registry),
 		identityapi.NewRouter(baseURI, identityService),
 	})
 
-	if err := srv.Listen(); err != nil {
-		slog.Error("server stopped", "error", err)
-		os.Exit(1)
-	}
+	return srv.Serve(ctx, cfg.ShutdownTimeout, registry.SetDraining)
 }

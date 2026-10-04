@@ -1,8 +1,11 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"os"
+	"time"
 
 	"github.com/sanctumlabs/curtz/app/pkg/infra/logger"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/server/middleware"
@@ -77,6 +80,40 @@ func NewServer(cfg ServerConfig) *Server {
 func (srv *Server) Listen() error {
 	srv.log.Infow("Listening on port", "port", srv.cfg.Port)
 	return srv.app.Listen(fmt.Sprintf(":%d", srv.cfg.Port))
+}
+
+// Serve listens on the configured port and blocks until ctx is cancelled or the listener fails. See ServeListener.
+func (srv *Server) Serve(ctx context.Context, timeout time.Duration, onDrain func()) error {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", srv.cfg.Port))
+	if err != nil {
+		return fmt.Errorf("listen on port %d: %w", srv.cfg.Port, err)
+	}
+
+	srv.log.Infow("Listening on port", "port", srv.cfg.Port)
+	return srv.ServeListener(ctx, ln, timeout, onDrain)
+}
+
+// ServeListener serves on ln until ctx is cancelled or the listener fails. When ctx is cancelled it calls onDrain
+// (use it to turn readiness to 503), stops accepting connections, and waits up to timeout for in-flight requests to
+// finish. It returns nil after a clean drain and an error if the listener failed or the deadline passed first.
+func (srv *Server) ServeListener(ctx context.Context, ln net.Listener, timeout time.Duration, onDrain func()) error {
+	listenErr := make(chan error, 1)
+	go func() { listenErr <- srv.app.Listener(ln) }()
+
+	select {
+	case err := <-listenErr:
+		return err
+	case <-ctx.Done():
+	}
+
+	if onDrain != nil {
+		onDrain()
+	}
+	srv.log.Infow("shutting down server", "timeout", timeout.String())
+	if err := srv.app.ShutdownWithTimeout(timeout); err != nil {
+		return fmt.Errorf("shut down within %s: %w", timeout, err)
+	}
+	return nil
 }
 
 // Shutdown shutdowns the server
