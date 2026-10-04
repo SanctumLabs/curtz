@@ -241,3 +241,46 @@ Postgres testcontainer, twice (second run is "no change"), reusing the existing 
 `docs/LocalInfrastructure.md` gains "Running the app against the stack": the commands in §10 steps 1 to 2, the env
 contract summary with a pointer to `.env.example`, the readiness semantics, and the migrator. The README's run
 instructions reference it.
+
+## 13. Implementation notes
+
+Live verification, 2026-10-04, Docker Desktop for Mac (arm64). Binaries were built from the branch and run from a scratch
+directory with no `.env`, so every result below is "defaults only". Only the Postgres and Redis stacks were started (the API
+does not use Kafka, ADR-0015).
+
+Single mode (`make infra.postgres.up MODE=single`, `make infra.redis.up MODE=single`):
+
+- Migrator: on a fresh database the first run logged `migrate: up success`, the second `migrate: no change`, both exit 0;
+  `schema_migrations` held version 2, `dirty = f`; `outbox_events` existed.
+- API start: `/health` 200; `/health/ready` `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`.
+- Redis stopped: `degraded` with HTTP 200; started again: `ok` within 2 seconds, no API restart.
+- Postgres stopped: `unavailable` with HTTP 503 while `/health` stayed 200; started again: `ok` within 2 seconds.
+- Registration returned 201 and wrote one unsent outbox row, `user.registered` to `identity.events`.
+- SIGTERM with a half-sent request: the request was answered (401) during the drain, the log shows
+  `readiness: draining` and then the Postgres pool closing, and the process exited 0. An idle SIGTERM exits 0.
+- Second signal: with default signal dispositions (as from a terminal) a SIGINT during a stuck drain ends the process at once
+  (killed by SIGINT, 0.0s); without it the drain waits for the stuck request and exits 0. A non-interactive shell starts
+  background jobs with SIGINT ignored and Go restores that after `signal.Stop`, so the drill must start the process with default
+  dispositions to be meaningful.
+- `ENVIRONMENT=production`: the API named `DATABASE_PASSWORD`, `REDIS_PASSWORD` and `AUTH_SECRET`, the migrator only
+  `DATABASE_PASSWORD`; both exited 1 and printed no value.
+
+HA mode (`MODE=ha`), API and migrator run in a container on the `curtz` network because `redis-1..6` in `/etc/hosts` needs sudo
+(the host-side path with that line was not exercised):
+
+- Migrator: `no change`, exit 0 (the compose job had already migrated).
+- API: ready with the six-address `REDIS_ADDRESS`; the cluster client worked as `curtz-svc` with no `NOPERM`, so the Redis
+  ACL needed no change. 30 keys across slots (set, get, delete through the cache client) had 0 failures.
+- Redis master `redis-1` stopped: 25 readiness polls gave 24 `ok` and 1 `degraded` (a random-node `PING` can land on the dead
+  node during the failover window), never a 503; `redis-5` was promoted, set/get kept working, and `redis-1` rejoined as a replica.
+- Patroni leader `patroni-2` stopped: readiness went 503 at +2s and returned to `ok` at +12s with no API restart; `patroni-1`
+  became leader (timeline 2) and a registration afterwards returned 201.
+
+Findings:
+
+- The repo's local `.env` was an untouched copy of the old `.env.example`. Its Mongo-era values override the new defaults, so the
+  first migrator run dialed `localhost:27017`. The file was not modified; `docs/LocalInfrastructure.md` now says how to refresh it.
+- `logger.New` (zap) builds with an empty `SamplingConfig`, which drops every line, so the server's own logger has never printed.
+  `Serve`/`ServeListener` therefore log through `slog`. The logger itself is a separate follow-up.
+- `.github/workflows/deploy.yml` sets an `AUTH_EXPIRE` secret and `fly.toml` sets `ENV` and `PORT`; the code reads `AUTH_EXPIRE_DELTA`,
+  `ENVIRONMENT` and `HTTP_PORT`. Deployment config, not changed here.

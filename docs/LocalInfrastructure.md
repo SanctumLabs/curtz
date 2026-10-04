@@ -126,6 +126,9 @@ Debugging:
 
 - `redis is down, continuing without it` at startup: check `REDIS_ADDRESS` (HA needs all six seed nodes and the `/etc/hosts` line from `make infra.hosts`) and `REDIS_USERNAME`/`REDIS_PASSWORD`.
 - Postgres connection errors: the write port is `5432` in both modes; `5433` is the HA read port and rejects writes.
+- An old `.env` copied from before this change carries Mongo-era values (`DATABASE_PORT=27017`, `REDIS_ADDRESS=localhost`,
+  `AUTH_SECRET=<AUTH_SECRET>`, ...). They override the new defaults, so the API or the migrator dials the wrong port or stops
+  with an invalid-configuration error. Refresh it with `cp .env.example .env` (re-apply any values of your own first).
 - `make infra.psql`, `make infra.redis.cli` and `make infra.patroni.list` show the other side of each connection.
 
 ## The stacks
