@@ -9,35 +9,43 @@ DOCKER_IMAGE_TAG ?= curtz-service
 create.dockerenvfile: ## Create a docker environment file
 	if [ ! -f .env.docker ]; then cp .env.example .env.docker; fi
 
-scan.docker.image:
-	@echo "Scanning Docker Image: $(IMAGE)"
-	./bin/trivy $(IMAGE)
+# Pinned tool images. hadolint is pinned by the digest of the image already on the machine.
+HADOLINT_IMAGE ?= hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+TRIVY_IMAGE ?= aquasec/trivy:0.75.0
 
-# See local hadolint install instructions: https://github.com/hadolint/hadolint
+# `docker save <repository>` exports every tag of the repository, and Trivy rejects a tar with more than one image, so the
+# scan always names exactly one reference (a bare name means :latest).
+DOCKER_IMAGE_REF = $(if $(findstring :,$(DOCKER_IMAGE_TAG)),$(DOCKER_IMAGE_TAG),$(DOCKER_IMAGE_TAG):latest)
+
+# Build metadata for the image labels and the version variables in the binary
+DOCKER_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo unknown)
+DOCKER_GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+DOCKER_BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# See hadolint: https://github.com/hadolint/hadolint. The config is mounted by absolute path; a relative path would be a
+# named volume and the rules in hadolint.yaml would never be read.
 .PHONY: lint.docker
-lint.docker: ## lints the Dockerfile
+lint.docker: ## lints the Dockerfile with the rules in hadolint.yaml
 	@echo "Running lint checks on Dockerfile"
-	docker run --rm -i -v hadolint.yaml:/.config/hadolint.yaml hadolint/hadolint < $(DOCKER_FILE)
+	docker run --rm -i -v "$(ROOT_DIR)/hadolint.yaml:/.config/hadolint.yaml:ro" $(HADOLINT_IMAGE) < $(DOCKER_FILE)
 	@echo "Done linting Dockerfile"
 
 # Reference: https://trivy.dev/latest/getting-started/
+# The image is saved to a tar and scanned from there, so the scanner never gets the Docker socket.
 .PHONY: scan.docker
-scan.docker: ## scans a docker image for vulnerabilities, but first it will build the image
-	@if ! docker image inspect $(DOCKER_IMAGE_TAG) >/dev/null 2>&1; then \
-		echo ">>> Building Docker image '$(DOCKER_IMAGE_TAG)' as it does not exist locally <<<<"; \
-		docker build -f $(DOCKER_FILE) . -t $(DOCKER_IMAGE_TAG); \
-		echo ">>> Done building Docker image $(DOCKER_IMAGE_TAG), scanning for vulnerabilities <<<<"; \
-		docker run -v /var/run/docker.sock:/var/run/docker.sock -v ~/Library/Caches:/root/.cache/ aquasec/trivy image $(DOCKER_IMAGE_TAG); \
-	else \
-		echo ">>> Scanning Docker $(DOCKER_IMAGE_TAG) image for vulnerabilities <<<<"; \
-		docker run -v /var/run/docker.sock:/var/run/docker.sock -v ~/Library/Caches:/root/.cache/ aquasec/trivy image $(DOCKER_IMAGE_TAG); \
-		echo "\n >>> Done scanning docker image $(DOCKER_IMAGE_TAG) for vulnerabilities"; \
-	fi
+scan.docker: ## scans the image for fixable HIGH and CRITICAL vulnerabilities, building it first if it is missing
+	@if ! docker image inspect $(DOCKER_IMAGE_REF) >/dev/null 2>&1; then $(MAKE) build.docker; fi
+	@dir=$$(mktemp -d) && docker save -o "$$dir/image.tar" $(DOCKER_IMAGE_REF) && \
+		docker run --rm -v "$$dir":/scan:ro -v curtz-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
+		status=$$?; rm -rf "$$dir"; exit $$status
 
 .PHONY: build.docker
-build.docker: ## Build Docker image
+build.docker: ## Build the Docker image with its version metadata, usage: make build.docker DOCKER_IMAGE_TAG=curtz-service
 	@echo "Building Docker image"
-	docker build -f $(DOCKER_FILE) . -t $(DOCKER_IMAGE_TAG)
+	docker build -f $(DOCKER_FILE) -t $(DOCKER_IMAGE_TAG) \
+		--build-arg VERSION=$(DOCKER_VERSION) \
+		--build-arg GIT_COMMIT=$(DOCKER_GIT_COMMIT) \
+		--build-arg BUILD_TIME=$(DOCKER_BUILD_TIME) .
 	@echo "Done building Docker image"
 
 .PHONY: push.docker

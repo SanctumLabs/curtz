@@ -236,6 +236,46 @@ case "$legacy_plan" in
   *) fail "infra.clean.legacy removes the legacy containers and volumes" ;;
 esac
 
+# --- Docker tooling (make -n prints the plan without running it) -------------------------------------------------------
+lint_plan="$(make -n lint.docker 2>/dev/null)"
+case "$lint_plan" in
+  *"/hadolint.yaml:/.config/hadolint.yaml:ro"*) pass "lint.docker mounts hadolint.yaml by absolute path" ;;
+  *) fail "lint.docker mounts hadolint.yaml by absolute path" ;;
+esac
+case "$lint_plan" in
+  *" -v hadolint.yaml:"*) fail "lint.docker must not pass hadolint.yaml as a named volume" ;;
+  *) pass "lint.docker does not pass hadolint.yaml as a named volume" ;;
+esac
+
+scan_plan="$(make -n scan.docker 2>/dev/null)"
+case "$scan_plan" in *"docker save"*) pass "scan.docker scans a saved image" ;; *) fail "scan.docker scans a saved image" ;; esac
+case "$scan_plan" in
+  *"docker.sock"*) fail "scan.docker must not mount the Docker socket into the scanner" ;;
+  *) pass "scan.docker does not mount the Docker socket" ;;
+esac
+case "$scan_plan" in
+  *"--severity HIGH,CRITICAL"*"--ignore-unfixed"*"--exit-code 1"*) pass "scan.docker fails on fixable HIGH and CRITICAL findings" ;;
+  *) fail "scan.docker fails on fixable HIGH and CRITICAL findings" ;;
+esac
+
+# `docker save <repository>` with no tag exports every tag of the repository, and Trivy rejects a tar with more than one image.
+case "$scan_plan" in
+  *'image.tar" curtz-service:latest'*) pass "scan.docker saves one explicit image reference" ;;
+  *) fail "scan.docker saves one explicit image reference" ;;
+esac
+scan_tagged_plan="$(make -n scan.docker DOCKER_IMAGE_TAG=curtz-service:1.2.3 2>/dev/null)"
+case "$scan_tagged_plan" in
+  *'image.tar" curtz-service:1.2.3'*) pass "scan.docker keeps a tag that was given" ;;
+  *) fail "scan.docker keeps a tag that was given" ;;
+esac
+case "$scan_plan" in *"--no-progress"*) pass "scan.docker keeps the scanner's progress bar out of the log" ;; *) fail "scan.docker keeps the scanner's progress bar out of the log" ;; esac
+
+build_plan="$(make -n build.docker 2>/dev/null)"
+for arg in VERSION GIT_COMMIT BUILD_TIME; do
+  case "$build_plan" in *"--build-arg $arg="*) pass "build.docker passes $arg" ;; *) fail "build.docker passes $arg" ;; esac
+done
+if make -n scan.docker.image >/dev/null 2>&1; then fail "the empty scan.docker.image target is gone"; else pass "the empty scan.docker.image target is gone"; fi
+
 if [ "$failures" -ne 0 ]; then
   echo "$failures failure(s)"
   exit 1
