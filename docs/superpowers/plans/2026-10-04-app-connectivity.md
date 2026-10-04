@@ -21,7 +21,6 @@
 - Unit tests are untagged; Docker-backed tests carry `//go:build integration` (ADR-0006). Use testify `require`/`assert`. `go test ./...` must be green at the end of every task.
 - `make run` and the README use `go run app/cmd/main.go` (one file), so the whole of `main`/`run` stays in `app/cmd/main.go`.
 - Do not touch the legacy-tagged code (`-tags legacy` is already broken, D8), `fly.toml`, or slice 1's `deploy/` files (exception: spec §10 step 7 if the live Redis ACL check fails).
-- Commit messages end with the line `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 - Format with `gofmt -w` on every Go file you create or edit.
 
 ## Plan notes (deviations from the spec's wording)
@@ -357,7 +356,6 @@ git add app/pkg/infra/database/postgres app/test/test_database.go
 git commit -m "$(cat <<'EOF'
 fix(postgres): escape DSN credentials, honour DATABASE_URL and sslmode, migrate into schema_migrations
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -1004,8 +1002,6 @@ Expected: every package `ok`.
 git add app/config .env.example
 git commit -m "$(cat <<'EOF'
 feat(config): load and validate the application config strictly; align .env.example with the stack
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -1329,7 +1325,6 @@ git add app/pkg/infra/cache
 git commit -m "$(cat <<'EOF'
 fix(cache): build the Redis client without I/O and add Ping and Close
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -1769,8 +1764,6 @@ Expected: `ok` everywhere.
 git add app/pkg/infra/monitoring/health/registry.go app/pkg/infra/monitoring/health/registry_test.go app/api/probes
 git commit -m "$(cat <<'EOF'
 feat(health): add a readiness registry and the /health and /health/ready endpoints
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -2275,8 +2268,6 @@ Expected: every package `ok`.
 git add app/pkg/infra/server app/cmd/main.go app/cmd/main_test.go app/cmd/main_integration_test.go
 git commit -m "$(cat <<'EOF'
 feat(server): drain in-flight requests on SIGTERM, wire config, Redis and the health probes into run
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -2494,8 +2485,6 @@ Expected: every package `ok`.
 git add app/cmd/migrator .make/dev.mk
 git commit -m "$(cat <<'EOF'
 feat(migrator): add the migrator command that applies migrations through postgres.Migrate
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -2624,7 +2613,6 @@ git add docs/adr/0014-migrations-run-from-a-migrator-command.md docs/adr/0015-po
 git commit -m "$(cat <<'EOF'
 docs: document running the app against the stack, the migrator and the readiness policy
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -2795,7 +2783,6 @@ git add -A docs/superpowers/specs deploy
 git commit -m "$(cat <<'EOF'
 docs: record the live verification of app connectivity in both modes
 
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
