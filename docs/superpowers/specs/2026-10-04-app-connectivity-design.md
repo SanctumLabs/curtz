@@ -51,7 +51,7 @@ any schema change.
 | D2 | Redis is optional: the API starts and stays ready without it; readiness reports it `down` but returns 200. Only Postgres is required. | Redis will be a cache, not the source of truth. Confirmed by the user. |
 | D3 | One Postgres pool, pointed at the primary (`:5432`). | Nothing reads from replicas yet; a read pool is speculative until the URL read paths exist. The old `5433` default was the HA read port, so a write would have failed in HA. |
 | D4 | Migrations are applied by a new `app/cmd/migrator` binary that calls `postgres.Migrate()`. The API never migrates at startup. | The user wants `Migrate()` used for real migrations, not only tests. The v2 layout already names `cmd/migrator` (ADR-0010). Several API replicas racing to migrate at boot is avoided, and the migrator can later run with a DDL-capable role. **Assumption** recorded for review: if you wanted an opt-in flag on the API instead, say so. |
-| D5 | A typed `config.Load` built on the existing `env.EnvConfig`; no new config library. | About 25 variables; a library adds a dependency without removing code. |
+| D5 | A typed `config.Load` over a small strict reader (`Lookup`, satisfied by `os.LookupEnv`); no new config library. | About 25 variables; a library adds a dependency without removing code. The existing `env.EnvConfig` getters swallow parse errors, which §4 requires to be errors, so they are not reused. |
 | D6 | Production safety is opt-out: any `ENVIRONMENT` other than `development` or `test` rejects development default secrets. | A forgotten variable in a real deployment must fail at boot, not run with `curtz-secret`. Values like `release` (used by `fly.toml`) and `staging` are protected too. |
 | D7 | The public readiness response carries `up`/`down` only, never error text. | The endpoint is unauthenticated. Errors are logged server-side. |
 | D8 | The legacy-tagged code (`app/api/health`, `app/config` legacy types) is not touched. | `go vet -tags legacy ./app/...` already fails in `userepo/mapper.go`; unrelated to this work. |
@@ -59,7 +59,7 @@ any schema change.
 
 ## 4. Configuration contract
 
-`config.Load(env *env.EnvConfig) (App, error)` returns `App{Server, Database, Redis, Auth, Shutdown}` and validates it.
+`config.Load(lookup Lookup) (App, error)` returns `App{Server, Database, Redis, Auth, Shutdown}` and validates it.
 Each section also has its own loader (`LoadDatabase`, `LoadRedis`, `LoadAuth`, `LoadServer`, `LoadMigrations`) so the migrator loads
 only the database section and does not need `AUTH_SECRET`. Existing variable names and their integer unit
 conventions are kept (for example `DATABASE_MAX_CONN_LIFETIME` is in hours) so existing `.env` files keep working.
