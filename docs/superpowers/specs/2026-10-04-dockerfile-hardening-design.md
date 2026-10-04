@@ -23,6 +23,8 @@ the `curtz` network the way it will in production, repaired lint and scan target
 5. `docker run --entrypoint /app/migrator` applies the migrations from the image (a second run is "no change").
 6. The build context contains no `.env`, `.git` or test files.
 7. Every workflow passes `actionlint`, and the Docker workflow scans before it publishes.
+8. `.gitlab-ci.yml` and `bitbucket-pipelines.yml` run the same lint, tests, build and image checks as GitHub, and
+   `scripts/mirror_ci_check.sh` fails when they drift from it.
 
 ## 2. Scope
 
@@ -62,6 +64,7 @@ OpenTelemetry, the Kafka client, the shared workflows in `SanctumLabs/ci-workflo
 | D8 | Actions are pinned by commit SHA with a version comment, and Dependabot gets the `docker` and `github-actions` ecosystems. | Pins are only safe if something keeps them current. |
 | D9 | `deploy.yml` passes secrets through `env:` and keeps its secret names. | Interpolating `${{ secrets.X }}` into a shell script is an injection risk. Which secrets exist in GitHub is the owner's decision. |
 | D10 | Every commit made while implementing this spec ends with the `Co-Authored-By` trailer given in the session's attribution instructions, as the user asked on 2026-10-04. Example `git commit` snippets in plans omit the trailer text. | A project convention, stated here so it survives into the plan. |
+| D11 | The mirror pipelines (`.gitlab-ci.yml`, `bitbucket-pipelines.yml`) run the same verification as GitHub: lint, unit tests with coverage, integration tests, e2e tests, the binary build, and for the image hadolint, the build with `scripts/image_test.sh`, and the Trivy scan. Publishing, releases, deploys, Sentry, Slack, CodeQL and Danger stay on GitHub, which also mirrors the repository to both. Requested by the user on 2026-10-04. | Both pipelines were stale (`golang:1.18`) and failed at their first step: they called `make setup-linting`, which is not a target. Parity means a push to a mirror is checked as strictly as one to GitHub. |
 
 ## 4. The image
 
@@ -149,6 +152,28 @@ Included from the root `docker-compose.yml` with `env_file: .env`, like the othe
 SHAs are resolved with `gh api` when implementing. If a pinned action's behavior changes (inputs renamed between major versions),
 the workflow is adjusted to the current documented inputs.
 
+## 8b. Mirror CI (GitLab and Bitbucket)
+
+Both pipelines follow the GitHub order, Lint, then Tests, then Build, then the image checks, and use the same commands and tool
+versions: `golang:1.26` (the minor version in `go.mod`), `golangci/golangci-lint:v2.13.2` (the version `make lint` pins),
+`hadolint/hadolint:v2.15.1-debian`, `aquasec/trivy:0.75.0`, and Docker 29.8.
+
+- Tests: `make test.coverage` (GitLab reads the total from `go tool cover -func`), `make test.integration`, `make test.e2e`. The last two
+  start containers through testcontainers, so they run with a Docker daemon: Docker-in-Docker on GitLab (`docker:29.8-dind`,
+  `DOCKER_HOST`, `TESTCONTAINERS_HOST_OVERRIDE=docker`) and the `docker` service on Bitbucket, both with `TESTCONTAINERS_RYUK_DISABLED=true`.
+- Build: `make build` on Linux only. GitHub also builds on macOS and Windows; the mirrors have no such runners by default.
+- Image: hadolint runs in its own image, the image is built and checked with `scripts/image_test.sh image`, saved to a tar, and Trivy
+  scans the tar in its own image with the same flags as `make scan.docker`. `make scan.docker` itself is not reused: it bind-mounts a
+  temporary directory into the scanner, and under Docker-in-Docker that path would refer to the daemon's filesystem.
+- Bitbucket defines each step once (YAML anchors) and uses it for `default` and for pull requests; the old `branches: main` copy was
+  identical and is gone. GitLab skips the duplicate branch pipeline when a merge request is open.
+- `scripts/mirror_ci_check.sh`, run by `make lint.workflows`, checks the files without running them: they parse as YAML; every Go image
+  matches `go.mod` (also `.gitlab/.gitlab-webide.yml`, whose `go:1.18` was not even a valid image); each mirror runs every test and build
+  command the GitHub workflows run, the golangci-lint image `make lint` pins, hadolint, `docker build`, `scripts/image_test.sh image`, and
+  Trivy with the same flags; no image is `:latest`; Ryuk is disabled; every `make` target a mirror calls exists.
+- Not verifiable here: neither GitLab nor Bitbucket pipelines can be run locally, so a mirror's first real run is the first push GitHub
+  makes to it. The commands themselves were run locally exactly as the jobs run them.
+
 ## 9. Verification plan
 
 Written test-first where there is code (the `healthcheck` subcommand, `infra.sh` cases); everything else is verified by running it.
@@ -160,6 +185,9 @@ Written test-first where there is code (the `healthcheck` subcommand, `infra.sh`
 - `docker run --entrypoint /app/migrator …` against the stack: first run applies or "no change", second run "no change".
 - `docker run -e ENVIRONMENT=production …` without secrets exits 1 naming the variables (the image default, D5).
 - `make scan.docker`: no fixable HIGH or CRITICAL finding (any exception is listed with its reason in the implementation notes).
+- `scripts/mirror_ci_check.sh` fails on each kind of drift (Go image, a dropped Trivy flag, the golangci-lint version, a missing make
+  target, an `:latest` image, Ryuk left on) and passes on the pipelines; the commands the mirror jobs run (`make test.coverage`,
+  `make test.integration`, `make test.e2e`, the image build, checks and scan) pass locally.
 - `make infra.app.up MODE=single` and `MODE=ha`: `ready`, `healthy`, `/health/ready` ok, a registration returns 201; Redis stopped gives
   `degraded`; SIGTERM through `docker compose stop app-…` exits 0 inside the grace period; `make infra.app.down` removes only the app.
 - `bash scripts/infra_test.sh`, `make infra.config` and `go test ./...` stay green.
@@ -182,6 +210,13 @@ records D1, D2 and D5: the runtime image is distroless static, carries the migra
   Those secret names are the owner's call, and `fly.toml` (`ENV`, `PORT`) has the same mismatch. With D5 the app now refuses to start on
   Fly until they are set, which is the intended fail-fast.
 - **No shell in the image.** Debugging uses the `:debug` distroless tag, documented in §10.
+- **The mirror pipelines are unproven until they run.** Docker-in-Docker with testcontainers is the usual way to run these tests on
+  GitLab and Bitbucket, but only the first push shows whether a given runner allows it. Their tool images are pinned by version, not
+  by digest (Dependabot cannot read `.gitlab-ci.yml` or `bitbucket-pipelines.yml`), so `scripts/mirror_ci_check.sh` keeps them in
+  step with the repository instead.
+- **Lint fails on all three CIs today.** `golangci-lint run` reports 35 findings in code that predates these slices (logger, jwtauth,
+  errdefs and others) and GitHub's Lint workflow is already red for the same reason. The mirror lint jobs inherit that until the
+  findings are fixed; a baseline (`new-from-rev`) or a clean-up is a separate decision.
 - **Digest pins go stale** without Dependabot; D8 adds it, but it only opens pull requests.
 
 ## 12. Implementation notes

@@ -44,7 +44,8 @@ Record the answer in the ledger. If the user declines, stop: Tasks 2, 3, 5 and 7
 4. **`docs/Deployment.md` is rewritten**, not just extended: its Build, Environment and Running sections describe the Mongo-era app (`ENV`, `.env.sample`, `CACHE_*`).
 5. **`docker.yml` fixes more than the spec lists.** Under `workflow_run`, `github.ref` and `github.sha` are the default branch, so `metadata-action`'s branch, `is_default_branch`, `sha` and `semver` tags are wrong or dead. Tags come from `workflow_run.head_branch` and `head_sha`, semver tags are dropped, and image labels come from the Dockerfile (build args), not from `metadata-action`.
 6. **Two more `workflow_run` fixes**: `sentry.yml` tests `github.ref_name` (always the default branch under `workflow_run`), and `slack.yml` lists a workflow named `Test` that is really `Tests`. `codeql.yml` gains a `setup-go` step because `go.mod` needs Go 1.26 for autobuild.
-7. `.gitlab-ci.yml` and `bitbucket-pipelines.yml` (the mirrors' CI) are not in the spec and stay as they are; they also reference old Go versions.
+7. `.gitlab-ci.yml` and `bitbucket-pipelines.yml` (the mirrors' CI) were out of the first version of the spec. On 2026-10-04 the user asked for parity with GitHub CI, so spec D11 and section 8b and Task 8 below were added.
+8. **Task 3's Make code was corrected while executing it.** `docker save <repository>` exports every tag, so `scan.docker` saves one explicit reference (`DOCKER_IMAGE_REF`) and runs Trivy with `--quiet --no-progress`; the first scan also needed a `google.golang.org/grpc` bump to v1.83.2 (see the ledger rulings and spec section 12). The snippets in Task 3 below are the corrected ones.
 
 ## Review Focus
 
@@ -643,6 +644,18 @@ case "$scan_plan" in
   *) fail "scan.docker fails on fixable HIGH and CRITICAL findings" ;;
 esac
 
+# `docker save <repository>` with no tag exports every tag of the repository, and Trivy rejects a tar with more than one image.
+case "$scan_plan" in
+  *'image.tar" curtz-service:latest'*) pass "scan.docker saves one explicit image reference" ;;
+  *) fail "scan.docker saves one explicit image reference" ;;
+esac
+scan_tagged_plan="$(make -n scan.docker DOCKER_IMAGE_TAG=curtz-service:1.2.3 2>/dev/null)"
+case "$scan_tagged_plan" in
+  *'image.tar" curtz-service:1.2.3'*) pass "scan.docker keeps a tag that was given" ;;
+  *) fail "scan.docker keeps a tag that was given" ;;
+esac
+case "$scan_plan" in *"--no-progress"*) pass "scan.docker keeps the scanner's progress bar out of the log" ;; *) fail "scan.docker keeps the scanner's progress bar out of the log" ;; esac
+
 build_plan="$(make -n build.docker 2>/dev/null)"
 for arg in VERSION GIT_COMMIT BUILD_TIME; do
   case "$build_plan" in *"--build-arg $arg="*) pass "build.docker passes $arg" ;; *) fail "build.docker passes $arg" ;; esac
@@ -665,6 +678,10 @@ In `.make/docker.mk`, replace everything from the line `scan.docker.image:` thro
 HADOLINT_IMAGE ?= hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
 TRIVY_IMAGE ?= aquasec/trivy:0.75.0
 
+# `docker save <repository>` exports every tag of the repository, and Trivy rejects a tar with more than one image, so the
+# scan always names exactly one reference (a bare name means :latest).
+DOCKER_IMAGE_REF = $(if $(findstring :,$(DOCKER_IMAGE_TAG)),$(DOCKER_IMAGE_TAG),$(DOCKER_IMAGE_TAG):latest)
+
 # Build metadata for the image labels and the version variables in the binary
 DOCKER_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo unknown)
 DOCKER_GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
@@ -682,9 +699,9 @@ lint.docker: ## lints the Dockerfile with the rules in hadolint.yaml
 # The image is saved to a tar and scanned from there, so the scanner never gets the Docker socket.
 .PHONY: scan.docker
 scan.docker: ## scans the image for fixable HIGH and CRITICAL vulnerabilities, building it first if it is missing
-	@if ! docker image inspect $(DOCKER_IMAGE_TAG) >/dev/null 2>&1; then $(MAKE) build.docker; fi
-	@dir=$$(mktemp -d) && docker save -o "$$dir/image.tar" $(DOCKER_IMAGE_TAG) && \
-		docker run --rm -v "$$dir":/scan:ro -v curtz-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
+	@if ! docker image inspect $(DOCKER_IMAGE_REF) >/dev/null 2>&1; then $(MAKE) build.docker; fi
+	@dir=$$(mktemp -d) && docker save -o "$$dir/image.tar" $(DOCKER_IMAGE_REF) && \
+		docker run --rm -v "$$dir":/scan:ro -v curtz-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
 		status=$$?; rm -rf "$$dir"; exit $$status
 
 .PHONY: build.docker
@@ -1947,3 +1964,388 @@ git add docs/superpowers/specs/2026-10-04-dockerfile-hardening-design.md
 git commit -m "docs: record the live verification of the image and the app stack"
 ```
 Expected: a clean `git status`.
+
+---
+
+### Task 8: Mirror CI (GitLab and Bitbucket)
+
+Added at the user's request on 2026-10-04 (spec D11 and section 8b). Both pipelines run the same checks as GitHub; they were stale (`golang:1.18`) and failed at
+their first step (`make setup-linting` is not a target).
+
+**Files:**
+- Create: `scripts/mirror_ci_check.sh` (executable)
+- Rewrite: `.gitlab-ci.yml`, `bitbucket-pipelines.yml`
+- Modify: `.gitlab/.gitlab-webide.yml` (`image: go:1.18` is not a valid image, use `golang:1.26`), `.make/docker.mk` (`lint.workflows` also runs the new guard), `docs/Deployment.md` (a "Continuous integration" section), the spec's implementation notes
+
+**Interfaces:**
+- Consumes: the commands GitHub runs (`tests.yml`, `build_app.yml`), `scripts/image_test.sh image <tag>` (Task 2), the `golangci/golangci-lint` version in `.make/dev.mk`, `hadolint.yaml`, Trivy flags (Task 3).
+- Produces: `scripts/mirror_ci_check.sh`, run by `make lint.workflows` (Task 5).
+
+**Task test command:** `scripts/mirror_ci_check.sh && make lint.workflows`
+
+- [ ] **Step 1: Write the guard script and see it fail**
+
+Create `scripts/mirror_ci_check.sh`:
+
+```bash
+#!/usr/bin/env bash
+# Guards parity between the GitHub workflows and the mirror pipelines, .gitlab-ci.yml and bitbucket-pipelines.yml
+# (docs/superpowers/specs/2026-10-04-dockerfile-hardening-design.md, section 8b). It checks, without running anything:
+#  1. both mirror files parse as YAML;
+#  2. every Go image has the same minor version as go.mod, and the golangci-lint image is the one `make lint` pins;
+#  3. every command GitHub runs for the tests and the build also appears in each mirror;
+#  4. the image checks (hadolint, build, scripts/image_test.sh, Trivy with the same flags) appear in each mirror;
+#  5. Docker-based jobs disable Ryuk, no image is :latest, and every make target a mirror calls exists.
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 1
+status=0
+fail() { echo "$1"; status=1; }
+
+pipelines=(.gitlab-ci.yml bitbucket-pipelines.yml)
+
+go_minor="$(sed -n 's/^go \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' go.mod)"
+lint_image="$(grep -oE 'golangci/golangci-lint:v[0-9.]+' .make/dev.mk | head -1)"
+[ -n "$go_minor" ] || { echo "cannot read the Go version from go.mod"; exit 1; }
+[ -n "$lint_image" ] || { echo "cannot read the golangci-lint image from .make/dev.mk"; exit 1; }
+
+# What GitHub runs: the test commands (tests.yml) and the build (build_app.yml).
+github_commands="$(sed -nE 's/^[[:space:]]*command:[[:space:]]*(make [A-Za-z0-9._-]+).*/\1/p' .github/workflows/tests.yml | sort -u)
+$(sed -nE 's/^[[:space:]]*run:[[:space:]]*(make build)[[:space:]]*$/\1/p' .github/workflows/build_app.yml | sort -u)"
+
+required=(
+  "golangci-lint run"
+  "hadolint --config hadolint.yaml Dockerfile"
+  "docker build"
+  "scripts/image_test.sh image"
+  "trivy image"
+  "--severity HIGH,CRITICAL"
+  "--ignore-unfixed"
+  "--exit-code 1"
+  "TESTCONTAINERS_RYUK_DISABLED"
+)
+
+for f in "${pipelines[@]}"; do
+  if [ ! -r "$f" ]; then fail "$f: missing"; continue; fi
+
+  ruby -ryaml -e 'f = ARGV[0]; YAML.respond_to?(:unsafe_load_file) ? YAML.unsafe_load_file(f) : YAML.load_file(f)' "$f" >/dev/null 2>&1 ||
+    fail "$f: does not parse as YAML"
+
+  while IFS= read -r command; do
+    [ -n "$command" ] || continue
+    grep -qF -- "$command" "$f" || fail "$f: does not run \`$command\`, which GitHub runs"
+  done <<<"$github_commands"
+
+  grep -qF -- "$lint_image" "$f" || fail "$f: does not use $lint_image, the image make lint pins"
+  for want in "${required[@]}"; do
+    grep -qF -- "$want" "$f" || fail "$f: does not contain \`$want\`"
+  done
+  if grep -qE ':latest([[:space:]"]|$)' "$f"; then fail "$f: an image is :latest, pin a version"; fi
+
+  while read -r _ target; do
+    make -n "$target" >/dev/null 2>&1 || fail "$f: \`make $target\` is not a target of this Makefile"
+  done < <(grep -oE '(^|[[:space:]])make [A-Za-z0-9._-]+' "$f" | sed -E 's/^[[:space:]]+//' | sort -u)
+done
+
+for f in "${pipelines[@]}" .gitlab/.gitlab-webide.yml; do
+  [ -r "$f" ] || continue
+  while IFS= read -r image; do
+    [ "$image" = "golang:$go_minor" ] || fail "$f: $image does not match go.mod (go $go_minor)"
+  done < <(grep -oE '(^|[[:space:]"'"'"'])go(lang)?:[0-9][0-9.]*' "$f" | sed -E 's/^[[:space:]"'"'"']//')
+done
+
+exit "$status"
+```
+
+Run: `chmod +x scripts/mirror_ci_check.sh && bash -n scripts/mirror_ci_check.sh && scripts/mirror_ci_check.sh; echo "exit $?"`
+Expected: about 32 lines and `exit 1`: both files lack the test commands, the golangci-lint image, hadolint, `docker build`, Trivy and `TESTCONTAINERS_RYUK_DISABLED`; `make setup-linting` is not a target; `golang:1.18` and `go:1.18` do not match `go.mod`.
+
+- [ ] **Step 2: Write `.gitlab-ci.yml` and fix the Web IDE image**
+
+Overwrite `.gitlab-ci.yml`:
+
+```yaml
+# GitLab CI: the same verification as the GitHub workflows (lint, tests, build, image checks); scripts/mirror_ci_check.sh
+# keeps the two in step. Publishing, releases, deploys, Sentry, Slack, CodeQL and Danger stay on GitHub, which also
+# mirrors this repository here (.github/workflows/gitlab_sync.yml).
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+default:
+  image: golang:1.26
+  interruptible: true
+
+stages:
+  - lint
+  - test
+  - build
+  - image
+
+variables:
+  GOPATH: $CI_PROJECT_DIR/.go
+  GOFLAGS: -buildvcs=false
+  IMAGE_TAG: curtz-service:ci
+
+.go-cache: &go-cache
+  cache:
+    key:
+      files:
+        - go.sum
+    paths:
+      - .go/pkg/mod/
+
+# Jobs that need a Docker daemon (testcontainers, image builds) use Docker-in-Docker. TESTCONTAINERS_HOST_OVERRIDE makes
+# the tests reach the containers they start on the daemon's host; Ryuk is off because the daemon is thrown away with the job.
+.docker:
+  services:
+    - name: docker:29.8-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    TESTCONTAINERS_HOST_OVERRIDE: docker
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+
+lint:
+  stage: lint
+  image: golangci/golangci-lint:v2.13.2
+  <<: *go-cache
+  script:
+    - golangci-lint run -v
+
+unit-tests:
+  stage: test
+  <<: *go-cache
+  script:
+    - make test.coverage
+    - go tool cover -func=coverage.out | tail -1
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    paths:
+      - coverage.out
+    expire_in: 1 week
+
+integration-tests:
+  stage: test
+  extends: .docker
+  <<: *go-cache
+  script:
+    - make test.integration
+
+e2e-tests:
+  stage: test
+  extends: .docker
+  <<: *go-cache
+  script:
+    - make test.e2e
+
+build:
+  stage: build
+  <<: *go-cache
+  script:
+    - make build
+  artifacts:
+    paths:
+      - bin/curtz
+    expire_in: 1 week
+
+docker-lint:
+  stage: image
+  image:
+    name: hadolint/hadolint:v2.15.1-debian
+    entrypoint: [""]
+  script:
+    - hadolint --config hadolint.yaml Dockerfile
+
+docker-build:
+  stage: image
+  extends: .docker
+  image: docker:29.8-cli
+  before_script:
+    - apk add --no-cache bash
+  script:
+    - docker build -t "$IMAGE_TAG" --build-arg VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}" --build-arg GIT_COMMIT="$CI_COMMIT_SHA" --build-arg BUILD_TIME="$CI_COMMIT_TIMESTAMP" .
+    - scripts/image_test.sh image "$IMAGE_TAG"
+    - docker save -o curtz-image.tar "$IMAGE_TAG"
+  artifacts:
+    paths:
+      - curtz-image.tar
+    expire_in: 1 day
+
+# The image is scanned from the saved tar, so the scanner needs no Docker daemon and no shared paths.
+docker-scan:
+  stage: image
+  needs:
+    - docker-build
+  image:
+    name: aquasec/trivy:0.75.0
+    entrypoint: [""]
+  variables:
+    TRIVY_CACHE_DIR: .trivycache
+  cache:
+    key: trivy-db
+    paths:
+      - .trivycache/
+  script:
+    - trivy image --quiet --no-progress --input curtz-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+```
+
+In `.gitlab/.gitlab-webide.yml` change `  image: go:1.18` to `  image: golang:1.26`.
+
+- [ ] **Step 3: Write `bitbucket-pipelines.yml`**
+
+Overwrite `bitbucket-pipelines.yml`:
+
+```yaml
+# ref https://support.atlassian.com/bitbucket-cloud/docs/configure-bitbucket-pipelinesyml/
+# Bitbucket Pipelines: the same verification as the GitHub workflows (lint, tests, build, image checks);
+# scripts/mirror_ci_check.sh keeps the two in step. Publishing, releases, deploys, Sentry, Slack, CodeQL and Danger stay on
+# GitHub, which also mirrors this repository here (.github/workflows/bitbucket_sync.yml).
+image: golang:1.26
+
+definitions:
+  caches:
+    gomod: /go/pkg/mod
+  services:
+    docker:
+      memory: 3072
+  steps:
+    - step: &lint
+        name: Lint
+        image: golangci/golangci-lint:v2.13.2
+        caches:
+          - gomod
+        script:
+          - golangci-lint run -v
+
+    - step: &unit-tests
+        name: Unit tests
+        caches:
+          - gomod
+        script:
+          - make test.coverage
+          - go tool cover -func=coverage.out | tail -1
+        artifacts:
+          - coverage.out
+
+    # The integration and e2e tests start their own containers (testcontainers) on the Docker service. Ryuk is off because
+    # the daemon is thrown away with the step.
+    - step: &integration-tests
+        name: Integration tests
+        size: 2x
+        caches:
+          - gomod
+        services:
+          - docker
+        script:
+          - export TESTCONTAINERS_RYUK_DISABLED=true
+          - make test.integration
+
+    - step: &e2e-tests
+        name: E2E tests
+        size: 2x
+        caches:
+          - gomod
+        services:
+          - docker
+        script:
+          - export TESTCONTAINERS_RYUK_DISABLED=true
+          - make test.e2e
+
+    - step: &build
+        name: Build
+        caches:
+          - gomod
+        script:
+          - make build
+        artifacts:
+          - bin/curtz
+
+    - step: &docker-lint
+        name: Lint the Dockerfile
+        image: hadolint/hadolint:v2.15.1-debian
+        script:
+          - hadolint --config hadolint.yaml Dockerfile
+
+    - step: &docker-build
+        name: Build and check the image
+        size: 2x
+        services:
+          - docker
+        script:
+          - export IMAGE_TAG=curtz-service:ci
+          - docker build -t "$IMAGE_TAG" --build-arg VERSION="$(echo "$BITBUCKET_COMMIT" | cut -c1-7)" --build-arg GIT_COMMIT="$BITBUCKET_COMMIT" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
+          - scripts/image_test.sh image "$IMAGE_TAG"
+          - docker save -o curtz-image.tar "$IMAGE_TAG"
+        artifacts:
+          - curtz-image.tar
+
+    # The image is scanned from the saved tar, so the scanner needs no Docker daemon and no shared paths.
+    - step: &docker-scan
+        name: Scan the image
+        image: aquasec/trivy:0.75.0
+        script:
+          - trivy image --quiet --no-progress --input curtz-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+
+pipelines:
+  default: &verify
+    - step: *lint
+    - parallel:
+        - step: *unit-tests
+        - step: *integration-tests
+        - step: *e2e-tests
+    - step: *build
+    - parallel:
+        - step: *docker-lint
+        - step: *docker-build
+    - step: *docker-scan
+
+  pull-requests:
+    '**': *verify
+```
+
+- [ ] **Step 4: Wire the guard into `make lint.workflows`**
+
+In `.make/docker.mk`, make the `lint.workflows` recipe (added in Task 5) start with both guards:
+
+```make
+lint.workflows: ## lints the GitHub workflows (actionlint, pinning rules) and checks the GitLab and Bitbucket pipelines against them
+	@$(ROOT_DIR)/scripts/workflows_check.sh
+	@$(ROOT_DIR)/scripts/mirror_ci_check.sh
+	docker run --rm -v "$(ROOT_DIR):/repo:ro" -w /repo $(ACTIONLINT_IMAGE) -color
+```
+
+- [ ] **Step 5: Run the guard, then prove it bites**
+
+Run: `scripts/mirror_ci_check.sh; echo "exit $?"; make lint.workflows >/dev/null 2>&1; echo "make exit $?"`
+Expected: `exit 0` and `make exit 0`.
+
+Break each file in turn, run the guard, and restore it: the Go image (`golang:1.26` to `golang:1.25`), Trivy's `--ignore-unfixed`, the golangci-lint version, a `make` target that does not exist, an `:latest` image, and `TESTCONTAINERS_RYUK_DISABLED`. Expected: the guard exits 1 each time and 0 after the restore.
+
+- [ ] **Step 6: Run the commands the pipelines run**
+
+```bash
+make test.coverage && go tool cover -func=coverage.out | tail -1 && rm -f coverage.out
+make test.integration
+IMAGE_TAG=curtz-service:ci
+docker build -t "$IMAGE_TAG" --build-arg VERSION="$(git rev-parse --short=7 HEAD)" --build-arg GIT_COMMIT="$(git rev-parse HEAD)" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
+scripts/image_test.sh image "$IMAGE_TAG" && make scan.docker DOCKER_IMAGE_TAG="$IMAGE_TAG"
+docker rmi "$IMAGE_TAG"
+```
+Expected: every command exits 0 (the e2e command ran in Task 7). If a command fails, the pipeline would too: fix the cause before committing.
+
+- [ ] **Step 7: Document it**
+
+In `docs/Deployment.md`, insert a `## Continuous integration` section immediately before `## Local infrastructure`: the table of checks per CI (lint, unit tests with coverage, integration, e2e, build, Dockerfile lint, image build and checks, image scan), the line that publishing, releases, the Fly.io deploy, Sentry, Slack, CodeQL and Danger run on GitHub only, and the paragraph on Docker-in-Docker, the saved-tar scan and `make lint.workflows`.
+
+- [ ] **Step 8: Whole suite and commit**
+
+Run: `bash scripts/infra_test.sh 2>&1 | tail -1; go test ./... 2>&1 | grep -v "no test files" | grep -v "^ok" | grep -v "^ *[│┌└]" | head; echo "suite: no failing lines above expected"`
+
+```bash
+git add scripts/mirror_ci_check.sh .gitlab-ci.yml bitbucket-pipelines.yml .gitlab/.gitlab-webide.yml .make/docker.mk docs
+git commit -m "ci: run the same lint, tests, build and image checks on GitLab and Bitbucket as on GitHub"
+```
