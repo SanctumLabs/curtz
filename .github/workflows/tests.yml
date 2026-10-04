@@ -14,7 +14,7 @@ jobs:
   unit_tests:
      strategy:
        matrix:
-         go-version: [ '1.25' ]
+         go-version: [ '1.26' ]
      name: Unit Tests (Go ${{ matrix.go-version }})
      if: ${{ github.event.workflow_run.conclusion == 'success' }}
      uses: SanctumLabs/ci-workflows/.github/workflows/go-test.yml@main
@@ -27,7 +27,7 @@ jobs:
   integration_tests:
      strategy:
        matrix:
-         go-version: [ '1.25' ]
+         go-version: [ '1.26' ]
      name: Integration Tests (Go ${{ matrix.go-version }})
      if: ${{ github.event.workflow_run.conclusion == 'success' }}
      uses: SanctumLabs/ci-workflows/.github/workflows/go-test.yml@main
@@ -45,7 +45,7 @@ jobs:
   e2e_tests:
      strategy:
        matrix:
-         go-version: [ '1.25' ]
+         go-version: [ '1.26' ]
      name: E2E Tests (Go ${{ matrix.go-version }})
      if: ${{ github.event.workflow_run.conclusion == 'success' }}
      uses: SanctumLabs/ci-workflows/.github/workflows/go-test.yml@main

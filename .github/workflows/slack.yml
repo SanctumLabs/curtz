@@ -7,7 +7,7 @@ on:
   workflow_run:
     workflows:
       - "Lint"
-      - "Test"
+      - "Tests"
       - "Build"
       - "Release"
       - "Sentry Release"
@@ -18,6 +18,9 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read
+
 jobs:
   onSuccess:
     name: Success Notification
@@ -25,12 +28,13 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
+          persist-credentials: false
 
       - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_CHANNEL: pipelines
           SLACK_COLOR: "good"
@@ -48,10 +52,13 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+          persist-credentials: false
 
       - name: Slack Notification
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_CHANNEL: pipelines
           SLACK_COLOR: "danger"

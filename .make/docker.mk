@@ -39,6 +39,13 @@ scan.docker: ## scans the image for fixable HIGH and CRITICAL vulnerabilities, b
 		docker run --rm -v "$$dir":/scan:ro -v curtz-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
 		status=$$?; rm -rf "$$dir"; exit $$status
 
+ACTIONLINT_IMAGE ?= rhysd/actionlint:1.7.12
+
+.PHONY: lint.workflows
+lint.workflows: ## lints the GitHub Actions workflows (actionlint) and checks the pinning rules
+	@$(ROOT_DIR)/scripts/workflows_check.sh
+	docker run --rm -v "$(ROOT_DIR):/repo:ro" -w /repo $(ACTIONLINT_IMAGE) -color
+
 .PHONY: build.docker
 build.docker: ## Build the Docker image with its version metadata, usage: make build.docker DOCKER_IMAGE_TAG=curtz-service
 	@echo "Building Docker image"

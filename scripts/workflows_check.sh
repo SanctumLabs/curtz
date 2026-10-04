@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Guards the CI rules this repository relies on (docs/superpowers/specs/2026-10-04-dockerfile-hardening-design.md):
+#  1. every action is pinned to a full commit SHA (local actions and reusable workflows from SanctumLabs/ci-workflows are exempt);
+#  2. every workflow declares top-level permissions;
+#  3. in a workflow_run workflow every checkout names the triggering commit or branch (the default is the default branch);
+#  4. Dependabot keeps the gomod, docker and github-actions pins current.
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 1
+shopt -s nullglob
+status=0
+fail() { echo "$1"; status=1; }
+
+for f in .github/workflows/*.yml; do
+  grep -qE '^permissions:' "$f" || fail "$f: no top-level permissions block"
+
+  while IFS= read -r ref; do
+    case "$ref" in ./* | SanctumLabs/ci-workflows/*) continue ;; esac
+    grep -Eq '@[0-9a-f]{40}$' <<<"$ref" || fail "$f: $ref is not pinned to a full commit SHA"
+  done < <(sed -nE 's/^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]*([^[:space:]#]+).*/\2/p' "$f")
+
+  if grep -qE '^[[:space:]]*workflow_run:' "$f"; then
+    awk -v file="$f" '
+      /uses:[[:space:]]*actions\/checkout@/ { pending = 8; found = 0; next }
+      pending > 0 {
+        if ($0 ~ /ref:.*workflow_run\.head_/) found = 1
+        pending--
+        if (pending == 0 && !found) { print file ": a checkout in a workflow_run workflow does not use workflow_run.head_sha or head_branch"; bad = 1 }
+      }
+      END {
+        if (pending > 0 && !found) { print file ": a checkout in a workflow_run workflow does not use workflow_run.head_sha or head_branch"; bad = 1 }
+        exit bad
+      }
+    ' "$f" || status=1
+  fi
+done
+
+for ecosystem in gomod docker github-actions; do
+  grep -qE "package-ecosystem:[[:space:]]*\"?${ecosystem}\"?" .github/dependabot.yml || fail ".github/dependabot.yml: no $ecosystem ecosystem"
+done
+
+exit "$status"
