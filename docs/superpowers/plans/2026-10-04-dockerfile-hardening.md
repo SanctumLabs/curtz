@@ -55,7 +55,7 @@ Failure modes the spec implies but no obvious test covers, most likely first. Ea
 2. An image started without `ENVIRONMENT` accepts the development secrets → Task 2 (`image_test.sh image` runs the image with no environment and expects exit 1).
 3. The healthcheck dials the wrong address when `SERVER_HOST` is set → Task 1 (host tests).
 4. `docker compose stop` kills a draining app (grace period shorter than the drain) → Task 7 (the stop drill checks exit code 0 inside the grace period).
-5. A `workflow_run` workflow builds, scans or releases the wrong commit → Task 5 (`workflows_check.sh` rule 3).
+5. A `workflow_run` workflow builds, scans or releases the wrong commit → Task 5 (`workflows_check.sh` rule 3). **Holds for the first link of a chain only**: the final review showed that a workflow triggered by another `workflow_run` workflow gets the default branch's head (spec section 8, limitation).
 
 ---
 

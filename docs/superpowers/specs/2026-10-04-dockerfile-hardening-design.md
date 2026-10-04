@@ -149,6 +149,15 @@ Included from the root `docker-compose.yml` with `env_file: .env`, like the othe
 | every workflow | A minimal `permissions:` block, and actions pinned by SHA with a version comment (D8). |
 | `dependabot.yml` | Adds the `docker` and `github-actions` ecosystems next to `gomod`. |
 
+Limitation found in the final review: `workflow_run.head_sha` and `head_branch` identify the commit that triggered the *first* link of a
+chain only. A workflow triggered by another `workflow_run` workflow (Build after Tests; Docker, Deploy, Release and Sentry after Build)
+gets the default branch's head, because the run it follows was itself created against the default branch (the run history of this
+repository shows Tests, Build and Docker runs with `headBranch: main` after a push to a feature branch). Checking out `head_sha` is
+therefore right for Tests and wrong for everything after it, and the `branches: [main, develop]` filters always see `main`. This predates
+the slice and the slice does not fix it. The fix is one push-triggered workflow whose jobs are joined by `needs:` (reusable workflows can
+be jobs), gated on `github.ref`; it also removes the three-level `workflow_run` limit that drops Slack notifications. That redesigns the
+GitHub CI (job names, triggers, Slack), so it is the owner's decision. `scripts/workflows_check.sh` rule 3 certifies the first link only.
+
 SHAs are resolved with `gh api` when implementing. If a pinned action's behavior changes (inputs renamed between major versions),
 the workflow is adjusted to the current documented inputs.
 
@@ -217,6 +226,9 @@ records D1, D2 and D5: the runtime image is distroless static, carries the migra
 - **Lint fails on all three CIs today.** `golangci-lint run` reports 35 findings in code that predates these slices (logger, jwtauth,
   errdefs and others) and GitHub's Lint workflow is already red for the same reason. The mirror lint jobs inherit that until the
   findings are fixed; a baseline (`new-from-rev`) or a clean-up is a separate decision.
+- **Chained `workflow_run` workflows act on `main`, not on the pushed commit** (section 8). Once the Lint workflow is green, a push to any
+  branch would run Docker and Deploy for `main`'s tip: republish its image, redeploy it, and cut a Sentry release; `develop` never gets
+  an image. Pre-existing; needs the single-workflow restructure above.
 - **Digest pins go stale** without Dependabot; D8 adds it, but it only opens pull requests.
 
 ## 12. Implementation notes
@@ -281,3 +293,13 @@ Mirror CI (GitLab and Bitbucket):
   errdefs, the in-memory queue, and others), and GitHub's Lint workflow is red on this branch for the same reason (its last five runs).
   Seven more findings were in code written for these slices (unchecked errors in the healthcheck and three tests) and were fixed. The
   mirror lint jobs will fail until the 35 are fixed or baselined; that is a separate decision.
+
+Final review (a fresh reviewer, Opus; Fable needed usage credits):
+
+- No Critical findings. Fixed: `release.yml` would have failed every run after the `permissions` change (the checkout persisted a read-only
+  token that overrides `GH_RELEASE_TOKEN`; now `persist-credentials: false`; no automated check covers this one); Release and Sentry
+  ran even when Build failed (now gated on `workflow_run.conclusion`, and `workflows_check.sh` rule 5 enforces it); Bitbucket's `docker`
+  service builds with the classic builder, which rejects the Dockerfile's `RUN --mount` (now `DOCKER_BUILDKIT=1`, and
+  `mirror_ci_check.sh` requires it; both guard rules failed first). Two doc lines (the distroless image name, when the secrets guard is off) and the stale `go.sum` lines of
+  the gRPC bump were corrected.
+- Not fixed, for the owner: the chained-`workflow_run` limitation (section 8).
