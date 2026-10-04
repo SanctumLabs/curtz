@@ -127,6 +127,7 @@ func (srv *Server) ServeListener(ctx context.Context, ln net.Listener, timeout t
 	select {
 	case <-listenErr:
 	case <-time.After(timeout):
+		return fmt.Errorf("server did not stop within %s", timeout)
 	}
 	return nil
 }
