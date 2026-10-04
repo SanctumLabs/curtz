@@ -27,7 +27,7 @@ func get(t *testing.T, app *fiber.App, path string) (int, string) {
 	t.Helper()
 	resp, err := app.Test(httptest.NewRequest("GET", path, nil))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	return resp.StatusCode, string(body)

@@ -117,7 +117,7 @@ func TestServe_FinishesInFlightRequestsBeforeReturning(t *testing.T) {
 			responses <- response{err: err}
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
 		responses <- response{body: string(body)}
 	}()
@@ -231,7 +231,7 @@ func TestServe_LogsTheShutdown(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return resp.StatusCode == http.StatusNoContent
 	}, 5*time.Second, 20*time.Millisecond, "the server never started serving")
 

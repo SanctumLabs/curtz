@@ -86,7 +86,7 @@ func main() {
 func healthcheck(lookup config.Lookup, out io.Writer) int {
 	server, err := config.LoadServer(lookup)
 	if err != nil {
-		fmt.Fprintf(out, "healthcheck: invalid configuration: %v\n", err)
+		_, _ = fmt.Fprintf(out, "healthcheck: invalid configuration: %v\n", err)
 		return 1
 	}
 
@@ -96,21 +96,21 @@ func healthcheck(lookup config.Lookup, out io.Writer) int {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		fmt.Fprintf(out, "healthcheck: %v\n", err)
+		_, _ = fmt.Fprintf(out, "healthcheck: %v\n", err)
 		return 1
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Fprintf(out, "healthcheck: %v\n", err)
+		_, _ = fmt.Fprintf(out, "healthcheck: %v\n", err)
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(out, "healthcheck: %s answered %d\n", target, resp.StatusCode)
+		_, _ = fmt.Fprintf(out, "healthcheck: %s answered %d\n", target, resp.StatusCode)
 		return 1
 	}
-	fmt.Fprintln(out, "healthcheck: ok")
+	_, _ = fmt.Fprintln(out, "healthcheck: ok")
 	return 0
 }
 
