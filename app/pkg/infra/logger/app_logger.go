@@ -95,8 +95,8 @@ func New(cfg *LogConfig) Logger {
 	config := zap.Config{
 		Level:             logLevel,
 		Development:       cfg.Development,
-		DisableCaller:     cfg.EnableCaller,
-		DisableStacktrace: cfg.EnableStackTrace,
+		DisableCaller:     !cfg.EnableCaller,
+		DisableStacktrace: !cfg.EnableStackTrace,
 		Encoding:          cfg.Format,
 		EncoderConfig:     defaultEncodingConfig,
 		OutputPaths: []string{

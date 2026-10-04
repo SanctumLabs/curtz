@@ -83,6 +83,43 @@ func TestNewLoggerEmitsLogs(t *testing.T) {
 	})
 }
 
+func TestNewLoggerCallerAndStacktraceFlags(t *testing.T) {
+	logError := func(t *testing.T, cfg *LogConfig) map[string]interface{} {
+		t.Helper()
+
+		stderr := captureStderr(t)
+		New(cfg).Errorw("boom")
+
+		lines := readLines(t, stderr)
+		require.Len(t, lines, 1)
+
+		var entry map[string]interface{}
+		require.NoError(t, json.Unmarshal([]byte(lines[0]), &entry))
+		return entry
+	}
+
+	t.Run("caller and stacktrace are omitted by default", func(t *testing.T) {
+		entry := logError(t, nil)
+
+		assert.NotContains(t, entry, "caller")
+		assert.NotContains(t, entry, "stacktrace")
+	})
+
+	t.Run("EnableCaller adds the caller field", func(t *testing.T) {
+		entry := logError(t, &LogConfig{EnableCaller: true})
+
+		assert.Contains(t, entry, "caller")
+		assert.NotContains(t, entry, "stacktrace")
+	})
+
+	t.Run("EnableStackTrace adds the stacktrace field", func(t *testing.T) {
+		entry := logError(t, &LogConfig{EnableStackTrace: true})
+
+		assert.Contains(t, entry, "stacktrace")
+		assert.NotContains(t, entry, "caller")
+	})
+}
+
 func TestNewTestLogger(t *testing.T) {
 	l, logs := NewTestLogger()
 
