@@ -111,20 +111,22 @@ Included from the root `docker-compose.yml` with `env_file: .env`, like the othe
   `REDIS_PASSWORD=${REDIS_PASSWORD:-curtz-svc}`, `AUTH_SECRET=${AUTH_SECRET:-curtz-secret}`, and `REDIS_ADDRESS` as
   `redis-1:7001` in single mode and `redis-1:7001` to `redis-6:7006` in HA mode. Every `${VAR:-default}` must match
   `.env.example`, which `scripts/infra_env_check.sh` enforces.
-- Dependencies: the `migrate` job completed, and Postgres reachable (`postgres-single` healthy in single mode; in HA the `migrate`
-  job already proves the `postgres` alias answers). Redis is not a dependency (ADR-0015).
+- Dependencies: none declared. A `depends_on` into a profile that is not enabled makes `docker compose config` fail (verified on
+  Compose 5.5.1), so ordering is the script's job: `infra.sh up app` brings up and waits for Postgres (with its `migrate` job) and
+  Redis first, and `restart: unless-stopped` covers a manual start before Postgres is ready. Redis is optional for the app (ADR-0015).
 - Hardening: `read_only: true`, `tmpfs: [/tmp]`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`,
   `restart: unless-stopped`, `stop_grace_period: 20s` (longer than the 15 second `SHUTDOWN_TIMEOUT`, so a stop never kills a drain).
 - Port `127.0.0.1:8085:8085`, so stop a host-run API first. `SERVER_HOST` is not set: inside a container it must stay `0.0.0.0`.
 - `scripts/infra.sh` learns the `app` stack (the mode applies): `up app <mode>` first brings up `postgres` and `redis` for that mode
   through the script itself, then starts the app profile with `--build`; `down app` stops only the app. `scripts/infra_test.sh`
   gets stub-based cases for it, and `make infra.config` must render both profiles.
-- Make: `infra.app.up` and `infra.app.down` with `MODE=ha|single`, plus the existing per-stack `config`, `ps` and `logs` targets for `app`.
+- Make: `infra.app.up` and `infra.app.down` with `MODE=ha|single`. The global `infra.config`, `infra.ps`, `infra.logs` and `infra.clean`
+  cover the app once `app-ha` and `app-single` are in `INFRA_PROFILES`.
 
 ## 7. Make, hadolint and Trivy
 
 - `lint.docker` mounts `hadolint.yaml` with an absolute path (today it passes a relative name, which Docker treats as a named volume,
-  so the config is never read) and pins the hadolint image tag.
+  so the config is never read) and pins the hadolint image by digest (the image already on the machine).
 - `scan.docker` builds the image if missing, saves it with `docker save` to a temporary tar and scans that file with a pinned
   Trivy image (`--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`, a named volume for the vulnerability database). It does
   not mount the Docker socket into the scanner. The empty `scan.docker.image` target is removed.
