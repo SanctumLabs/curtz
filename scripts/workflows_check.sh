@@ -3,7 +3,8 @@
 #  1. every action is pinned to a full commit SHA (local actions and reusable workflows from SanctumLabs/ci-workflows are exempt);
 #  2. every workflow declares top-level permissions;
 #  3. in a workflow_run workflow every checkout names the triggering commit or branch (the default is the default branch);
-#  4. Dependabot keeps the gomod, docker and github-actions pins current.
+#  4. Dependabot keeps the gomod, docker and github-actions pins current;
+#  5. a workflow_run workflow checks workflow_run.conclusion, so it does not run when the workflow it follows failed.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 shopt -s nullglob
@@ -19,6 +20,8 @@ for f in .github/workflows/*.yml; do
   done < <(sed -nE 's/^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]*([^[:space:]#]+).*/\2/p' "$f")
 
   if grep -qE '^[[:space:]]*workflow_run:' "$f"; then
+    grep -qF 'workflow_run.conclusion' "$f" ||
+      fail "$f: a workflow_run workflow does not check workflow_run.conclusion, so it runs even when the workflow it follows failed"
     awk -v file="$f" '
       /uses:[[:space:]]*actions\/checkout@/ { pending = 8; found = 0; next }
       pending > 0 {

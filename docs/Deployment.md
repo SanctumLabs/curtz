@@ -10,7 +10,7 @@ make build.docker DOCKER_IMAGE_TAG=curtz-service    # stamps the image with its 
 docker build -t <IMAGE_NAME>:<IMAGE_TAG> --build-arg VERSION=<VERSION> --build-arg GIT_COMMIT=<SHA> --build-arg BUILD_TIME=<RFC3339> .
 ```
 
-The image is built in two stages. The final stage is `gcr.io/distroless/static:nonroot`, pinned by digest: no shell, no package manager, uid 65532. It contains:
+The image is built in two stages. The final stage is `gcr.io/distroless/static-debian13:nonroot`, pinned by digest: no shell, no package manager, uid 65532. It contains:
 
 - `/app/curtz`, the API (the default entrypoint, port 8085);
 - `/app/migrator`, which applies the database migrations (ADR-0014);

@@ -4,11 +4,11 @@ status: accepted
 
 # The runtime image is distroless static, carries the migrator, and defaults to production
 
-The API ships as one image built from `Dockerfile`: a pinned Go toolchain stage, then `gcr.io/distroless/static:nonroot` pinned by digest. The final stage has no shell and no package manager and runs as uid 65532. It holds `/app/curtz`, `/app/migrator` and `/app/migrations`, so one artifact can serve and migrate (ADR-0014).
+The API ships as one image built from `Dockerfile`: a pinned Go toolchain stage, then `gcr.io/distroless/static-debian13:nonroot` pinned by digest. The final stage has no shell and no package manager and runs as uid 65532. It holds `/app/curtz`, `/app/migrator` and `/app/migrations`, so one artifact can serve and migrate (ADR-0014).
 
 Because the image has no `curl`, `wget` or shell, its `HEALTHCHECK` is a subcommand of the binary: `/app/curtz healthcheck` calls `GET /health` on the configured port. It probes liveness, not readiness, so a Postgres outage does not mark the container unhealthy and invite a restart that cannot help (ADR-0015).
 
-The image sets `ENVIRONMENT=production`. A container started without `ENVIRONMENT` therefore refuses the development secrets instead of silently accepting them (the guard from the app-connectivity slice is off only when `ENVIRONMENT` is unset). The local compose stack overrides it with `development`.
+The image sets `ENVIRONMENT=production`. A container started without `ENVIRONMENT` therefore refuses the development secrets instead of silently accepting them (the guard from the app-connectivity slice is off for `development` and `test`, and when `ENVIRONMENT` is unset or empty). The local compose stack overrides it with `development`.
 
 The build context is an allowlist (`go.mod`, `go.sum`, `app/`, minus tests), so a secret or a new top-level directory can never enter the builder by accident.
 

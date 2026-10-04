@@ -5,7 +5,8 @@
 #  2. every Go image has the same minor version as go.mod, and the golangci-lint image is the one `make lint` pins;
 #  3. every command GitHub runs for the tests and the build also appears in each mirror;
 #  4. the image checks (hadolint, build, scripts/image_test.sh, Trivy with the same flags) appear in each mirror;
-#  5. Docker-based jobs disable Ryuk, no image is :latest, and every make target a mirror calls exists.
+#  5. Docker-based jobs disable Ryuk, no image is :latest, and every make target a mirror calls exists;
+#  6. Bitbucket turns BuildKit on (its docker service uses the classic builder otherwise, and the Dockerfile uses cache mounts).
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 status=0
@@ -50,6 +51,9 @@ for f in "${pipelines[@]}"; do
     grep -qF -- "$want" "$f" || fail "$f: does not contain \`$want\`"
   done
   if grep -qE ':latest([[:space:]"]|$)' "$f"; then fail "$f: an image is :latest, pin a version"; fi
+  if [ "$f" = bitbucket-pipelines.yml ]; then
+    grep -qF 'DOCKER_BUILDKIT=1' "$f" || fail "$f: does not set DOCKER_BUILDKIT=1, so docker build uses the classic builder and rejects RUN --mount"
+  fi
 
   while read -r _ target; do
     make -n "$target" >/dev/null 2>&1 || fail "$f: \`make $target\` is not a target of this Makefile"

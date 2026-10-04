@@ -75,6 +75,8 @@ definitions:
           - docker
         script:
           - export IMAGE_TAG=curtz-service:ci
+          # the docker service builds with the classic builder unless BuildKit is on, and the Dockerfile uses RUN --mount
+          - export DOCKER_BUILDKIT=1
           - docker build -t "$IMAGE_TAG" --build-arg VERSION="$(echo "$BITBUCKET_COMMIT" | cut -c1-7)" --build-arg GIT_COMMIT="$BITBUCKET_COMMIT" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
           - scripts/image_test.sh image "$IMAGE_TAG"
           - docker save -o curtz-image.tar "$IMAGE_TAG"
