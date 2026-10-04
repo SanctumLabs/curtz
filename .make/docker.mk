@@ -42,8 +42,9 @@ scan.docker: ## scans the image for fixable HIGH and CRITICAL vulnerabilities, b
 ACTIONLINT_IMAGE ?= rhysd/actionlint:1.7.12
 
 .PHONY: lint.workflows
-lint.workflows: ## lints the GitHub Actions workflows (actionlint) and checks the pinning rules
+lint.workflows: ## lints the GitHub workflows (actionlint, pinning rules) and checks the GitLab and Bitbucket pipelines against them
 	@$(ROOT_DIR)/scripts/workflows_check.sh
+	@$(ROOT_DIR)/scripts/mirror_ci_check.sh
 	docker run --rm -v "$(ROOT_DIR):/repo:ro" -w /repo $(ACTIONLINT_IMAGE) -color
 
 .PHONY: build.docker

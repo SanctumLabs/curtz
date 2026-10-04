@@ -56,6 +56,25 @@ docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_PASS
 - On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that (the local compose stack uses 20 seconds).
 - For hardening, also run it with a read-only root filesystem, `--cap-drop ALL` and `--security-opt no-new-privileges`, as `deploy/app/compose.yml` does.
 
+## Continuous integration
+
+GitHub Actions runs the full pipeline. GitLab CI (`.gitlab-ci.yml`) and Bitbucket Pipelines (`bitbucket-pipelines.yml`) run the same verification on the mirrors that `.github/workflows/gitlab_sync.yml` and `bitbucket_sync.yml` keep in step:
+
+| Check | Command | GitHub | GitLab | Bitbucket |
+|---|---|---|---|---|
+| Lint | `golangci-lint run` (v2.13.2, the version `make lint` pins) | yes | yes | yes |
+| Unit tests with coverage | `make test.coverage` | yes | yes | yes |
+| Integration tests | `make test.integration` (testcontainers) | yes | yes | yes |
+| End-to-end tests | `make test.e2e` (testcontainers) | yes | yes | yes |
+| Binary build | `make build` | Linux, macOS, Windows | Linux | Linux |
+| Dockerfile lint | `hadolint --config hadolint.yaml Dockerfile` | yes | yes | yes |
+| Image build and checks | `docker build`, then `scripts/image_test.sh image <tag>` | yes | yes | yes |
+| Image scan | `trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` | yes | yes | yes |
+
+Publishing the image, releases, the Fly.io deploy, Sentry releases, Slack notifications, CodeQL and Danger run on GitHub only.
+
+The jobs that need Docker (the integration and end-to-end tests and the image build) use Docker-in-Docker on GitLab (`docker:29.8-dind`) and the `docker` service on Bitbucket, with `TESTCONTAINERS_RYUK_DISABLED=true`. The image is scanned from a saved tar, so the scanner needs no Docker daemon. `make lint.workflows` runs `scripts/workflows_check.sh`, `actionlint` and `scripts/mirror_ci_check.sh`, which fails when a mirror drifts from the GitHub workflows (a Go version that differs from `go.mod`, a missing command, an unpinned image). It can only check the files, not run them: the first run of a mirror pipeline happens when GitHub pushes to it.
+
 ## Local infrastructure
 
 The supporting services (Postgres, Redis, Kafka, ELK, Prometheus, Grafana) run locally in Docker in either HA or single-node mode, and the API can run beside them as a container (`make infra.app.up`). See [Local infrastructure](./LocalInfrastructure.md).
