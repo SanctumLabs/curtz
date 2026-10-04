@@ -58,6 +58,19 @@ func (r *reader) integer(key string, def int) int {
 	return number
 }
 
+func (r *reader) int32(key string, def int32) int32 {
+	value, ok := r.raw(key)
+	if !ok {
+		return def
+	}
+	number, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		r.fail("%s must be a 32-bit integer", key)
+		return def
+	}
+	return int32(number)
+}
+
 // units reads a whole number of unit, so DATABASE_CONN_TIMEOUT=30 with time.Second is thirty seconds.
 func (r *reader) units(key string, def int, unit time.Duration) time.Duration {
 	return time.Duration(r.integer(key, def)) * unit
