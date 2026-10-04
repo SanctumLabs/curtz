@@ -25,10 +25,10 @@ run.dev.d: ## Runs the project in development mode with hot reloading using air 
 	@echo "${GREEN} Running application in development mode with debug enabled ${NC}"
 	air -d
 
-.PHONY: runWithMigrations
-run.with.migrations: ## Runs the project applying migrations
-	@echo "${GREEN} Running application ${NC}"
-	cd cmd && CGO_ENABLED=0 go run -tags migrate main.go
+.PHONY: run.with.migrations
+run.with.migrations: ## Applies the migrations with the migrator command, then runs the project
+	@echo "${GREEN} Applying migrations, then running application ${NC}"
+	CGO_ENABLED=0 go run ./app/cmd/migrator && CGO_ENABLED=0 go run app/cmd/main.go
 
 .PHONY: fmt
 fmt: ## gofmt and goimports all go files
