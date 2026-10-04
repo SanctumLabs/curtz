@@ -240,3 +240,43 @@ func TestServe_LogsTheShutdown(t *testing.T) {
 
 	assert.Contains(t, out.String(), "shutting down server")
 }
+
+// A context that is already cancelled (a SIGTERM during startup) must not leave a server accepting connections behind
+// a Serve that has returned: the caller is about to close the databases.
+func TestServe_AContextCancelledBeforeServingStopsTheServer(t *testing.T) {
+	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	ln := listenOnFreePort(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var drained atomic.Bool
+
+	err := srv.ServeListener(ctx, ln, time.Second, func() { drained.Store(true) })
+
+	require.NoError(t, err)
+	assert.True(t, drained.Load(), "onDrain must still run so readiness reflects the shutdown")
+	_, dialErr := net.DialTimeout("tcp", ln.Addr().String(), 200*time.Millisecond)
+	assert.Error(t, dialErr, "nothing may keep accepting connections after Serve returned")
+}
+
+// Cancelling while the listener is still being registered races with startup: Serve must still end with the port closed.
+func TestServe_ACancelDuringStartupStillClosesThePort(t *testing.T) {
+	for i := range 20 {
+		srv := NewServer(ServerConfig{AppName: "curtz-test"})
+		ln := listenOnFreePort(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		served := make(chan error, 1)
+		go func() { served <- srv.ServeListener(ctx, ln, time.Second, nil) }()
+
+		time.Sleep(time.Duration(i%5) * 40 * time.Microsecond)
+		cancel()
+
+		select {
+		case err := <-served:
+			require.NoError(t, err, "iteration %d", i)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("iteration %d: Serve did not return", i)
+		}
+		_, dialErr := net.DialTimeout("tcp", ln.Addr().String(), 200*time.Millisecond)
+		require.Error(t, dialErr, "iteration %d: the port still accepts connections after Serve returned", i)
+	}
+}

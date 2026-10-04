@@ -120,7 +120,7 @@ Readiness never includes error text; look in the API's log for the reason (ADR-0
 
 On SIGTERM or Ctrl-C the API turns readiness to 503, finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15), closes Redis and Postgres and exits 0. A second Ctrl-C during the drain ends it at once.
 
-The variables are listed, with their defaults, in `.env.example`. A value that does not parse stops startup with a message naming the variable, and any `ENVIRONMENT` other than `development` or `test` refuses the development secrets (`AUTH_SECRET`, `DATABASE_PASSWORD`, `REDIS_PASSWORD`).
+The variables you are likely to change are in `.env.example`; the full list with defaults and units (server, pool sizes, timeouts, `MIGRATIONS_PATH`) is in the spec, `docs/superpowers/specs/2026-10-04-app-connectivity-design.md` section 4. An empty value counts as unset, so `REDIS_USERNAME=` still sends `curtz-svc`; a Redis that only has a password needs `REDIS_USERNAME=default`. If `ENVIRONMENT` is not set and a development secret is in use, the API logs a warning at startup. A value that does not parse stops startup with a message naming the variable, and any `ENVIRONMENT` other than `development` or `test` refuses the development secrets (`AUTH_SECRET`, `DATABASE_PASSWORD`, `REDIS_PASSWORD`).
 
 Debugging:
 

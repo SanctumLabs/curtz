@@ -46,3 +46,11 @@ func mustQuery(t *testing.T, rawURL string) url.Values {
 	require.NoError(t, err)
 	return parsed.Query()
 }
+
+// The URL parse error quotes the whole URL, password included, and Migrate logs the error it gets back.
+func TestMigrationURL_ARejectedURLNeverLeaksItsPassword(t *testing.T) {
+	_, err := migrationURL("postgres://u:TOPSECRET@[[::1]]:5432/d")
+
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "TOPSECRET")
+}

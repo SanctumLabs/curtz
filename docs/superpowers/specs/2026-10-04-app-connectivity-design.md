@@ -183,8 +183,9 @@ Closing the data clients only after the server has drained avoids failing the re
 
 1. `godotenv.Load()` (warn if absent), `config.LoadDatabase`, `config.LoadMigrations` (path), apply D6 for the password.
 2. `postgres.Migrate(postgres.ConnectionString(cfg), "file://"+absPath, false)`.
-3. Exit 0 on success or "no change", 1 with the error otherwise. `Migrate()` already retries the connection 5 times, so
-   it tolerates Postgres or Patroni still electing a primary.
+3. Exit 0 on success or "no change", 1 with the error otherwise. `Migrate()` retries the connection 5 times, one second
+   apart. That rides out Postgres a few seconds from ready but not a Patroni election (about 12 seconds, section 13); if the
+   migrator reports a connection error, run it again.
 
 Only `up` is implemented. `make migrate MIGRATE_DIRECTION=down` (the `migrate/migrate` image) remains the way to roll back.
 `.make/dev.mk` `run.with.migrations` is stale (`cd cmd && go run -tags migrate main.go`); it becomes

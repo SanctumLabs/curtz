@@ -1,8 +1,6 @@
 package redis
 
 const (
-	EnvRedisHost       = "REDIS_HOST"
-	EnvRedisPort       = "REDIS_PORT"
 	EnvRedisUsername   = "REDIS_USERNAME"
 	EnvRedisPassword   = "REDIS_PASSWORD"
 	EnvRedisMasterName = "REDIS_MASTER_NAME"

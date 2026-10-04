@@ -64,6 +64,8 @@ func TestLoad_EnvExampleDocumentsTheDefaults(t *testing.T) {
 	fromExample, err := Load(lookupOf(example))
 	require.NoError(t, err)
 
+	// An unset ENVIRONMENT warns and the example sets it, so the warnings differ on purpose.
+	defaults.Warnings, fromExample.Warnings = nil, nil
 	assert.Equal(t, defaults, fromExample)
 }
 
@@ -216,4 +218,73 @@ func TestLoadMigrations(t *testing.T) {
 	custom, err := LoadMigrations(lookupOf(map[string]string{"MIGRATIONS_PATH": "/migrations"}))
 	require.NoError(t, err)
 	assert.Equal(t, "/migrations", custom.Path)
+}
+
+// A provider URL pasted into REDIS_ADDRESS carries a password; the error must point at the entry, not repeat it.
+func TestLoad_ARedisAddressErrorNeverRepeatsTheEntry(t *testing.T) {
+	_, err := Load(lookupOf(map[string]string{"REDIS_ADDRESS": "redis://default:S3CRETPW@cache.internal:6379"}))
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "REDIS_ADDRESS")
+	assert.NotContains(t, err.Error(), "S3CRETPW")
+}
+
+// A host that cannot form a valid connection string must be rejected without echoing the password in the string.
+func TestLoadDatabase_RejectsAHostThatBreaksTheConnectionStringWithoutLeakingThePassword(t *testing.T) {
+	for _, host := range []string{"[::1]", "db host", "db/host"} {
+		t.Run(host, func(t *testing.T) {
+			_, err := LoadDatabase(lookupOf(map[string]string{"DATABASE_HOST": host, "DATABASE_PASSWORD": "TOPSECRET"}))
+
+			require.Error(t, err)
+			assert.ErrorContains(t, err, "DATABASE_HOST")
+			assert.NotContains(t, err.Error(), "TOPSECRET")
+		})
+	}
+}
+
+func TestLoadDatabase_AcceptsUnixSocketURLsAndRejectsOtherSchemes(t *testing.T) {
+	_, err := LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "postgres:///curtzdb?host=/var/run/postgresql"}))
+	assert.NoError(t, err, "a unix-socket URL has no host and is valid")
+
+	_, err = LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "postgresql://u:p@db:5432/curtzdb"}))
+	assert.NoError(t, err)
+
+	_, err = LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "mongodb://u:p@db:27017/curtzdb"}))
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "DATABASE_URL")
+}
+
+func TestLoad_WarnsWhenEnvironmentIsUnsetAndDevelopmentSecretsAreInUse(t *testing.T) {
+	app, err := Load(lookupOf(nil))
+	require.NoError(t, err)
+	require.Len(t, app.Warnings, 1)
+	assert.Contains(t, app.Warnings[0], "ENVIRONMENT is not set")
+
+	for _, environment := range []string{"development", "test"} {
+		app, err = Load(lookupOf(map[string]string{"ENVIRONMENT": environment}))
+		require.NoError(t, err)
+		assert.Empty(t, app.Warnings, "an explicit %s environment is deliberate", environment)
+	}
+
+	app, err = Load(lookupOf(map[string]string{
+		"AUTH_SECRET": "a-real-secret", "DATABASE_PASSWORD": "a-real-password", "REDIS_PASSWORD": "a-real-redis-password",
+	}))
+	require.NoError(t, err)
+	assert.Empty(t, app.Warnings, "nothing to warn about once the secrets are real")
+}
+
+func TestLoad_WarnsAboutAnUnencryptedDatabaseConnectionOutsideDevelopment(t *testing.T) {
+	secrets := map[string]string{
+		"ENVIRONMENT": "production", "AUTH_SECRET": "a-real-secret", "DATABASE_PASSWORD": "a-real-password", "REDIS_PASSWORD": "a-real-redis-password",
+	}
+
+	app, err := Load(lookupOf(secrets))
+	require.NoError(t, err)
+	require.Len(t, app.Warnings, 1)
+	assert.Contains(t, app.Warnings[0], "DATABASE_SSL_MODE")
+
+	secrets["DATABASE_SSL_MODE"] = "require"
+	app, err = Load(lookupOf(secrets))
+	require.NoError(t, err)
+	assert.Empty(t, app.Warnings)
 }

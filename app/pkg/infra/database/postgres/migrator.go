@@ -31,7 +31,8 @@ const migrationsTable = "schema_migrations"
 func migrationURL(databaseURL string) (string, error) {
 	parsed, err := url.Parse(databaseURL)
 	if err != nil {
-		return "", err
+		// The parse error quotes the whole URL, password included, and Migrate logs what it returns.
+		return "", errors.New("the database URL is not a valid URL")
 	}
 
 	query := parsed.Query()
