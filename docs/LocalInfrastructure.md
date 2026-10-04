@@ -98,6 +98,36 @@ Notes:
   "read-only transaction".
 - Logs need no configuration: write JSON to stdout and Filebeat ships it (see ELK).
 
+## Running the app against the stack
+
+The API defaults match the stack, so on your host no `.env` edits are needed.
+
+```bash
+make infra.core.up MODE=single      # or HA: also run `make infra.hosts` once, and use the six-address REDIS_ADDRESS in .env.example
+go run ./app/cmd/migrator           # optional: infra.core.up already migrated through the compose job; a second run says "no change"
+make run                            # the API on :8085
+curl -s localhost:8085/health/ready
+```
+
+`go run ./app/cmd/migrator` is the same migration code the tests use (`postgres.Migrate`). Run it from the repository root, or set `MIGRATIONS_PATH`. `make run.with.migrations` runs it and then the API. The API never migrates at startup (ADR-0014).
+
+| Endpoint | Meaning |
+|---|---|
+| `GET /health` | liveness: 200 while the process runs |
+| `GET /health/ready` | readiness: 200 `ok` (everything up) or `degraded` (Redis down); 503 `unavailable` (Postgres down) or `draining` (shutting down) |
+
+Readiness never includes error text; look in the API's log for the reason (ADR-0015). Postgres is required, Redis is optional, and the API does not connect to Kafka.
+
+On SIGTERM or Ctrl-C the API turns readiness to 503, finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15), closes Redis and Postgres and exits 0. A second Ctrl-C during the drain ends it at once.
+
+The variables are listed, with their defaults, in `.env.example`. A value that does not parse stops startup with a message naming the variable, and any `ENVIRONMENT` other than `development` or `test` refuses the development secrets (`AUTH_SECRET`, `DATABASE_PASSWORD`, `REDIS_PASSWORD`).
+
+Debugging:
+
+- `redis is down, continuing without it` at startup: check `REDIS_ADDRESS` (HA needs all six seed nodes and the `/etc/hosts` line from `make infra.hosts`) and `REDIS_USERNAME`/`REDIS_PASSWORD`.
+- Postgres connection errors: the write port is `5432` in both modes; `5433` is the HA read port and rejects writes.
+- `make infra.psql`, `make infra.redis.cli` and `make infra.patroni.list` show the other side of each connection.
+
 ## The stacks
 
 ### Kafka

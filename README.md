@@ -61,7 +61,7 @@ go run app/cmd/main.go
 make run
 ```
 
-> This will boot up the application with the provided environment variables.
+> This will boot up the application with the provided environment variables. Check that it is ready with `curl -s localhost:8085/health/ready`; Postgres is required, Redis is optional. Apply the database migrations from the app's own migrator with `go run ./app/cmd/migrator` (or `make run.with.migrations`). See [Running the app against the stack](./docs/LocalInfrastructure.md#running-the-app-against-the-stack).
 
 ### Live reloading
 
