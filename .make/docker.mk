@@ -98,7 +98,7 @@ slim.dockerxray: ## Runs an xray command using slim on the docker image, usage: 
 MODE ?= ha
 INFRA := $(ROOT_DIR)/scripts/infra.sh
 COMPOSE := docker compose --project-directory $(ROOT_DIR)
-INFRA_PROFILES := kafka-ha kafka-single redis-ha redis-single postgres-ha postgres-single elk-ha elk-single observability legacy core-ha core-single full-ha full-single
+INFRA_PROFILES := kafka-ha kafka-single redis-ha redis-single postgres-ha postgres-single elk-ha elk-single observability legacy core-ha core-single full-ha full-single app-ha app-single
 
 # Everything except the legacy stack: `infra.clean` must not delete data that predates the infrastructure stacks
 INFRA_CLEAN_PROFILES := $(foreach p,$(filter-out legacy,$(INFRA_PROFILES)),--profile $(p))
@@ -156,6 +156,12 @@ infra.full.up: create.envfile ## Start every stack except legacy (MODE=ha or sin
 	@$(INFRA) up full $(MODE)
 infra.full.down: create.envfile ## Stop every stack except legacy (data is kept)
 	@$(INFRA) down full
+
+.PHONY: infra.app.up infra.app.down
+infra.app.up: create.envfile ## Build and start the API container, with Postgres and Redis brought up first (MODE=ha or single)
+	@$(INFRA) up app $(MODE)
+infra.app.down: create.envfile ## Stop the API container (Postgres and Redis keep running)
+	@$(INFRA) down app
 
 .PHONY: infra.config
 infra.config: create.envfile ## Check that every compose profile renders and the env defaults agree

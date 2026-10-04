@@ -1,0 +1,53 @@
+# The API container (see docs/LocalInfrastructure.md). One service per mode; both build the repository Dockerfile.
+#   app-ha      REDIS_ADDRESS lists all six cluster nodes.
+#   app-single  REDIS_ADDRESS is the single node (it answers to the alias redis-1).
+# The services declare no depends_on: a dependency in a profile that is not enabled makes `docker compose config` fail,
+# so scripts/infra.sh brings up and waits for Postgres and Redis first, and restart: unless-stopped covers a manual start.
+# The environment is an explicit list, not env_file: the app must not see the other stacks' admin passwords.
+x-app: &app
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  image: curtz-app:local
+  restart: unless-stopped
+  # longer than SHUTDOWN_TIMEOUT (15s), so a stop never kills a drain in progress
+  stop_grace_period: 20s
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  ports: ["127.0.0.1:8085:8085"]
+  networks:
+    curtz:
+      aliases: [curtz-app]
+
+x-app-env: &app-env
+  ENVIRONMENT: development
+  HTTP_PORT: "8085"
+  DATABASE_HOST: postgres
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: ${PG_DATABASE:-curtzdb}
+  DATABASE_USERNAME: ${PG_APP_USER:-curtz-user}
+  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
+  REDIS_USERNAME: ${REDIS_USERNAME:-curtz-svc}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-curtz-svc}
+  AUTH_SECRET: ${AUTH_SECRET:-curtz-secret}
+
+services:
+  app-ha:
+    <<: *app
+    profiles: [app-ha]
+    environment:
+      <<: *app-env
+      REDIS_ADDRESS: redis-1:7001,redis-2:7002,redis-3:7003,redis-4:7004,redis-5:7005,redis-6:7006
+
+  app-single:
+    <<: *app
+    profiles: [app-single]
+    environment:
+      <<: *app-env
+      REDIS_ADDRESS: redis-1:7001
+
+networks:
+  curtz:
+    name: curtz

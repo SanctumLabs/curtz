@@ -67,6 +67,26 @@ expect_output "wait resolves the profile" \
 "+ wait postgres-single" \
   scripts/infra.sh wait postgres single
 
+expect_output "up app brings up postgres and redis first, then builds and starts the app" \
+"+ docker compose --profile postgres-ha rm -sf
++ docker compose --profile postgres-single up -d
++ wait postgres-single
++ docker compose --profile redis-ha rm -sf
++ docker compose --profile redis-single up -d
++ wait redis-single
++ docker compose --profile app-ha rm -sf
++ docker compose --profile app-single up -d --build
++ wait app-single" \
+  scripts/infra.sh up app single
+
+expect_output "down app stops only the app" \
+"+ docker compose --profile app-ha --profile app-single rm -sf" \
+  scripts/infra.sh down app
+
+expect_output "wait resolves the app profile" \
+"+ wait app-ha" \
+  scripts/infra.sh wait app
+
 expect_exit "unknown stack is a usage error" 2 scripts/infra.sh up nope
 expect_exit "unknown mode is a usage error" 2 scripts/infra.sh up kafka triple
 expect_exit "missing arguments is a usage error" 2 scripts/infra.sh
