@@ -2,7 +2,9 @@ package config
 
 import (
 	"errors"
+	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
@@ -33,6 +35,13 @@ type MigrationSettings struct {
 	Path string
 }
 
+// LoggingSettings configures the process logger.
+type LoggingSettings struct {
+	Level slog.Level
+	// Format is "json" (one object per line, what the ELK pipeline parses) or "text" (for a terminal).
+	Format string
+}
+
 // App is everything the API process reads from its environment.
 type App struct {
 	Environment     string
@@ -40,6 +49,7 @@ type App struct {
 	Database        DatabaseSettings
 	Redis           redis.RedisClientConfig
 	Auth            AuthConfig
+	Logging         LoggingSettings
 	ShutdownTimeout time.Duration
 	// Warnings are problems that do not stop startup but that the operator should see in the log.
 	Warnings []string
@@ -65,6 +75,8 @@ func Load(lookup Lookup) (App, error) {
 	app.Redis, err = LoadRedis(lookup)
 	errs = append(errs, err)
 	app.Auth, err = LoadAuth(lookup)
+	errs = append(errs, err)
+	app.Logging, err = LoadLogging(lookup)
 	errs = append(errs, err)
 
 	app.Warnings = warnings(r, app)
@@ -106,6 +118,38 @@ func LoadServer(lookup Lookup) (ServerSettings, error) {
 	}
 	if settings.Port < 1 || settings.Port > 65535 {
 		r.fail("HTTP_PORT must be a port between 1 and 65535")
+	}
+	return settings, r.err()
+}
+
+// LoadLogging reads LOG_LEVEL (debug, info, warn or error; default info) and LOG_FORMAT (json or text; default json). A
+// value that is not one of those is an error, and the settings returned alongside it are the defaults, so the caller can
+// still log the error.
+func LoadLogging(lookup Lookup) (LoggingSettings, error) {
+	r := newReader(lookup)
+	settings := LoggingSettings{Level: slog.LevelInfo, Format: "json"}
+
+	if value, ok := r.raw("LOG_LEVEL"); ok {
+		switch strings.ToLower(value) {
+		case "debug":
+			settings.Level = slog.LevelDebug
+		case "info":
+			settings.Level = slog.LevelInfo
+		case "warn", "warning":
+			settings.Level = slog.LevelWarn
+		case "error":
+			settings.Level = slog.LevelError
+		default:
+			r.fail("LOG_LEVEL must be one of debug, info, warn or error")
+		}
+	}
+	if value, ok := r.raw("LOG_FORMAT"); ok {
+		switch format := strings.ToLower(value); format {
+		case "json", "text":
+			settings.Format = format
+		default:
+			r.fail("LOG_FORMAT must be json or text")
+		}
 	}
 	return settings, r.err()
 }

@@ -1,6 +1,9 @@
 package config
 
 import (
+	"log/slog"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -287,4 +290,70 @@ func TestLoad_WarnsAboutAnUnencryptedDatabaseConnectionOutsideDevelopment(t *tes
 	app, err = Load(lookupOf(secrets))
 	require.NoError(t, err)
 	assert.Empty(t, app.Warnings)
+}
+
+func TestLoadLogging_DefaultsToJSONAtInfo(t *testing.T) {
+	settings, err := LoadLogging(lookupOf(nil))
+	require.NoError(t, err)
+
+	assert.Equal(t, LoggingSettings{Level: slog.LevelInfo, Format: "json"}, settings)
+}
+
+func TestLoadLogging_ReadsLevelAndFormat(t *testing.T) {
+	cases := map[string]struct {
+		env  map[string]string
+		want LoggingSettings
+	}{
+		"debug text":        {map[string]string{"LOG_LEVEL": "debug", "LOG_FORMAT": "text"}, LoggingSettings{slog.LevelDebug, "text"}},
+		"warn":              {map[string]string{"LOG_LEVEL": "warn"}, LoggingSettings{slog.LevelWarn, "json"}},
+		"warning alias":     {map[string]string{"LOG_LEVEL": "warning"}, LoggingSettings{slog.LevelWarn, "json"}},
+		"error":             {map[string]string{"LOG_LEVEL": "error"}, LoggingSettings{slog.LevelError, "json"}},
+		"upper case":        {map[string]string{"LOG_LEVEL": "DEBUG", "LOG_FORMAT": "TEXT"}, LoggingSettings{slog.LevelDebug, "text"}},
+		"empty means unset": {map[string]string{"LOG_LEVEL": "", "LOG_FORMAT": ""}, LoggingSettings{slog.LevelInfo, "json"}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			settings, err := LoadLogging(lookupOf(tc.env))
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, settings)
+		})
+	}
+}
+
+func TestLoadLogging_RejectsUnknownValuesAndFallsBackToTheDefaults(t *testing.T) {
+	settings, err := LoadLogging(lookupOf(map[string]string{"LOG_LEVEL": "verbose", "LOG_FORMAT": "xml"}))
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "LOG_LEVEL")
+	assert.ErrorContains(t, err, "LOG_FORMAT")
+	assert.NotContains(t, err.Error(), "verbose", "error text names variables, never values")
+	assert.Equal(t, LoggingSettings{Level: slog.LevelInfo, Format: "json"}, settings, "usable settings so the error itself can be logged")
+}
+
+func TestLoad_IncludesTheLoggingSettings(t *testing.T) {
+	app, err := Load(lookupOf(map[string]string{"LOG_FORMAT": "text"}))
+	require.NoError(t, err)
+	assert.Equal(t, "text", app.Logging.Format)
+
+	_, err = Load(lookupOf(map[string]string{"LOG_FORMAT": "xml"}))
+	assert.ErrorContains(t, err, "LOG_FORMAT", "an unknown format is a startup error")
+}
+
+// A key set twice in .env.example is ambiguous to read and silently resolved by the last line (LOG_LEVEL was set to
+// debug and then to info).
+func TestEnvExample_SetsEachKeyOnce(t *testing.T) {
+	raw, err := os.ReadFile("../../.env.example")
+	require.NoError(t, err)
+
+	seen := map[string]int{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		key, _, found := strings.Cut(line, "=")
+		if !found || strings.HasPrefix(strings.TrimSpace(key), "#") {
+			continue
+		}
+		seen[strings.TrimSpace(key)]++
+	}
+	for key, count := range seen {
+		assert.Equal(t, 1, count, "%s is set %d times in .env.example", key, count)
+	}
 }
