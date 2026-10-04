@@ -80,7 +80,7 @@ func NewServer(cfg ServerConfig) *Server {
 
 // Serve listens on the configured port and blocks until ctx is cancelled or the listener fails. See ServeListener.
 func (srv *Server) Serve(ctx context.Context, timeout time.Duration, onDrain func()) error {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", srv.cfg.Port))
+	ln, err := net.Listen("tcp", net.JoinHostPort(srv.cfg.Host, strconv.Itoa(srv.cfg.Port)))
 	if err != nil {
 		return fmt.Errorf("listen on port %d: %w", srv.cfg.Port, err)
 	}
