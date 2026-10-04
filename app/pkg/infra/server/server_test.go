@@ -1,12 +1,15 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -184,4 +187,56 @@ func TestServe_ReturnsTheListenerError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "accept failed")
+}
+
+// lockedBuffer lets a test read what other goroutines logged.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// The shutdown must be visible in the application log (slog, which the log pipeline ships), not only in the server's
+// own logger.
+func TestServe_LogsTheShutdown(t *testing.T) {
+	out := &lockedBuffer{}
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(out, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
+		router.NewGetRoute("/ping", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) }),
+	}}})
+	ln := listenOnFreePort(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	served := make(chan error, 1)
+	go func() { served <- srv.ServeListener(ctx, ln, time.Second, nil) }()
+
+	require.Eventually(t, func() bool {
+		resp, err := http.Get("http://" + ln.Addr().String() + "/ping")
+		if err != nil {
+			return false
+		}
+		resp.Body.Close()
+		return resp.StatusCode == http.StatusNoContent
+	}, 5*time.Second, 20*time.Millisecond, "the server never started serving")
+
+	cancel()
+	require.NoError(t, <-served)
+
+	assert.Contains(t, out.String(), "shutting down server")
 }

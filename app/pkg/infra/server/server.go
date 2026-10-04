@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"time"
@@ -89,7 +90,7 @@ func (srv *Server) Serve(ctx context.Context, timeout time.Duration, onDrain fun
 		return fmt.Errorf("listen on port %d: %w", srv.cfg.Port, err)
 	}
 
-	srv.log.Infow("Listening on port", "port", srv.cfg.Port)
+	slog.Info("listening", "port", srv.cfg.Port)
 	return srv.ServeListener(ctx, ln, timeout, onDrain)
 }
 
@@ -109,7 +110,7 @@ func (srv *Server) ServeListener(ctx context.Context, ln net.Listener, timeout t
 	if onDrain != nil {
 		onDrain()
 	}
-	srv.log.Infow("shutting down server", "timeout", timeout.String())
+	slog.Info("shutting down server", "timeout", timeout.String())
 	if err := srv.app.ShutdownWithTimeout(timeout); err != nil {
 		return fmt.Errorf("shut down within %s: %w", timeout, err)
 	}
