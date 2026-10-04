@@ -1,76 +1,61 @@
 # Deployment
 
-Deployment of the application should be simple enough to perform without much setup.
+The application ships as one container image that holds the API and the database migrator.
 
 ## Build
 
-If you intend to build & run the application in a VM, that can be done with a few simple steps:
+```bash
+make build.docker DOCKER_IMAGE_TAG=curtz-service    # stamps the image with its version, commit and build time
+# or
+docker build -t <IMAGE_NAME>:<IMAGE_TAG> --build-arg VERSION=<VERSION> --build-arg GIT_COMMIT=<SHA> --build-arg BUILD_TIME=<RFC3339> .
+```
+
+The image is built in two stages. The final stage is `gcr.io/distroless/static:nonroot`, pinned by digest: no shell, no package manager, uid 65532. It contains:
+
+- `/app/curtz`, the API (the default entrypoint, port 8085);
+- `/app/migrator`, which applies the database migrations (ADR-0014);
+- `/app/migrations`, the SQL files the migrator reads (`MIGRATIONS_PATH` is preset to it).
+
+`make lint.docker` runs hadolint with the rules in `hadolint.yaml`, and `make scan.docker` scans the image for fixable HIGH and CRITICAL vulnerabilities. CI does both before it publishes (`.github/workflows/docker.yml`).
+
+Without Docker: `make build` writes the binary to `bin/curtz`.
+
+## Configuration
+
+The image sets `ENVIRONMENT=production`. In that mode the API and the migrator refuse the development secrets and exit 1 naming the variables that are missing, so a deployment must set at least:
+
+| Variable | Meaning |
+|---|---|
+| `AUTH_SECRET` | the JWT signing secret |
+| `DATABASE_HOST`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Postgres (the primary, port 5432); or `DATABASE_URL` instead, which wins over those |
+| `DATABASE_SSL_MODE` | defaults to `disable`; use `require` or stronger outside a private network (the API logs a warning otherwise) |
+| `REDIS_ADDRESS`, `REDIS_PASSWORD` | a comma-separated `host:port` list (one address gives a plain client, several a cluster client) and the password; `REDIS_USERNAME` defaults to `curtz-svc` |
+
+Every variable, its default and its unit is listed in the app-connectivity spec (`docs/superpowers/specs/2026-10-04-app-connectivity-design.md`, section 4); the local defaults are in `.env.example`.
+
+## Migrations
+
+The API never migrates at startup. Run the migrator from the same image, once per deploy, before starting the new version:
 
 ```bash
-make build # or go build -o ./bin/curtz app/cmd/main.go
+docker run --rm -e ENVIRONMENT=production -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... \
+  --entrypoint /app/migrator <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
-> This will create a binary `curtz` in the [bin](../bin) directory
-
-If building in a Docker container, then simply run:
-
-``` bash
-docker build -t <IMAGE_NAME>:<IMAGE_TAG>
-```
-
-> <IMAGE_NAME> is the name of the image, for example `curtz` <IMAGE_TAG> is the tag/version of the image for example `1.0.0`
-
-## Environment
-
-Then setup the necessary environment variables as specified in the sample [.env.sample](../.env.sample) file.
-
-```.env
-ENV=development
-LOG_LEVEL=debug
-LOG_JSON_OUTPUT=true
-PORT=8085
-DATABASE_HOST=localhost
-DATABASE=curtzdb
-DATABASE_USERNAME=curtzUser
-DATABASE_PASSWORD=curtzPassword
-DATABASE_PORT=27017
-CACHE_HOST=localhost
-CACHE_PORT=6370
-CACHE_USERNAME=curtzUser
-CACHE_PASSWORD=curtzPassword
-CACHE_REQUIRE_AUTH=false
-SENTRY_DSN=""
-SENTRY_ENV=development
-SENTRY_SAMPLE_RATE=0.3
-SENTRY_ENABLED=true
-```
-
-> Sample env file
-
-These are all provided environment variable defaults for running locally, most are self explanatory, so, this document will explain the ones that may not be clear.
-
-`ENV` can either be `testing`, `development` or `release`. Release here is equivalent to `production`, but the underlying http framework used is [Gin](https://gin-gonic.com/) will recognize `release` over `production`
-
-`CACHE_HOST`, `CACHE_PORT`, `CACHE_USERNAME`, `CACHE_PASSWORD`, `CACHE_REQUIRE_AUTH` all relate to caching of urls when performing redirects. Underling technology used here is [Redis](https://redis.io/). The `CACHE_REQUIRE_AUTH` is used to determine whether to configure authentication to the caching service. If set to true, then the username and password are required variables. Setting this to false will not require authentication, just ensure that's the case for the caching service :).
-
-Similar case applies to [Sentry](https://sentry.io/welcome/). This has been setup to enable application tracking and monitoring. But has been left as optional with the `SENTRY_ENABLED` environment variable. This can be set to true or false depending on your setup. Setting it to true, will require the `SENTRY_DSN` which you can get from Sentry's website once you have signed up and configured a project. The `SENTRY_ENV` is entirely up to you as this will depend on the deployment strategy employed, the default is `development`.
-
-Lastly, the Database. The database used here is a [NoSQL](https://en.wikipedia.org/wiki/NoSQL) database. [MongoDB](https://www.mongodb.com/) has been picked as the NoSQL database of choice. Therefore the `DATABASE_` environment variables should be set to enable this connection, however, as you may have noticed, these environment variables don't necesarily tell us what the underlying database type is. This is by choice, allowing us to change the values & only simply change the underlying database client connection without affecting how the application really runs. Details on this can be found in the [Architecture](./Architecture.md).
+It exits 0 when it applied the migrations or found nothing to do. If it reports a connection error because the database is still starting, run it again.
 
 ## Running
 
-Once you have all that setup, you can now run the application. If running in a VM or a hosted environment then simply run it with `go run ./bin/curtz`. That should be it. Of course this depends on the infrastracture setup you have.
-
-If running it with Docker, run the docker container with:
-
 ```bash
-docker run -p 8085:8085 --name=curtz-api <IMAGE_NAME>:<IMAGE_TAG>
+docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_PASSWORD=... -e REDIS_ADDRESS=... -e REDIS_PASSWORD=... \
+  --name curtz-api <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
-> The <IMAGE_NAME>:<IMAGE_TAG> are the name and the tag of the image used as specified in [Build](#build) what you used to build
-
-That should be it for deployment. Depending on your infrastructure you should be able to view the logs of the running application.
+- `GET /health` is liveness (always 200 while the process runs); `GET /health/ready` is readiness (503 when Postgres is down or the process is draining).
+- The image's `HEALTHCHECK` runs `/app/curtz healthcheck`, which calls `/health`.
+- On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that (the local compose stack uses 20 seconds).
+- For hardening, also run it with a read-only root filesystem, `--cap-drop ALL` and `--security-opt no-new-privileges`, as `deploy/app/compose.yml` does.
 
 ## Local infrastructure
 
-The supporting services (Postgres, Redis, Kafka, ELK, Prometheus, Grafana) run locally in Docker in either HA or single-node mode. See [Local infrastructure](./LocalInfrastructure.md).
+The supporting services (Postgres, Redis, Kafka, ELK, Prometheus, Grafana) run locally in Docker in either HA or single-node mode, and the API can run beside them as a container (`make infra.app.up`). See [Local infrastructure](./LocalInfrastructure.md).

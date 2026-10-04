@@ -21,7 +21,7 @@ This is the programming language used to build the application. You will require
 
 ### [Docker](https://www.docker.com/)
 
-The application is packaged & run in a Docker container. The services it depends on (Postgres, Redis, Kafka, ELK, Prometheus and Grafana) run locally in Docker too, either as high-availability clusters or as single nodes, as described in [Local infrastructure](./docs/LocalInfrastructure.md). If you prefer, you can install these services directly on your development machine instead.
+The application is packaged & run in a Docker container. The services it depends on (Postgres, Redis, Kafka, ELK, Prometheus and Grafana) run locally in Docker too, either as high-availability clusters or as single nodes, as described in [Local infrastructure](./docs/LocalInfrastructure.md). If you prefer, you can install these services directly on your development machine instead. The API itself is built into a hardened image (`make build.docker`) and can run beside those services with `make infra.app.up`; see [Deployment](./docs/Deployment.md).
 
 ## Running the application
 

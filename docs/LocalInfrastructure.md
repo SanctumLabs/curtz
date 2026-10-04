@@ -58,7 +58,7 @@ Elasticsearch setup) has finished, or fails after five minutes and prints what i
 
 | Command | What it does |
 |---|---|
-| `make infra.<stack>.up [MODE=ha\|single]` / `.down` | start / stop a stack: `kafka redis postgres elk observability legacy core full` |
+| `make infra.<stack>.up [MODE=ha\|single]` / `.down` | start / stop a stack: `kafka redis postgres elk observability legacy core full app` |
 | `make infra.wait STACK=kafka MODE=single` | wait until a stack is healthy |
 | `make infra.ps` / `infra.stats` | status and health / live memory and CPU |
 | `make infra.logs SERVICE=kafka-1` | follow logs (omit `SERVICE` for everything) |
@@ -130,6 +130,22 @@ Debugging:
   `AUTH_SECRET=<AUTH_SECRET>`, ...). They override the new defaults, so the API or the migrator dials the wrong port or stops
   with an invalid-configuration error. Refresh it with `cp .env.example .env` (re-apply any values of your own first).
 - `make infra.psql`, `make infra.redis.cli` and `make infra.patroni.list` show the other side of each connection.
+
+## The app in a container
+
+The API also runs as a container built from the repository `Dockerfile`, on the same `curtz` network as the stacks, the way it will run in production.
+
+```bash
+make infra.app.up MODE=single      # or HA; brings up Postgres and Redis for that mode first, then builds and starts the API
+curl -s localhost:8085/health/ready
+make infra.app.down                # stops only the API; Postgres and Redis keep running
+```
+
+- It listens on `127.0.0.1:8085`, so stop an API running on your host first.
+- Inside the network it reaches Postgres at `postgres:5432` and Redis at `redis-1:7001` (single) or `redis-1:7001` to `redis-6:7006` (HA), so `make infra.hosts` is not needed. Its environment is an explicit list in `deploy/app/compose.yml` (not your `.env`) and it runs with `ENVIRONMENT=development`.
+- It runs with a read-only filesystem, no Linux capabilities and `no-new-privileges`. Its health check is `/app/curtz healthcheck`; `docker compose ps` shows `healthy` once it serves.
+- `make infra.app.up` rebuilds the image each time (cached layers make it quick). `make build.docker`, `make lint.docker` and `make scan.docker` build, lint and scan the image on its own.
+- The image has no shell. To look inside it use `docker cp curtz-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network curtz --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
 
 ## The stacks
 
