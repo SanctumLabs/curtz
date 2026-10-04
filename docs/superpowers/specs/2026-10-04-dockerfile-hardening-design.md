@@ -183,3 +183,51 @@ records D1, D2 and D5: the runtime image is distroless static, carries the migra
   Fly until they are set, which is the intended fail-fast.
 - **No shell in the image.** Debugging uses the `:debug` distroless tag, documented in §10.
 - **Digest pins go stale** without Dependabot; D8 adds it, but it only opens pull requests.
+
+## 12. Implementation notes
+
+Verified on 2026-10-04, Docker Desktop for Mac (arm64), Compose 5.5.1, Docker 29.8.0.
+
+Images and tools:
+
+- Builder `golang:1.26-alpine@sha256:8ac98ca534ac3f51e1f420a1dd2c15e74c75cfa0f23f3ad27eb5d7236c349a0c`; runtime
+  `gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3` (Debian 13.7;
+  `debian13` exists, so no fallback to `debian12`). hadolint is the local `hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d`
+  (2.15.1), Trivy `aquasec/trivy:0.75.0`, actionlint `rhysd/actionlint:1.7.12`. All 18 GitHub Action pins in the plan matched GitHub when
+  they were applied.
+- Image size 55.5 MB (`docker image inspect .Size`), two static binaries plus the migrations.
+
+Checks:
+
+- `scripts/image_test.sh context`: the build context holds the sources and migrations only. With the old empty `.dockerignore` the same
+  listing showed `.env`, `.env.example`, the whole `.git` directory and `.superpowers/`.
+- `scripts/image_test.sh image`: all 12 checks pass (uid 65532, `HEALTHCHECK /app/curtz healthcheck`, entrypoint, `ENVIRONMENT=production`,
+  `MIGRATIONS_PATH`, OCI source label, no shell, refuses to start without secrets and prints no value, migrator present, two migrations
+  shipped, healthcheck works read-only without capabilities).
+- hadolint clean; `actionlint` and `scripts/workflows_check.sh` clean on every workflow.
+- Trivy (HIGH and CRITICAL, fixable only): the first scan found three findings in `google.golang.org/grpc v1.81.0` inside `app/curtz`
+  (CVE-2026-84304, CVE-2026-84445, GHSA-hrxh-6v49-42gf). With your approval `grpc` moved to v1.83.2 (with the indirect
+  `genproto/googleapis/rpc`); the rescan shows 0 for Debian 13.7, `app/curtz` and `app/migrator`. Build, vet, unit and e2e tests and
+  `go mod verify` stayed green.
+
+Live drills (Postgres and Redis stacks plus the app, single then HA):
+
+- `make infra.app.up MODE=single`: `ready` for Postgres, Redis and the app; the container is `healthy`, runs as `65532:65532`, with a
+  read-only root, `CapDrop=[ALL]` and `no-new-privileges`. Its environment holds 13 variables and none of the other stacks' admin
+  passwords (decision D7). `GET /health/ready` is `ok`; a registration returns 201.
+- Redis stopped: `degraded` with HTTP 200; started again: `ok` within 8 seconds, no restart of the app.
+- The migrator from the image (`--entrypoint /app/migrator`, `MIGRATIONS_PATH=/app/migrations`): `migrate: no change`, exit 0, in both modes.
+- Stop drill (Review Focus 4): an idle `docker compose stop` takes 1 second and exits 0 with the draining log lines. With a request held
+  half-sent, the stop takes 15 seconds (`SHUTDOWN_TIMEOUT`) and exits 1 with `shut down within 15s: context deadline exceeded`, never 137,
+  because `stop_grace_period` (20s) is longer than the drain.
+- `make infra.app.down` removes only the app; Postgres and Redis keep running.
+- `make infra.app.up MODE=ha`: switches Postgres and Redis to HA, then `ready: app-ha`, `healthy`, readiness `ok` with all six Redis
+  addresses, registration 201, migrator `no change`, stop exits 0.
+
+Findings:
+
+- `docker save <repository>` with no tag exports every local tag of the repository, and Trivy refuses a tar with more than one image.
+  `make scan.docker` therefore saves exactly one reference (the given tag, or `<name>:latest`), and runs Trivy with `--quiet --no-progress`.
+  Trivy's vulnerability database is about 121 MB and is cached in the named volume `curtz-trivy-cache`.
+- `make scan.docker` bind-mounts a temporary directory into the scanner. That works on a developer machine but not under Docker-in-Docker,
+  where the path would refer to the daemon's filesystem, so the mirror CI jobs do not reuse that target.
