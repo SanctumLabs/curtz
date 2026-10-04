@@ -41,7 +41,7 @@ func NewPostgresClient(config PostgresDatabaseConfig) (database.PostgresDatabase
 	ctx := context.Background()
 	logPrefix := "PostgresClient"
 
-	connStr := buildConnectionString(config)
+	connStr := ConnectionString(config)
 
 	slog.InfoContext(ctx, fmt.Sprintf("%s> connecting to database...", logPrefix), "name", config.Name, "host", config.Host, "port", config.Port)
 

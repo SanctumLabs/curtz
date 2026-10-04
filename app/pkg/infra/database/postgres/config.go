@@ -14,7 +14,6 @@ type (
 		Name     string `env-description:"Database Name" yaml:"database" env:"DATABASE_NAME" env-default:"curtzdb"`
 		Port     string `env-description:"Database Port" yaml:"port" env:"DATABASE_PORT" env-default:"5433"`
 		Url      string `env-description:"Database URL" yaml:"url" env:"DATABASE_URL" env-default:"postgres://curtz-user:curtz-pass@localhost:5433/curtzdb?sslmode=disable"`
-		Schema   string `env-description:"Database Schema" yaml:"schema" env:"DATABASE_SCHEMA" env-default:"bid"`
 		SslMode  string `env-description:"Database SSL Mode" yaml:"ssl_mode" env:"DATABASE_SSL_MODE" env-default:"disable"`
 
 		// Enhanced connection pool configuration
