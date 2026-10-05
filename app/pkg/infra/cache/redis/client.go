@@ -3,8 +3,10 @@ package redis
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/wire"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	redisGo "github.com/redis/go-redis/v9"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
 )
@@ -39,15 +41,24 @@ func NewRedisClient(config RedisClientConfig) (cache.CacheClient, error) {
 		return nil, errors.New("redis: at least one address is required")
 	}
 
-	return &redisClient{
-		client: redisGo.NewUniversalClient(&redisGo.UniversalOptions{
-			Addrs:      config.Address,
-			Username:   config.Username,
-			Password:   config.Password,
-			DB:         config.Database,
-			MasterName: config.MasterName,
-		}),
-	}, nil
+	client := redisGo.NewUniversalClient(&redisGo.UniversalOptions{
+		Addrs:      config.Address,
+		Username:   config.Username,
+		Password:   config.Password,
+		DB:         config.Database,
+		MasterName: config.MasterName,
+	})
+
+	// A span and a metric per command. The command text is switched off: keys and values can hold URLs and tokens (D7).
+	// Instrumenting only registers hooks; a failure costs the telemetry, not the client.
+	if err := redisotel.InstrumentTracing(client, redisotel.WithDBStatement(false)); err != nil {
+		slog.Warn("redis: tracing is not enabled", "error", err)
+	}
+	if err := redisotel.InstrumentMetrics(client); err != nil {
+		slog.Warn("redis: metrics are not enabled", "error", err)
+	}
+
+	return &redisClient{client: client}, nil
 }
 
 func (p *redisClient) Configure(opts ...Option) cache.CacheClient {
