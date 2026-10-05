@@ -32,6 +32,8 @@ x-app-env: &app-env
   REDIS_USERNAME: ${REDIS_USERNAME:-curtz-svc}
   REDIS_PASSWORD: ${REDIS_PASSWORD:-curtz-svc}
   AUTH_SECRET: ${AUTH_SECRET:-curtz-secret}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  OTEL_SERVICE_NAME: curtz
 
 services:
   app-ha:

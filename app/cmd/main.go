@@ -26,12 +26,14 @@ import (
 	"github.com/sanctumlabs/curtz/app/internal/adapters/notifications"
 	identitydatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/identity"
 	identityapp "github.com/sanctumlabs/curtz/app/internal/application/identity"
+	"github.com/sanctumlabs/curtz/app/pkg"
 	cacheredis "github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/server"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
+	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
 	"github.com/sanctumlabs/curtz/app/pkg/jwt"
 	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
 )
@@ -41,21 +43,31 @@ const (
 
 	// redisStartupPingTimeout bounds the one ping that only decides which startup line is logged.
 	redisStartupPingTimeout = 2 * time.Second
+
+	// telemetryFlushTimeout bounds the final export of spans and metrics at shutdown.
+	telemetryFlushTimeout = 5 * time.Second
 )
 
 // healthcheckTimeout bounds the container health probe. It is a variable so a test can shorten it.
 var healthcheckTimeout = 2 * time.Second
+
+// setupTelemetry is telemetry.Setup. It is a variable so a test can replace it.
+var setupTelemetry = telemetry.Setup
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		os.Exit(healthcheck(os.LookupEnv, os.Stdout))
 	}
 
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("no .env file found, relying on the environment", "error", err)
-	}
+	dotenvErr := godotenv.Load()
 
 	cfg, err := config.Load(os.LookupEnv)
+	// The logger is installed once the configuration is read, so LOG_LEVEL and LOG_FORMAT apply. On a configuration error
+	// Load still returns the default logging settings, so the error itself is logged as JSON like everything else.
+	slog.SetDefault(telemetry.NewLogger(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, telemetry.ServiceName()))
+	if dotenvErr != nil {
+		slog.Warn("no .env file found, relying on the environment", "error", dotenvErr)
+	}
 	if err != nil {
 		slog.Error("invalid configuration", "error", err)
 		os.Exit(1)
@@ -124,10 +136,32 @@ func probeHost(host string) string {
 	return host
 }
 
+// startTelemetry installs the OpenTelemetry SDK and returns the function that flushes it. Call the flush once the server
+// has drained, so the drain's spans and the final metrics are exported. Telemetry never stops the API: when the SDK cannot
+// start the API runs without it, and a failing flush is only logged.
+func startTelemetry(ctx context.Context, cfg config.App) (flush func()) {
+	shutdown, err := setupTelemetry(ctx, telemetry.Options{ServiceVersion: pkg.Version, Environment: cfg.Environment})
+	if err != nil {
+		slog.WarnContext(ctx, "telemetry is disabled: the OpenTelemetry SDK could not start", "error", err)
+		return func() {}
+	}
+	return func() {
+		// ctx is already cancelled when this runs (that is what began the shutdown), so the flush gets its own deadline.
+		flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), telemetryFlushTimeout)
+		defer cancel()
+		if err := shutdown(flushCtx); err != nil {
+			slog.WarnContext(flushCtx, "flushing telemetry", "error", err)
+		}
+	}
+}
+
 // run builds the API from cfg and serves it until ctx is cancelled, then drains in-flight requests and closes the
 // data clients. Postgres is required: failing to reach it is an error. Redis is optional: failing to reach it is
 // logged and the API carries on (readiness reports it as down).
 func run(ctx context.Context, cfg config.App) error {
+	flushTelemetry := startTelemetry(ctx, cfg)
+	defer flushTelemetry()
+
 	dbClient, err := postgres.NewPostgresClient(cfg.Database.Postgres)
 	if err != nil {
 		return fmt.Errorf("connect to postgres: %w", err)
@@ -179,6 +213,7 @@ func run(ctx context.Context, cfg config.App) error {
 		AppName:     cfg.Server.Name,
 		Version:     cfg.Server.Version,
 		Environment: cfg.Environment,
+		ProbePaths:  []string{probes.LivePath, probes.ReadyPath},
 	})
 
 	// Everything is authenticated unless it is listed here. Registration, login, token refresh
