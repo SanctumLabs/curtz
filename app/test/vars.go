@@ -4,6 +4,7 @@ import "time"
 
 const (
 	TEST_POSTGRES_DATABASE_VERSION = "postgres:16.2-alpine"
+	TEST_KAFKA_IMAGE               = "apache/kafka:4.3.1"
 	TEST_DATABASE_NAME             = "curtz_database_test"
 	TEST_DATABASE_USERNAME         = "curtz_user"
 	TEST_DATABASE_PASSWORD         = "curtz_password"
