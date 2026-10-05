@@ -3,12 +3,12 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	"golang.org/x/exp/slog"
 )
 
 type (

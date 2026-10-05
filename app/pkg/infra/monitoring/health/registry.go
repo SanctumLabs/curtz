@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
 )
 
 // DefaultCheckTimeout bounds each dependency check, so a hung dependency cannot hang the readiness endpoint.
@@ -66,19 +68,22 @@ func (r *Registry) SetDraining() {
 	r.draining.Store(true)
 }
 
-// Run executes every check in parallel, each bounded by the registry's timeout.
+// Run executes every check in parallel, each bounded by the registry's timeout. The checks run under an unsampled parent
+// span, so the Postgres and Redis pings they make leave no spans: the probes are polled every few seconds and would
+// otherwise start a trace each time.
 func (r *Registry) Run(ctx context.Context) Report {
 	if r.draining.Load() {
 		return Report{Status: StatusDraining, Checks: map[string]string{}}
 	}
 
+	checkCtx := telemetry.Unsampled(ctx)
 	errs := make([]error, len(r.checks))
 	var wg sync.WaitGroup
 	for i, check := range r.checks {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			errs[i] = r.runOne(ctx, check)
+			errs[i] = r.runOne(checkCtx, check)
 		}()
 	}
 	wg.Wait()
@@ -90,7 +95,7 @@ func (r *Registry) Run(ctx context.Context) Report {
 			continue
 		}
 		report.Checks[check.Name] = "down"
-		slog.Warn("health check failed", "check", check.Name, "required", check.Required, "error", errs[i])
+		slog.WarnContext(ctx, "health check failed", "check", check.Name, "required", check.Required, "error", errs[i])
 		if check.Required {
 			report.Status = StatusUnavailable
 		} else if report.Status == StatusOK {

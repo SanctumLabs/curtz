@@ -1,13 +1,19 @@
 package health
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func up(context.Context) error   { return nil }
@@ -101,4 +107,46 @@ func TestRegistry_DrainingReportsUnavailableWithoutRunningTheChecks(t *testing.T
 	assert.Equal(t, StatusDraining, report.Status)
 	assert.False(t, report.Ready())
 	assert.Zero(t, calls.Load(), "a draining process must not spend time probing its dependencies")
+}
+
+// The checks ping Postgres and Redis, and the probes are polled every few seconds: a ping that started a trace each time
+// would fill Tempo with noise.
+func TestRegistry_ChecksRunUnderAnUnsampledParentSoTheirPingsAreNotTraced(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sdktrace.NewSimpleSpanProcessor(exporter)))
+	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
+	tracer := provider.Tracer("test")
+
+	registry := NewRegistry(time.Second)
+	registry.Add(Check{Name: "postgres", Required: true, Fn: func(ctx context.Context) error {
+		_, span := tracer.Start(ctx, "ping")
+		span.End()
+		return nil
+	}})
+
+	registry.Run(context.Background())
+	assert.Empty(t, exporter.GetSpans(), "the check's span is not recorded")
+
+	_, control := tracer.Start(context.Background(), "ping")
+	control.End()
+	assert.Len(t, exporter.GetSpans(), 1, "the same call outside the registry is recorded, so the sampler is on")
+}
+
+func TestRegistry_ALogLineFromAFailedCheckCarriesTheCallersTrace(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(telemetry.NewLogger(&buf, "json", slog.LevelInfo, "curtz-test"))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
+	spanID, _ := trace.SpanIDFromHex("00f067aa0ba902b7")
+	ctx := trace.ContextWithSpanContext(context.Background(), trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: traceID, SpanID: spanID, TraceFlags: trace.FlagsSampled,
+	}))
+
+	registry := NewRegistry(time.Second)
+	registry.Add(Check{Name: "redis", Required: false, Fn: down})
+	registry.Run(ctx)
+
+	assert.Contains(t, buf.String(), `"msg":"health check failed"`)
+	assert.Contains(t, buf.String(), `"trace_id":"4bf92f3577b34da6a3ce929d0e0e4736"`, "the line uses the caller's context, not the unsampled one made for the checks")
 }
