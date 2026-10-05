@@ -192,7 +192,6 @@ func run(ctx context.Context, cfg config.App) error {
 			baseURI + "/auth/verify",
 			probes.LivePath,
 			probes.ReadyPath,
-			"/metrics",
 		},
 		PublicPrefixes: []string{"/docs/"},
 	}))

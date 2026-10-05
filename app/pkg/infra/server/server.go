@@ -69,8 +69,6 @@ func NewServer(cfg ServerConfig) *Server {
 	app.Use(middleware.HelmetMiddleware())
 	app.Use(middleware.IdempotencyMiddleware())
 
-	app.Get("/metrics", middleware.MonitoringMiddleware())
-
 	app.Use(middleware.RecoverMiddleware())
 
 	return &Server{

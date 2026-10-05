@@ -97,3 +97,13 @@ func TestNewServer_ProbesAreNeitherTracedNorLoggedAtInfo(t *testing.T) {
 	assert.Empty(t, exporter.GetSpans())
 	assert.Empty(t, logs.String())
 }
+
+// The Fiber monitor page was unauthenticated, exposed runtime statistics and was not Prometheus. Metrics leave over OTLP.
+func TestNewServer_DoesNotServeAMetricsPage(t *testing.T) {
+	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+
+	resp, err := srv.App().Test(httptest.NewRequest("GET", "/metrics", nil))
+	require.NoError(t, err)
+
+	assert.Equal(t, 404, resp.StatusCode)
+}
