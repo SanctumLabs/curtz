@@ -1,0 +1,289 @@
+package telemetry
+
+import (
+	"context"
+	"errors"
+	"net"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	tracenoop "go.opentelemetry.io/otel/trace/noop"
+	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	"google.golang.org/grpc"
+)
+
+// collector records what is exported to it.
+type collector struct {
+	mu      sync.Mutex
+	traces  []*coltracepb.ExportTraceServiceRequest
+	metrics []*colmetricspb.ExportMetricsServiceRequest
+}
+
+func (c *collector) traceRequests() []*coltracepb.ExportTraceServiceRequest {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*coltracepb.ExportTraceServiceRequest(nil), c.traces...)
+}
+
+func (c *collector) metricRequests() []*colmetricspb.ExportMetricsServiceRequest {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*colmetricspb.ExportMetricsServiceRequest(nil), c.metrics...)
+}
+
+type traceService struct {
+	coltracepb.UnimplementedTraceServiceServer
+	c *collector
+}
+
+func (s *traceService) Export(_ context.Context, req *coltracepb.ExportTraceServiceRequest) (*coltracepb.ExportTraceServiceResponse, error) {
+	s.c.mu.Lock()
+	defer s.c.mu.Unlock()
+	s.c.traces = append(s.c.traces, req)
+	return &coltracepb.ExportTraceServiceResponse{}, nil
+}
+
+type metricsService struct {
+	colmetricspb.UnimplementedMetricsServiceServer
+	c *collector
+}
+
+func (s *metricsService) Export(_ context.Context, req *colmetricspb.ExportMetricsServiceRequest) (*colmetricspb.ExportMetricsServiceResponse, error) {
+	s.c.mu.Lock()
+	defer s.c.mu.Unlock()
+	s.c.metrics = append(s.c.metrics, req)
+	return &colmetricspb.ExportMetricsServiceResponse{}, nil
+}
+
+// startCollector serves OTLP/gRPC on a free port and returns the collector and the endpoint URL to export to.
+func startCollector(t *testing.T) (*collector, string) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	c := &collector{}
+	server := grpc.NewServer()
+	coltracepb.RegisterTraceServiceServer(server, &traceService{c: c})
+	colmetricspb.RegisterMetricsServiceServer(server, &metricsService{c: c})
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	return c, "http://" + listener.Addr().String()
+}
+
+// resetGlobals puts the global providers, propagator and error handler back to no-ops when the test ends, because Setup
+// replaces them for the whole process.
+func resetGlobals(t *testing.T) {
+	t.Helper()
+	t.Cleanup(func() {
+		otel.SetTracerProvider(tracenoop.NewTracerProvider())
+		otel.SetMeterProvider(metricnoop.NewMeterProvider())
+		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator())
+		otel.SetErrorHandler(otel.ErrorHandlerFunc(func(error) {}))
+	})
+}
+
+func resourceAttribute(attrs []*commonpb.KeyValue, key string) (string, bool) {
+	for _, kv := range attrs {
+		if kv.GetKey() == key {
+			return kv.GetValue().GetStringValue(), true
+		}
+	}
+	return "", false
+}
+
+func shutdownWithin(t *testing.T, shutdown func(context.Context) error, d time.Duration) error {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), d)
+	defer cancel()
+	return shutdown(ctx)
+}
+
+func TestSetup_ExportsSpansAndMetricsOnShutdownWithTheServiceResource(t *testing.T) {
+	c, endpoint := startCollector(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+	t.Setenv("OTEL_SERVICE_NAME", "")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+	resetGlobals(t)
+
+	shutdown, err := Setup(context.Background(), Options{ServiceVersion: "1.2.3", Environment: "test"})
+	require.NoError(t, err)
+
+	_, span := otel.Tracer("test").Start(context.Background(), "unit-of-work")
+	span.End()
+	counter, err := otel.Meter("test").Int64Counter("test.requests")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 1)
+
+	require.NoError(t, shutdownWithin(t, shutdown, 5*time.Second), "shutdown flushes both providers")
+
+	traces := c.traceRequests()
+	require.Len(t, traces, 1)
+	resourceSpans := traces[0].GetResourceSpans()
+	require.Len(t, resourceSpans, 1)
+	attrs := resourceSpans[0].GetResource().GetAttributes()
+	name, _ := resourceAttribute(attrs, "service.name")
+	version, _ := resourceAttribute(attrs, "service.version")
+	environment, _ := resourceAttribute(attrs, "deployment.environment.name")
+	assert.Equal(t, "curtz", name, "the service name defaults to curtz: the dashboard filters on it")
+	assert.Equal(t, "1.2.3", version)
+	assert.Equal(t, "test", environment)
+	for _, key := range []string{"process.pid", "process.command_args", "process.owner"} {
+		_, found := resourceAttribute(attrs, key)
+		assert.False(t, found, "%s would become a label on every metric series", key)
+	}
+	assert.Equal(t, "unit-of-work", resourceSpans[0].GetScopeSpans()[0].GetSpans()[0].GetName())
+
+	var metricNames []string
+	for _, request := range c.metricRequests() {
+		for _, resourceMetrics := range request.GetResourceMetrics() {
+			metricName, _ := resourceAttribute(resourceMetrics.GetResource().GetAttributes(), "service.name")
+			assert.Equal(t, "curtz", metricName)
+			for _, scope := range resourceMetrics.GetScopeMetrics() {
+				for _, m := range scope.GetMetrics() {
+					metricNames = append(metricNames, m.GetName())
+				}
+			}
+		}
+	}
+	assert.Contains(t, metricNames, "test.requests")
+}
+
+// The standard variables win over the defaults the application passes in.
+func TestSetup_TheEnvironmentOverridesTheDefaults(t *testing.T) {
+	c, endpoint := startCollector(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+	t.Setenv("OTEL_SERVICE_NAME", "billing")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "deployment.environment.name=staging,custom.team=payments")
+	resetGlobals(t)
+
+	shutdown, err := Setup(context.Background(), Options{ServiceVersion: "1.2.3", Environment: "test"})
+	require.NoError(t, err)
+	_, span := otel.Tracer("test").Start(context.Background(), "work")
+	span.End()
+	require.NoError(t, shutdownWithin(t, shutdown, 5*time.Second))
+
+	traces := c.traceRequests()
+	require.Len(t, traces, 1)
+	attrs := traces[0].GetResourceSpans()[0].GetResource().GetAttributes()
+	name, _ := resourceAttribute(attrs, "service.name")
+	environment, _ := resourceAttribute(attrs, "deployment.environment.name")
+	team, _ := resourceAttribute(attrs, "custom.team")
+	version, _ := resourceAttribute(attrs, "service.version")
+	assert.Equal(t, "billing", name)
+	assert.Equal(t, "staging", environment)
+	assert.Equal(t, "payments", team)
+	assert.Equal(t, "1.2.3", version, "what the environment does not set keeps the application's value")
+}
+
+func TestSetup_DisabledInstallsNothing(t *testing.T) {
+	c, endpoint := startCollector(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+	t.Setenv("OTEL_SDK_DISABLED", "true")
+	resetGlobals(t)
+
+	shutdown, err := Setup(context.Background(), Options{})
+	require.NoError(t, err)
+
+	_, isSDK := otel.GetTracerProvider().(*sdktrace.TracerProvider)
+	assert.False(t, isSDK, "the global provider stays the no-op")
+	_, span := otel.Tracer("test").Start(context.Background(), "work")
+	assert.False(t, span.IsRecording())
+	span.End()
+	require.NoError(t, shutdownWithin(t, shutdown, time.Second))
+	assert.Empty(t, c.traceRequests())
+	assert.Empty(t, c.metricRequests())
+}
+
+// A collector that is not there must not fail startup, slow the work being traced, or hold shutdown past its deadline.
+func TestSetup_DoesNotFailOrBlockWithoutACollector(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1")
+	resetGlobals(t)
+	captureDefaultLogger(t)
+
+	start := time.Now()
+	shutdown, err := Setup(context.Background(), Options{})
+	require.NoError(t, err)
+	assert.Less(t, time.Since(start), time.Second, "Setup must not dial the collector")
+
+	tracer := otel.Tracer("test")
+	begin := time.Now()
+	for range 2000 {
+		_, span := tracer.Start(context.Background(), "work")
+		span.End()
+	}
+	assert.Less(t, time.Since(begin), time.Second, "recording spans never waits for the exporter")
+
+	done := make(chan struct{})
+	go func() {
+		_ = shutdownWithin(t, shutdown, 500*time.Millisecond)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("shutdown must honour its deadline when the collector is unreachable")
+	}
+}
+
+func TestSetup_PropagatesW3CTraceContextAndBaggage(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1")
+	resetGlobals(t)
+
+	shutdown, err := Setup(context.Background(), Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = shutdownWithin(t, shutdown, 200*time.Millisecond) })
+
+	fields := otel.GetTextMapPropagator().Fields()
+	assert.Contains(t, fields, "traceparent")
+	assert.Contains(t, fields, "baggage")
+}
+
+func TestSetup_InstallsTheRateLimitedErrorHandler(t *testing.T) {
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1")
+	resetGlobals(t)
+	buf := captureDefaultLogger(t)
+
+	shutdown, err := Setup(context.Background(), Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = shutdownWithin(t, shutdown, 200*time.Millisecond) })
+
+	for range 5 {
+		otel.Handle(errors.New("export failed: connection refused"))
+	}
+
+	assert.Equal(t, 1, strings.Count(buf.String(), "telemetry export failed"))
+}
+
+func TestMetricReaderOptions_DefaultsToTheStacksScrapeInterval(t *testing.T) {
+	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "")
+	assert.Len(t, metricReaderOptions(), 1, "unset (or empty) means the 15 second default")
+
+	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "1000")
+	assert.Empty(t, metricReaderOptions(), "a set variable is left to the SDK")
+}
+
+func TestSetup_HonoursTheMetricExportIntervalVariable(t *testing.T) {
+	c, endpoint := startCollector(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+	t.Setenv("OTEL_METRIC_EXPORT_INTERVAL", "100")
+	resetGlobals(t)
+
+	shutdown, err := Setup(context.Background(), Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = shutdownWithin(t, shutdown, 2*time.Second) })
+	counter, err := otel.Meter("test").Int64Counter("test.interval")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 1)
+
+	assert.Eventually(t, func() bool { return len(c.metricRequests()) > 0 }, 3*time.Second, 20*time.Millisecond,
+		"metrics must arrive without a shutdown when the interval is 100 ms")
+}
