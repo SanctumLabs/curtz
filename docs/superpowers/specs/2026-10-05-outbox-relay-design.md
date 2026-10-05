@@ -167,8 +167,9 @@ cycle and stops publishing the moment it fails, then returns to standby. A lock-
   the `MarkSent` re-publishes that batch; consumers drop repeats on `event_id`.
 - *Per-key order (in outbox order, see the risk on commit order below):* all events of a key are claimed in outbox order and produced in that order to one partition, which an idempotent
   producer delivers in order including across retries; a failure for a record fails the records after it in that partition and they are retried
-  on the next cycle in order. This is verified, not assumed (section 10); if the probe shows a later record can overtake a failed one, the relay
-  produces each key's records one at a time (batched across keys, serial within a key).
+  on the next cycle in order. Verified in the source of franz-go v1.22.1 (while planning): records are produced in order per partition, and
+  `RecordDeliveryTimeout` and `RecordRetries` fail every record buffered for the partition after the one that fails ("gapless ordering"), so the
+  per-key serial fallback an earlier draft held in reserve is not needed. The broker-stop integration test pins it.
 - *Parking skips an event:* later events of the same aggregate continue after a parked one, so a parked event leaves a gap in that aggregate's
   stream. That is the price of D3, and it is why parking raises an alert.
 - *Transient failures never count:* timeouts, connection errors and every retriable broker error leave the row untouched and only slow the relay
@@ -188,9 +189,16 @@ delivery timeout of `KAFKA_PUBLISH_TIMEOUT` seconds and a buffer at least as lar
 synchronous batch with one error per record, `nil` meaning acknowledged), `Ping(ctx)` (a metadata request) and `Close`. franz-go connects lazily,
 so constructing the producer never fails because Kafka is down.
 
-The adapter classifies each error. **Permanent** means the broker will never accept this record as it is: for example `MESSAGE_TOO_LARGE`,
-`INVALID_TOPIC_EXCEPTION`, `INVALID_RECORD`, an authorization failure; the exact list is `kerr` errors whose `Retriable` is false plus the client's
-record-too-large check. **Everything else is transient**, including a delivery timeout. The classification has a table test.
+Every `Produce` call is bounded by the publish timeout, and the client is configured with `AllowIdempotentProduceCancellation`. Found by the
+broker-stop test: by default franz-go refuses to fail a record whose request is already on its way (with idempotent writes it cannot know
+whether the broker stored it), so a broker that dies mid-request keeps `Produce` waiting until it returns, deadline or not. That would wedge
+the relay loop and stall its shutdown. The price is a possible duplicate, which at-least-once delivery already allows (D7).
+
+The producer wrapper classifies each error (`kafka.IsPermanent`, called by the adapter). **Permanent** is an explicit allowlist of the broker
+answers that never change for the same record: `MESSAGE_TOO_LARGE`, `RECORD_LIST_TOO_LARGE`, `INVALID_TOPIC_EXCEPTION`, `INVALID_RECORD`,
+`UNSUPPORTED_FOR_MESSAGE_FORMAT`, `TOPIC_AUTHORIZATION_FAILED` and `CLUSTER_AUTHORIZATION_FAILED`; not every non-retriable code, so an unknown
+server error can never park an event. **Everything else is transient**, including a delivery timeout and an unknown topic. The classification
+has a table test.
 
 Spans: `outbox.publish` is a producer span named `<destination> publish` with `messaging.system=kafka`, `messaging.destination.name`,
 `messaging.operation.type=publish`, `messaging.message.id` (the event ID) and `outbox.event_type`; a failed record marks the span as an error with
@@ -278,13 +286,12 @@ Written test-first where there is code.
 
 ## 11. Risks and open items
 
-- **New Go modules.** `github.com/twmb/franz-go` (with `pkg/kmsg` and its small dependencies) and the testcontainers Kafka module
-  (`github.com/testcontainers/testcontainers-go/modules/kafka`) are downloaded with `go get`, each with the user's go-ahead first, as in slices 2 and 4. Versions are
-  resolved when implementing and must agree with the Go version and the existing testcontainers modules; no existing requirement may be bumped
-  without asking.
-- **franz-go's ordering after a failure.** The relay-level guarantee in section 5 does not depend on the library's behaviour, but how simple the
-  publish loop can be does. The plan verifies, from the library's documentation and a broker-stop test, whether later records of a partition
-  fail with an earlier one; if not, the per-key serial fallback applies.
+- **New Go modules.** `github.com/twmb/franz-go` v1.22.1 with `pkg/kmsg` v1.14.0 and `github.com/pierrec/lz4/v4`, which also raises the existing
+  indirect requirement `github.com/klauspost/compress` from v1.18.6 to v1.20.0. All four are already in the local module cache, so adding them
+  needs no download (`GOPROXY=off` proves it); the version bump of `klauspost/compress` (a compression library of the production binary) is
+  still put to the user with the go-ahead. `go mod tidy` and the Docker image build (the builder downloads the Go modules) need the go-ahead too.
+  The testcontainers Kafka module is not added: the test broker is a generic container running the local `apache/kafka:4.3.1` image, configured
+  like the stack's `kafka-single`.
 - **Head-of-line within a destination.** If one partition's leader is unavailable and more than `OUTBOX_BATCH_SIZE` of the oldest unsent rows of
   that destination belong to it, other keys on that destination wait until it recovers. Acceptable (it recovers with the partition) and visible on
   the backlog alert.
