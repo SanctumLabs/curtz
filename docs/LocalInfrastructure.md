@@ -147,6 +147,37 @@ make infra.app.down                # stops only the API; Postgres and Redis keep
 - `make infra.app.up` rebuilds the image each time (cached layers make it quick). `make build.docker`, `make lint.docker` and `make scan.docker` build, lint and scan the image on its own.
 - The image has no shell. To look inside it use `docker cp curtz-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network curtz --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
 
+## Observing the app
+
+The API sends traces and metrics over OTLP to the collector of the observability stack and writes JSON logs to stdout, which Filebeat ships to Elasticsearch when the API runs as a container. The three are tied together by one W3C trace ID.
+
+```bash
+make infra.observability.up       # collector, Tempo, Prometheus, Alertmanager, Grafana
+make infra.elk.up MODE=single     # Elasticsearch, Logstash, Kibana, Filebeat (MODE=ha for the cluster)
+make infra.app.up MODE=single     # the API; its OTEL_* variables point at the collector
+```
+
+`make infra.app.up` does not start the observability or ELK stacks (they are separate stacks, see the memory budget). Without the collector the API still serves; it logs one `telemetry export failed` line a minute.
+
+Follow one request. Send it with a `traceparent` of your own, so you know the trace ID:
+
+```bash
+curl -s -H 'traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' -H 'content-type: application/json' \
+  -d '{"email":"you@example.com","password":"your-password"}' localhost:8085/api/v1/curtz/auth/login
+```
+
+- **Traces:** Grafana (<http://localhost:3000>), Explore, Tempo, "TraceQL" with `{ resource.service.name = "curtz" }`, or "Trace ID" with `4bf92f3577b34da6a3ce929d0e0e4736`. The trace is the HTTP server span `POST /api/v1/curtz/auth/login`, the `identity.Login` use-case span and the Postgres query spans. "Logs for this span" jumps to the Elasticsearch lines with that `trace.id`.
+- **Metrics:** the "Curtz service" dashboard (folder Curtz): requests per second and latency by route, the 5xx ratio, application logs and recent traces, and a Dependencies row with the Postgres pool and Redis commands. In Prometheus the request metric is `http_server_request_duration_seconds_*` with `service_name`, `http_route` and `http_response_status_code`.
+- **Logs:** Kibana (<http://localhost:5601>), data view `logs-curtz-*`, filter `trace.id : "4bf92f3577b34da6a3ce929d0e0e4736"`. The access log line is the message `request` with the method, route, status, duration and request ID.
+
+What to know:
+
+- `/health` and `/health/ready` produce no spans and no HTTP metrics, and their access log lines are debug level. The readiness check's Redis `PING` still shows in the Redis command metrics.
+- Telemetry is best effort: spans and metrics produced while the collector is away, and for a few seconds after it comes back, are dropped, never queued without limit. Exporting resumes by itself without restarting the API.
+- Never recorded in a span: SQL arguments, Redis keys and values, query strings, request headers, client addresses, email addresses, usernames and tokens.
+- An API run on your host (`make run`) still exports to the collector on `localhost:4317`. Its logs go to your terminal only (Filebeat reads container logs, not your terminal); `LOG_FORMAT=text` makes them readable, `LOG_LEVEL=debug` shows the probes.
+- Settings are the standard OpenTelemetry variables, listed in `.env.example`: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`), `OTEL_SERVICE_NAME` (default `curtz`), `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`; keep a parent-based sampler, the readiness checks rely on it), `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds, default 15000) and `OTEL_SDK_DISABLED=true` to turn it all off.
+
 ## The stacks
 
 ### Kafka
@@ -194,7 +225,7 @@ make infra.app.down                # stops only the API; Postgres and Redis keep
   Prometheus. Logs do not pass through the Collector.
 - Grafana: <http://localhost:3000>. Datasources Prometheus, Tempo and Elasticsearch are provisioned; Tempo links spans to
   logs by `trace.id`. Dashboards "Stack overview" and "Curtz service" are in the folder "Curtz". The service dashboard
-  shows "No data" until the app emits OpenTelemetry metrics.
+  fills in once the API runs (see "Observing the app").
 - Prometheus: <http://localhost:9090>; Alertmanager: <http://localhost:9093>; Tempo: <http://localhost:3200>.
 - Prometheus finds exporters by DNS, so only running components appear as targets. To get notifications, replace the
   `null` receiver in `deploy/observability/alertmanager.yml` with a Slack, email or webhook receiver and reload.

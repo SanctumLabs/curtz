@@ -33,6 +33,20 @@ The image sets `ENVIRONMENT=production`. In that mode the API and the migrator r
 
 Every variable, its default and its unit is listed in the app-connectivity spec (`docs/superpowers/specs/2026-10-04-app-connectivity-design.md`, section 4); the local defaults are in `.env.example`.
 
+Optional telemetry and logging variables (the defaults suit the local stack; none is required in production):
+
+| Variable | Meaning |
+|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | the OpenTelemetry Collector's OTLP/gRPC address, for example `http://otel-collector:4317` (default `http://localhost:4317`); an `https://` address uses TLS |
+| `OTEL_SERVICE_NAME` | the service name on traces, metrics and log lines (default `curtz`) |
+| `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | default `parentbased_always_on`, which is too much for production traffic: set for example `parentbased_traceidratio` with `0.05`. Keep a parent-based sampler: the readiness checks run under an unsampled parent so they leave no spans |
+| `OTEL_METRIC_EXPORT_INTERVAL` | milliseconds between metric exports (default 15000) |
+| `OTEL_SDK_DISABLED` | `true` turns tracing and metrics off |
+| `LOG_LEVEL` | `debug`, `info` (default), `warn` or `error` |
+| `LOG_FORMAT` | `json` (default; one object per line with `time`, `level`, `msg`, `service`, and `trace_id`/`span_id` inside a request) or `text` |
+
+A collector that is unreachable never stops the API or slows a request; the API logs one `telemetry export failed` line a minute. On SIGTERM the API exports its last spans and metrics after it has drained, waiting at most five seconds.
+
 ## Migrations
 
 The API never migrates at startup. Run the migrator from the same image, once per deploy, before starting the new version:

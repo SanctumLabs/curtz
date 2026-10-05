@@ -5,7 +5,7 @@
     "curtz"
   ],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": false,
   "refresh": "30s",
   "time": {
@@ -25,6 +25,11 @@
     {"id":4,"type":"timeseries","title":"Requests per second by route","gridPos":{"x":0,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (http_route) (rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":"{{http_route}}"}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
     {"id":5,"type":"timeseries","title":"Latency p50 / p95 / p99","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.5, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p50"},{"refId":"B","expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p95"},{"refId":"C","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
     {"id":6,"type":"logs","title":"Application logs (Elasticsearch)","gridPos":{"x":0,"y":12,"w":24,"h":9},"datasource":{"type":"elasticsearch","uid":"elasticsearch"},"targets":[{"refId":"A","query":"service.name:curtz","timeField":"@timestamp","metrics":[{"type":"logs","id":"1","settings":{"limit":"100"}}],"bucketAggs":[]}]},
-    {"id":7,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":21,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"curtz\" }","limit":20}]}
+    {"id":7,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":21,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"curtz\" }","limit":20}]},
+    {"id":8,"type":"row","title":"Dependencies","gridPos":{"x":0,"y":30,"w":24,"h":1},"collapsed":false,"panels":[]},
+    {"id":9,"type":"timeseries","title":"Postgres pool connections","gridPos":{"x":0,"y":31,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(pgxpool_acquired_connections{service_name=\"curtz\"})","legendFormat":"acquired"},{"refId":"B","expr":"sum(pgxpool_idle_connections{service_name=\"curtz\"})","legendFormat":"idle"},{"refId":"C","expr":"sum(pgxpool_max_connections{service_name=\"curtz\"})","legendFormat":"max"}],"fieldConfig":{"defaults":{"unit":"short"},"overrides":[]}},
+    {"id":10,"type":"timeseries","title":"Postgres pool waits per second","gridPos":{"x":12,"y":31,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(pgxpool_empty_acquire_total{service_name=\"curtz\"}[5m]))","legendFormat":"waits"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
+    {"id":11,"type":"timeseries","title":"Redis commands per second","gridPos":{"x":0,"y":39,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (type, status) (rate(db_client_connections_use_time_milliseconds_count{service_name=\"curtz\",db_system=\"redis\"}[5m]))","legendFormat":"{{type}} {{status}}"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
+    {"id":12,"type":"timeseries","title":"Redis command latency p99","gridPos":{"x":12,"y":39,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.99, sum by (le) (rate(db_client_connections_use_time_milliseconds_bucket{service_name=\"curtz\",db_system=\"redis\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"ms"},"overrides":[]}}
   ]
 }

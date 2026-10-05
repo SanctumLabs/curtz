@@ -34,7 +34,7 @@ groups:
         annotations:
           summary: Elasticsearch cluster status is red
 
-      # Inert until the application exports OpenTelemetry HTTP metrics (a later slice).
+      # Fed by the API's http.server.request.duration histogram (OpenTelemetry, via the collector).
       - alert: RedirectLatencyHigh
         expr: histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="curtz"}[5m]))) > 0.1
         for: 5m
