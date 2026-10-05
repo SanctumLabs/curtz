@@ -12,7 +12,10 @@ import (
 //
 // The user is re-read so that a token belonging to a since-deleted or suspended account stops
 // working.
-func (svc *Service) Refresh(ctx context.Context, refreshToken string) (TokenPair, error) {
+func (svc *Service) Refresh(ctx context.Context, refreshToken string) (_ TokenPair, err error) {
+	ctx, span := svc.startUseCase(ctx, "Refresh")
+	defer func() { endUseCase(span, err) }()
+
 	handlerLogPrefix := fmt.Sprintf("%s<Refresh>", svc.logPrefix)
 
 	if refreshToken == "" {

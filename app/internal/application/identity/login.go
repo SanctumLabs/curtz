@@ -15,7 +15,10 @@ import (
 //
 // An unknown email and a wrong password both return ErrInvalidCredentials so the response cannot
 // be used to discover which addresses are registered.
-func (svc *Service) Login(ctx context.Context, email, password string) (identity.User, TokenPair, error) {
+func (svc *Service) Login(ctx context.Context, email, password string) (_ identity.User, _ TokenPair, err error) {
+	ctx, span := svc.startUseCase(ctx, "Login")
+	defer func() { endUseCase(span, err) }()
+
 	handlerLogPrefix := fmt.Sprintf("%s<Login>", svc.logPrefix)
 
 	user, fetchErr := svc.users.FetchByEmail(ctx, email)

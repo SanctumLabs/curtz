@@ -15,7 +15,10 @@ import (
 //
 // An unknown token is reported as an invalid token rather than "not found": to a caller holding a
 // bad link, the two are the same thing, and distinguishing them leaks which tokens exist.
-func (svc *Service) VerifyEmail(ctx context.Context, token string) (identity.User, error) {
+func (svc *Service) VerifyEmail(ctx context.Context, token string) (_ identity.User, err error) {
+	ctx, span := svc.startUseCase(ctx, "VerifyEmail")
+	defer func() { endUseCase(span, err) }()
+
 	handlerLogPrefix := fmt.Sprintf("%s<VerifyEmail>", svc.logPrefix)
 
 	if token == "" {
