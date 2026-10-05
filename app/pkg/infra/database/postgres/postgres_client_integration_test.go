@@ -99,3 +99,32 @@ func TestNewPostgresClient_RecordsPoolStatistics(t *testing.T) {
 	t.Logf("pool metrics: %v", names) // the Dependencies row of the dashboard uses what this prints
 	assert.NotEmpty(t, names, "the pool statistics must be registered on the global meter provider")
 }
+
+// sqlc statements start with "-- name: Query :one"; their span must carry that name, not "--".
+func TestNewPostgresClient_NamesTheSpanAfterTheSqlcQuery(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sdktrace.NewSimpleSpanProcessor(exporter)))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(provider)
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previous)
+		_ = provider.Shutdown(context.Background())
+	})
+
+	ctx := context.Background()
+	client := test.TestPostgresDatabaseClientHelper(t, ctx)
+	t.Cleanup(client.Close)
+	exporter.Reset()
+
+	requestCtx, request := provider.Tracer("test").Start(ctx, "request")
+	var one int
+	require.NoError(t, client.GetDB().QueryRow(requestCtx, "-- name: QuerySelectOne :one\nSELECT 1").Scan(&one))
+	request.End()
+
+	var names []string
+	for _, span := range exporter.GetSpans() {
+		names = append(names, span.Name)
+	}
+	assert.Contains(t, names, "QuerySelectOne")
+	assert.NotContains(t, names, "--")
+}
