@@ -37,9 +37,10 @@ func NewServer(cfg ServerConfig) *Server {
 		JSONDecoder: sonic.Unmarshal,
 	})
 
-	// middleware
+	// middleware. Tracing comes first so every middleware behind it, and the access log in particular, sees the request's span.
+	app.Use(middleware.OTelMiddleware(middleware.OTelConfig{SkipPaths: cfg.ProbePaths}))
 	app.Use(middleware.RequestIdMiddleware())
-	app.Use(middleware.LoggerMiddleware())
+	app.Use(middleware.AccessLogMiddleware(cfg.ProbePaths))
 	app.Use(middleware.CORSMiddleware())
 
 	// Swagger specs are optional: the server must still start when they have not been generated
