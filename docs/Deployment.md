@@ -45,7 +45,7 @@ Optional telemetry and logging variables (the defaults suit the local stack; non
 | `LOG_LEVEL` | `debug`, `info` (default), `warn` or `error` |
 | `LOG_FORMAT` | `json` (default; one object per line with `time`, `level`, `msg`, `service`, and `trace_id`/`span_id` inside a request) or `text` |
 
-A collector that is unreachable never stops the API or slows a request; the API logs one `telemetry export failed` line a minute. On SIGTERM the API exports its last spans and metrics after it has drained, waiting at most five seconds.
+A collector that is unreachable never stops the API or slows a request; the API logs a `telemetry export failed` line for each distinct error and signal at most once a minute. On SIGTERM the API exports its last spans and metrics after it has drained, waiting at most five seconds.
 
 ## Migrations
 
@@ -67,7 +67,7 @@ docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_PASS
 
 - `GET /health` is liveness (always 200 while the process runs); `GET /health/ready` is readiness (503 when Postgres is down or the process is draining).
 - The image's `HEALTHCHECK` runs `/app/curtz healthcheck`, which calls `/health`.
-- On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that (the local compose stack uses 20 seconds).
+- On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that plus the five seconds the API may spend exporting its last telemetry (the local compose stack uses 25 seconds).
 - For hardening, also run it with a read-only root filesystem, `--cap-drop ALL` and `--security-opt no-new-privileges`, as `deploy/app/compose.yml` does.
 
 ## Continuous integration

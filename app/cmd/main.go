@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -137,21 +138,24 @@ func probeHost(host string) string {
 }
 
 // startTelemetry installs the OpenTelemetry SDK and returns the function that flushes it. Call the flush once the server
-// has drained, so the drain's spans and the final metrics are exported. Telemetry never stops the API: when the SDK cannot
-// start the API runs without it, and a failing flush is only logged.
+// has drained, so the drain's spans and the final metrics are exported; it flushes only once, however often it is called.
+// Telemetry never stops the API: when the SDK cannot start the API runs without it, and a failing flush is only logged.
 func startTelemetry(ctx context.Context, cfg config.App) (flush func()) {
 	shutdown, err := setupTelemetry(ctx, telemetry.Options{ServiceVersion: pkg.Version, Environment: cfg.Environment})
 	if err != nil {
 		slog.WarnContext(ctx, "telemetry is disabled: the OpenTelemetry SDK could not start", "error", err)
 		return func() {}
 	}
+	var once sync.Once
 	return func() {
-		// ctx is already cancelled when this runs (that is what began the shutdown), so the flush gets its own deadline.
-		flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), telemetryFlushTimeout)
-		defer cancel()
-		if err := shutdown(flushCtx); err != nil {
-			slog.WarnContext(flushCtx, "flushing telemetry", "error", err)
-		}
+		once.Do(func() {
+			// ctx is already cancelled when this runs (that is what began the shutdown), so the flush gets its own deadline.
+			flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), telemetryFlushTimeout)
+			defer cancel()
+			if err := shutdown(flushCtx); err != nil {
+				slog.WarnContext(flushCtx, "flushing telemetry", "error", err)
+			}
+		})
 	}
 }
 
@@ -159,6 +163,7 @@ func startTelemetry(ctx context.Context, cfg config.App) (flush func()) {
 // data clients. Postgres is required: failing to reach it is an error. Redis is optional: failing to reach it is
 // logged and the API carries on (readiness reports it as down).
 func run(ctx context.Context, cfg config.App) error {
+	// The deferred flush covers the early returns; the normal path flushes right after the server drains (below).
 	flushTelemetry := startTelemetry(ctx, cfg)
 	defer flushTelemetry()
 
@@ -236,5 +241,11 @@ func run(ctx context.Context, cfg config.App) error {
 		identityapi.NewRouter(baseURI, identityService),
 	})
 
-	return srv.Serve(ctx, cfg.ShutdownTimeout, registry.SetDraining)
+	serveErr := srv.Serve(ctx, cfg.ShutdownTimeout, registry.SetDraining)
+
+	// The server has drained or given up: export the last spans and metrics now, before the data clients close. Closing the
+	// Postgres pool waits for every connection a stuck request still holds, which can outlast the container's stop grace
+	// period and would cost the final export of exactly the incident worth diagnosing.
+	flushTelemetry()
+	return serveErr
 }

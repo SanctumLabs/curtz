@@ -10,8 +10,8 @@ x-app: &app
     dockerfile: Dockerfile
   image: curtz-app:local
   restart: unless-stopped
-  # longer than SHUTDOWN_TIMEOUT (15s), so a stop never kills a drain in progress
-  stop_grace_period: 20s
+  # longer than SHUTDOWN_TIMEOUT (15s) plus the 5s telemetry flush, so a stop never kills a drain or the final export
+  stop_grace_period: 25s
   read_only: true
   tmpfs: [/tmp]
   cap_drop: [ALL]

@@ -71,7 +71,7 @@ func OTelMiddleware(cfg OTelConfig) fiber.Handler {
 		start := time.Now()
 		method := strings.Clone(c.Method())
 		methodAttr := attribute.String("http.request.method", method)
-		schemeAttr := attribute.String("url.scheme", strings.Clone(c.Protocol()))
+		schemeAttr := attribute.String("url.scheme", requestScheme(c))
 
 		ctx := cfg.Propagator.Extract(c.UserContext(), headerCarrier{&c.Request().Header})
 		ctx, span := tracer.Start(ctx, method,
@@ -112,6 +112,16 @@ func OTelMiddleware(cfg OTelConfig) fiber.Handler {
 		duration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(metricAttrs...))
 		return nil
 	}
+}
+
+// requestScheme returns "https" or "http". Fiber's Protocol() returns the raw X-Forwarded-Proto, X-Forwarded-Protocol or
+// X-Url-Scheme header the client sent (every client counts as a trusted proxy unless a proxy list is configured), so it
+// cannot be a label as it is: anything that is not https counts as http, which bounds the label to two values.
+func requestScheme(c *fiber.Ctx) string {
+	if strings.EqualFold(c.Protocol(), "https") {
+		return "https"
+	}
+	return "http"
 }
 
 // requestHeader is the part of fasthttp's request header the propagator needs.

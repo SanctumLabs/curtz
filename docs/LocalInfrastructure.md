@@ -157,7 +157,7 @@ make infra.elk.up MODE=single     # Elasticsearch, Logstash, Kibana, Filebeat (M
 make infra.app.up MODE=single     # the API; its OTEL_* variables point at the collector
 ```
 
-`make infra.app.up` does not start the observability or ELK stacks (they are separate stacks, see the memory budget). Without the collector the API still serves; it logs one `telemetry export failed` line a minute.
+`make infra.app.up` does not start the observability or ELK stacks (they are separate stacks, see the memory budget). Without the collector the API still serves; it logs a `telemetry export failed` line for each distinct error and signal at most once a minute.
 
 Follow one request. Send it with a `traceparent` of your own, so you know the trace ID:
 
@@ -172,9 +172,9 @@ curl -s -H 'traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 
 What to know:
 
-- `/health` and `/health/ready` produce no spans and no HTTP metrics, and their access log lines are debug level. The readiness check's Redis `PING` still shows in the Redis command metrics.
-- Telemetry is best effort: spans and metrics produced while the collector is away, and for a few seconds after it comes back, are dropped, never queued without limit. Exporting resumes by itself without restarting the API.
-- Never recorded in a span: SQL arguments, Redis keys and values, query strings, request headers, client addresses, email addresses, usernames and tokens.
+- `/health` and `/health/ready` produce no spans and no HTTP metrics, and their access log lines are debug level. The readiness checks' Redis `PING` and Postgres ping still count in the Redis and Postgres client metrics (only their spans are suppressed).
+- Telemetry is best effort: spans produced while the collector is away, and for a few seconds after it comes back, are dropped (they are never queued without limit). Metrics are cumulative, so the counters catch up once exporting resumes, which it does by itself without restarting the API.
+- Never recorded as span attributes: SQL arguments, Redis keys and values, query strings, client addresses, request headers (apart from `User-Agent` and `Host`, which become `user_agent.original` and `server.address`), email addresses, usernames and tokens. A failed query or command records the driver's error message as the library reports it, and PostgreSQL's own messages can echo a value it rejected (for example `invalid input syntax for type uuid`), so treat error events as diagnostic data.
 - An API run on your host (`make run`) still exports to the collector on `localhost:4317`. Its logs go to your terminal only (Filebeat reads container logs, not your terminal); `LOG_FORMAT=text` makes them readable, `LOG_LEVEL=debug` shows the probes.
 - Settings are the standard OpenTelemetry variables, listed in `.env.example`: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`), `OTEL_SERVICE_NAME` (default `curtz`), `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`; keep a parent-based sampler, the readiness checks rely on it), `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds, default 15000) and `OTEL_SDK_DISABLED=true` to turn it all off.
 

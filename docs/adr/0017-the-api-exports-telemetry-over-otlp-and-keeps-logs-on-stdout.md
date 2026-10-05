@@ -21,8 +21,9 @@ The unauthenticated Fiber `/metrics` page, the `monitoring/metrics` package that
 
 ## Consequences
 
-- The API needs a reachable collector only to export; without one it serves normally and logs one `telemetry export failed` line a minute per distinct error.
+- The API needs a reachable collector only to export; without one it serves normally and logs a `telemetry export failed` line for each distinct error and signal at most once a minute.
 - A parent-based sampler (the default) is required for the readiness checks to stay out of Tempo: they run under an unsampled parent span. Production should keep a parent-based sampler and lower the rate (`OTEL_TRACES_SAMPLER=parentbased_traceidratio`).
-- The readiness `PING` to Redis still appears in the Redis command metrics; only spans are suppressed.
+- The readiness checks' Redis `PING` and Postgres ping still count in the Redis and Postgres client metrics; only their spans are suppressed.
+- A failed query or command records the driver's error message on its span, and PostgreSQL's own messages can echo a value it rejected; SQL arguments and Redis keys and values are otherwise never recorded.
 - Logs from an API run on the host reach the terminal only; Filebeat reads container logs.
 - Writing the trace context into `outbox_events.headers` and Kafka instrumentation belong to the outbox relay slice.

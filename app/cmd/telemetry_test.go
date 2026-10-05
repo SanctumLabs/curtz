@@ -91,3 +91,20 @@ func TestStartTelemetry_AFailingFlushIsLoggedNotFatal(t *testing.T) {
 	assert.Contains(t, buf.String(), "flushing telemetry")
 	assert.Contains(t, buf.String(), "collector unreachable")
 }
+
+// run flushes right after the server drains and again from a defer that covers its early returns.
+func TestStartTelemetry_TheFlushRunsOnlyOnce(t *testing.T) {
+	var shutdowns int
+	stubSetup(t, func(context.Context, telemetry.Options) (func(context.Context) error, error) {
+		return func(context.Context) error {
+			shutdowns++
+			return nil
+		}, nil
+	})
+
+	flush := startTelemetry(context.Background(), config.App{})
+	flush()
+	flush()
+
+	assert.Equal(t, 1, shutdowns)
+}

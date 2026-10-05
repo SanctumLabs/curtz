@@ -354,3 +354,28 @@ func TestOTelMiddleware_AttributesSurviveTheNextRequestOnTheSameConnection(t *te
 	assert.Equal(t, "/first-path-aaaaaaaa", attrs(spans[0].Attributes)["url.path"].AsString())
 	assert.Equal(t, "/second-path-bbbbbbb", attrs(spans[1].Attributes)["url.path"].AsString())
 }
+
+// Fiber's Protocol() returns the raw X-Forwarded-Proto, X-Forwarded-Protocol or X-Url-Scheme header of the request when no
+// trusted proxy list is configured, so using it as a label lets any client create series without bound (the SDK then caps
+// the instrument and every later route and status lands in the overflow series).
+func TestOTelMiddleware_TheSchemeIsHttpOrHttpsWhateverTheClientSends(t *testing.T) {
+	f := newFixture(t)
+
+	for _, header := range [][2]string{
+		{"X-Forwarded-Proto", "evil-0"}, {"X-Forwarded-Proto", "evil-1"}, {"X-Forwarded-Protocol", "evil-2"},
+		{"X-Url-Scheme", "anything-goes"}, {"X-Forwarded-Proto", "HTTPS"}, {"X-Forwarded-Proto", "https"},
+	} {
+		f.do(t, "GET", "/users/42", header[0], header[1])
+	}
+
+	schemes := map[string]bool{}
+	for _, point := range f.durationPoints(t) {
+		scheme, _ := point.Attributes.Value("url.scheme")
+		schemes[scheme.AsString()] = true
+	}
+	assert.Equal(t, map[string]bool{"http": true, "https": true}, schemes, "the histogram's url.scheme label has two possible values")
+
+	for _, span := range f.spans.GetSpans() {
+		assert.Contains(t, []string{"http", "https"}, attrs(span.Attributes)["url.scheme"].AsString())
+	}
+}
