@@ -27,7 +27,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -X github.com/sanctumlabs/curtz/app/pkg.GitCommit=${GIT_COMMIT} \
       -X github.com/sanctumlabs/curtz/app/pkg.BuildTime=${BUILD_TIME}"; \
     CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/curtz ./app/cmd; \
-    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/migrator ./app/cmd/migrator
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/migrator ./app/cmd/migrator; \
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/worker ./app/cmd/worker
 
 # Distribution: distroless static, no shell and no package manager, running as uid 65532.
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
@@ -37,7 +38,7 @@ ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
 
 LABEL org.opencontainers.image.title="curtz" \
-      org.opencontainers.image.description="Curtz URL shortener API and database migrator" \
+      org.opencontainers.image.description="Curtz URL shortener API, database migrator and outbox relay worker" \
       org.opencontainers.image.source="https://github.com/SanctumLabs/curtz" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
@@ -46,7 +47,7 @@ LABEL org.opencontainers.image.title="curtz" \
 
 WORKDIR /app
 
-COPY --from=build /out/curtz /out/migrator /app/
+COPY --from=build /out/curtz /out/migrator /out/worker /app/
 COPY app/internal/adapters/postgres/migrations /app/migrations
 
 # A container started without ENVIRONMENT refuses the development secrets; compose overrides it for local use.

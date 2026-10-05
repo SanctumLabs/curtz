@@ -2,7 +2,7 @@
 # Starts, stops or waits on a local infrastructure stack in a given mode (see docs/LocalInfrastructure.md).
 #
 # Usage: scripts/infra.sh <up|down|wait> <stack> [ha|single]
-#   stacks: kafka redis postgres elk core full app (the mode applies) | observability legacy (no mode)
+#   stacks: kafka redis postgres elk core full app worker (the mode applies) | observability legacy (no mode)
 # Env:    COMPOSE       compose command (default "docker compose")
 #         WAIT_TIMEOUT  seconds to wait for services to become ready (default 300)
 #         DRY_RUN=1     print the commands instead of running them
@@ -35,7 +35,7 @@ case "$mode" in
 esac
 
 case "$stack" in
-  kafka | redis | postgres | elk | core | full | app)
+  kafka | redis | postgres | elk | core | full | app | worker)
     profile="$stack-$mode"
     other_profile="$stack-$other"
     both=(--profile "$stack-ha" --profile "$stack-single")
@@ -108,8 +108,13 @@ case "$action" in
       "$(dirname "$0")/infra.sh" up postgres "$mode"
       "$(dirname "$0")/infra.sh" up redis "$mode"
     fi
+    if [ "$stack" = worker ]; then
+      # The worker reads Postgres (with its migrations) and writes to Kafka (with its topics).
+      "$(dirname "$0")/infra.sh" up postgres "$mode"
+      "$(dirname "$0")/infra.sh" up kafka "$mode"
+    fi
     [ -z "$other_profile" ] || run "${compose[@]}" --profile "$other_profile" rm -sf
-    if [ "$stack" = app ]; then up_args=(up -d --build); else up_args=(up -d); fi
+    if [ "$stack" = app ] || [ "$stack" = worker ]; then up_args=(up -d --build); else up_args=(up -d); fi
     run "${compose[@]}" --profile "$profile" "${up_args[@]}"
     wait_ready "$profile"
     ;;

@@ -25,7 +25,7 @@ RUN find /ctx -type f
 EOF
 )"
 
-  for want in /ctx/go.mod /ctx/go.sum /ctx/app/cmd/main.go /ctx/app/cmd/migrator/main.go \
+  for want in /ctx/go.mod /ctx/go.sum /ctx/app/cmd/main.go /ctx/app/cmd/migrator/main.go /ctx/app/cmd/worker/main.go \
     /ctx/app/internal/adapters/postgres/migrations/000001_initial_schema.up.sql; do
     if grep -qx "$want" <<<"$files"; then pass "context has ${want#/ctx/}"; else fail "context lacks ${want#/ctx/}"; fi
   done
@@ -83,6 +83,22 @@ check_image() {
     pass "the migrator is present and refuses the development password in production"
   else
     fail "the migrator is present and refuses the development password in production (exit $code: $out)"
+  fi
+
+  out="$(docker run --rm --entrypoint /app/worker "$image" 2>&1)"
+  code=$?
+  if [ "$code" -eq 1 ] && grep -q 'DATABASE_PASSWORD' <<<"$out"; then
+    pass "the worker is present and refuses the development password in production"
+  else
+    fail "the worker is present and refuses the development password in production (exit $code: $out)"
+  fi
+
+  out="$(docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true --entrypoint /app/worker "$image" healthcheck 2>&1)"
+  code=$?
+  if [ "$code" -eq 1 ] && grep -q 'healthcheck:' <<<"$out"; then
+    pass "the worker's healthcheck runs read-only without capabilities and fails when nothing listens"
+  else
+    fail "the worker's healthcheck runs read-only without capabilities and fails when nothing listens (exit $code: $out)"
   fi
 
   cid="$(docker create "$image")"

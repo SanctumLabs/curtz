@@ -17,6 +17,8 @@ include:
     env_file: .env
   - path: deploy/app/compose.yml
     env_file: .env
+  - path: deploy/worker/compose.yml
+    env_file: .env
 
 networks:
   curtz:
