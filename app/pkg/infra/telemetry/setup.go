@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -28,6 +29,8 @@ const (
 // Options are the settings Setup takes from the application. Everything else comes from the standard OTEL_* variables
 // (OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME, OTEL_RESOURCE_ATTRIBUTES, OTEL_TRACES_SAMPLER, OTEL_SDK_DISABLED, ...).
 type Options struct {
+	// ServiceName is the service name when OTEL_SERVICE_NAME is not set; it defaults to DefaultServiceName.
+	ServiceName string
 	// ServiceVersion is recorded as service.version.
 	ServiceVersion string
 	// Environment is recorded as deployment.environment.name.
@@ -77,7 +80,7 @@ func Setup(ctx context.Context, opts Options) (shutdown func(context.Context) er
 // one wins. There is no process detector: the collector turns every resource attribute into a label on every metric series,
 // and process.command_args or process.pid are not labels anyone wants.
 func newResource(ctx context.Context, opts Options) *resource.Resource {
-	defaults := []attribute.KeyValue{attribute.String("service.name", defaultServiceName)}
+	defaults := []attribute.KeyValue{attribute.String("service.name", cmp.Or(opts.ServiceName, DefaultServiceName))}
 	if opts.ServiceVersion != "" {
 		defaults = append(defaults, attribute.String("service.version", opts.ServiceVersion))
 	}

@@ -120,8 +120,9 @@ func TestNewLogger_TextFormatIsForTerminals(t *testing.T) {
 
 func TestServiceName(t *testing.T) {
 	t.Setenv("OTEL_SERVICE_NAME", "")
-	assert.Equal(t, "curtz", ServiceName(), "an empty value counts as unset")
+	assert.Equal(t, "curtz", ServiceName(DefaultServiceName), "an empty value counts as unset")
+	assert.Equal(t, "curtz-worker", ServiceName("curtz-worker"))
 
 	t.Setenv("OTEL_SERVICE_NAME", "  curtz-api ")
-	assert.Equal(t, "curtz-api", ServiceName())
+	assert.Equal(t, "curtz-api", ServiceName("curtz-worker"), "the variable wins over the fallback")
 }

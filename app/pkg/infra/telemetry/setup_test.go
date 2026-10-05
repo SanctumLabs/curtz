@@ -184,6 +184,36 @@ func TestSetup_TheEnvironmentOverridesTheDefaults(t *testing.T) {
 	assert.Equal(t, "1.2.3", version, "what the environment does not set keeps the application's value")
 }
 
+// The worker passes its own service name; the API passes none and keeps "curtz". The variable still wins over both.
+func TestSetup_TheApplicationsServiceNameIsTheDefaultAndTheEnvironmentStillWins(t *testing.T) {
+	for name, tc := range map[string]struct {
+		env, option, want string
+	}{
+		"no option, no variable": {"", "", "curtz"},
+		"option only":            {"", "curtz-worker", "curtz-worker"},
+		"variable beats option":  {"billing", "curtz-worker", "billing"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c, endpoint := startCollector(t)
+			t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+			t.Setenv("OTEL_SERVICE_NAME", tc.env)
+			t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+			resetGlobals(t)
+
+			shutdown, err := Setup(context.Background(), Options{ServiceName: tc.option})
+			require.NoError(t, err)
+			_, span := otel.Tracer("test").Start(context.Background(), "work")
+			span.End()
+			require.NoError(t, shutdownWithin(t, shutdown, 5*time.Second))
+
+			traces := c.traceRequests()
+			require.Len(t, traces, 1)
+			got, _ := resourceAttribute(traces[0].GetResourceSpans()[0].GetResource().GetAttributes(), "service.name")
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestSetup_DisabledInstallsNothing(t *testing.T) {
 	c, endpoint := startCollector(t)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)

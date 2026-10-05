@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
@@ -44,16 +43,10 @@ const (
 
 	// redisStartupPingTimeout bounds the one ping that only decides which startup line is logged.
 	redisStartupPingTimeout = 2 * time.Second
-
-	// telemetryFlushTimeout bounds the final export of spans and metrics at shutdown.
-	telemetryFlushTimeout = 5 * time.Second
 )
 
 // healthcheckTimeout bounds the container health probe. It is a variable so a test can shorten it.
 var healthcheckTimeout = 2 * time.Second
-
-// setupTelemetry is telemetry.Setup. It is a variable so a test can replace it.
-var setupTelemetry = telemetry.Setup
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
@@ -65,7 +58,7 @@ func main() {
 	cfg, err := config.Load(os.LookupEnv)
 	// The logger is installed once the configuration is read, so LOG_LEVEL and LOG_FORMAT apply. On a configuration error
 	// Load still returns the default logging settings, so the error itself is logged as JSON like everything else.
-	slog.SetDefault(telemetry.NewLogger(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, telemetry.ServiceName()))
+	slog.SetDefault(telemetry.NewLogger(os.Stdout, cfg.Logging.Format, cfg.Logging.Level, telemetry.ServiceName(telemetry.DefaultServiceName)))
 	if dotenvErr != nil {
 		slog.Warn("no .env file found, relying on the environment", "error", dotenvErr)
 	}
@@ -137,34 +130,12 @@ func probeHost(host string) string {
 	return host
 }
 
-// startTelemetry installs the OpenTelemetry SDK and returns the function that flushes it. Call the flush once the server
-// has drained, so the drain's spans and the final metrics are exported; it flushes only once, however often it is called.
-// Telemetry never stops the API: when the SDK cannot start the API runs without it, and a failing flush is only logged.
-func startTelemetry(ctx context.Context, cfg config.App) (flush func()) {
-	shutdown, err := setupTelemetry(ctx, telemetry.Options{ServiceVersion: pkg.Version, Environment: cfg.Environment})
-	if err != nil {
-		slog.WarnContext(ctx, "telemetry is disabled: the OpenTelemetry SDK could not start", "error", err)
-		return func() {}
-	}
-	var once sync.Once
-	return func() {
-		once.Do(func() {
-			// ctx is already cancelled when this runs (that is what began the shutdown), so the flush gets its own deadline.
-			flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), telemetryFlushTimeout)
-			defer cancel()
-			if err := shutdown(flushCtx); err != nil {
-				slog.WarnContext(flushCtx, "flushing telemetry", "error", err)
-			}
-		})
-	}
-}
-
 // run builds the API from cfg and serves it until ctx is cancelled, then drains in-flight requests and closes the
 // data clients. Postgres is required: failing to reach it is an error. Redis is optional: failing to reach it is
 // logged and the API carries on (readiness reports it as down).
 func run(ctx context.Context, cfg config.App) error {
 	// The deferred flush covers the early returns; the normal path flushes right after the server drains (below).
-	flushTelemetry := startTelemetry(ctx, cfg)
+	flushTelemetry := telemetry.Start(ctx, telemetry.Options{ServiceVersion: pkg.Version, Environment: cfg.Environment})
 	defer flushTelemetry()
 
 	dbClient, err := postgres.NewPostgresClient(cfg.Database.Postgres)

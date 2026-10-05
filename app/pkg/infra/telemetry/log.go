@@ -10,15 +10,16 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const defaultServiceName = "curtz"
+// DefaultServiceName is the service name of the API when OTEL_SERVICE_NAME is not set.
+const DefaultServiceName = "curtz"
 
-// ServiceName is the name this process reports: OTEL_SERVICE_NAME, or "curtz" when it is not set. The log lines and the
+// ServiceName is the name this process reports: OTEL_SERVICE_NAME, or fallback when it is not set. The log lines and the
 // telemetry resource both use it, so a log line and the trace it belongs to name the same service.
-func ServiceName() string {
+func ServiceName(fallback string) string {
 	if name := strings.TrimSpace(os.Getenv("OTEL_SERVICE_NAME")); name != "" {
 		return name
 	}
-	return defaultServiceName
+	return fallback
 }
 
 // NewLogger builds the process logger. The format is "json" (one object per line, the shape the ELK pipeline parses) or
