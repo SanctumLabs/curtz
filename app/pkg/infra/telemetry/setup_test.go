@@ -317,3 +317,69 @@ func TestSetup_HonoursTheMetricExportIntervalVariable(t *testing.T) {
 	assert.Eventually(t, func() bool { return len(c.metricRequests()) > 0 }, 3*time.Second, 20*time.Millisecond,
 		"metrics must arrive without a shutdown when the interval is 100 ms")
 }
+
+// useDefaultEndpoint points Setup's default at endpoint and clears the variables that would override it.
+func useDefaultEndpoint(t *testing.T, endpoint string) {
+	t.Helper()
+	previous := defaultEndpoint
+	defaultEndpoint = endpoint
+	t.Cleanup(func() { defaultEndpoint = previous })
+	for _, name := range []string{"OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"} {
+		t.Setenv(name, "")
+	}
+	t.Setenv("OTEL_SERVICE_NAME", "")
+	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "")
+}
+
+// exportOneSpanAndOneMetric runs Setup, records a span and a counter, and flushes.
+func exportOneSpanAndOneMetric(t *testing.T) {
+	t.Helper()
+	resetGlobals(t)
+	shutdown, err := Setup(context.Background(), Options{})
+	require.NoError(t, err)
+	_, span := otel.Tracer("test").Start(context.Background(), "unit-of-work")
+	span.End()
+	counter, err := otel.Meter("test").Int64Counter("test.requests")
+	require.NoError(t, err)
+	counter.Add(context.Background(), 1)
+	require.NoError(t, shutdownWithin(t, shutdown, 5*time.Second))
+}
+
+// The SDK's own default is localhost:4317 over TLS, which the local collector (plaintext) rejects with "first record does
+// not look like a TLS handshake": a process run on the host without OTEL_EXPORTER_OTLP_ENDPOINT would export nothing. The
+// documented default is http://localhost:4317.
+func TestSetup_WithNoEndpointVariableItExportsToTheDocumentedPlaintextDefault(t *testing.T) {
+	c, endpoint := startCollector(t)
+	useDefaultEndpoint(t, endpoint)
+
+	exportOneSpanAndOneMetric(t)
+
+	assert.Len(t, c.traceRequests(), 1, "spans reach the default endpoint")
+	assert.NotEmpty(t, c.metricRequests(), "and so do metrics")
+}
+
+func TestSetup_TheEndpointVariablesStillWinOverTheDefault(t *testing.T) {
+	c, endpoint := startCollector(t)
+	useDefaultEndpoint(t, "http://127.0.0.1:1")
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)
+
+	exportOneSpanAndOneMetric(t)
+
+	assert.Len(t, c.traceRequests(), 1)
+	assert.NotEmpty(t, c.metricRequests())
+}
+
+// A per-signal variable names the endpoint of that signal only; the other signal has none and gets the default.
+func TestSetup_AnEndpointForOneSignalLeavesTheOtherSignalOnTheDefault(t *testing.T) {
+	tracesCollector, tracesEndpoint := startCollector(t)
+	defaultCollector, defaultAddress := startCollector(t)
+	useDefaultEndpoint(t, defaultAddress)
+	t.Setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", tracesEndpoint)
+
+	exportOneSpanAndOneMetric(t)
+
+	assert.Len(t, tracesCollector.traceRequests(), 1, "traces go where their own variable says")
+	assert.Empty(t, tracesCollector.metricRequests())
+	assert.NotEmpty(t, defaultCollector.metricRequests(), "metrics have no variable and take the default")
+	assert.Empty(t, defaultCollector.traceRequests())
+}

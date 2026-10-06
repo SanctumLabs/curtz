@@ -37,9 +37,27 @@ type Options struct {
 	Environment string
 }
 
+// defaultEndpoint is where Setup exports when no variable names an endpoint: the local collector, in plaintext. The SDK's own
+// default is the same address over TLS, which a plaintext collector rejects, so a process started without an endpoint
+// variable would export nothing. It is a variable so a test can point it at a collector it started.
+var defaultEndpoint = "http://localhost:4317"
+
+// endpointOrDefault returns the endpoint option to give an exporter whose per-signal variable is signalVariable: the default
+// when neither OTEL_EXPORTER_OTLP_ENDPOINT nor the per-signal variable names an endpoint (the SDK ignores empty and blank
+// values, so does this), and nothing otherwise, so the variables are read by the SDK as usual. Options override variables
+// in the SDK, which is why the default is only passed when no variable is set.
+func endpointOrDefault(signalVariable string) (endpoint string, useDefault bool) {
+	for _, name := range []string{"OTEL_EXPORTER_OTLP_ENDPOINT", signalVariable} {
+		if strings.TrimSpace(os.Getenv(name)) != "" {
+			return "", false
+		}
+	}
+	return defaultEndpoint, true
+}
+
 // Setup installs the global tracer provider, meter provider and propagators (W3C trace context and baggage) and returns
 // the function that flushes and stops them. Traces and metrics go to the OTLP/gRPC endpoint the standard variables name
-// (default localhost:4317). Setup does not dial: the exporters connect lazily and export in the background, so a missing
+// (default http://localhost:4317, plaintext). Setup does not dial: the exporters connect lazily and export in the background, so a missing
 // collector never fails startup or slows a request; the SDK's errors are logged at most once a minute per distinct error.
 // With OTEL_SDK_DISABLED=true it installs nothing and the returned function does nothing.
 func Setup(ctx context.Context, opts Options) (shutdown func(context.Context) error, err error) {
@@ -50,13 +68,21 @@ func Setup(ctx context.Context, opts Options) (shutdown func(context.Context) er
 	otel.SetErrorHandler(newErrorHandler(errorLogInterval, time.Now))
 	res := newResource(ctx, opts)
 
-	traceExporter, err := otlptracegrpc.New(ctx)
+	var traceOptions []otlptracegrpc.Option
+	if endpoint, ok := endpointOrDefault("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"); ok {
+		traceOptions = append(traceOptions, otlptracegrpc.WithEndpointURL(endpoint))
+	}
+	traceExporter, err := otlptracegrpc.New(ctx, traceOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("create the trace exporter: %w", err)
 	}
 	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithBatcher(traceExporter), sdktrace.WithResource(res))
 
-	metricExporter, err := otlpmetricgrpc.New(ctx)
+	var metricOptions []otlpmetricgrpc.Option
+	if endpoint, ok := endpointOrDefault("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"); ok {
+		metricOptions = append(metricOptions, otlpmetricgrpc.WithEndpointURL(endpoint))
+	}
+	metricExporter, err := otlpmetricgrpc.New(ctx, metricOptions...)
 	if err != nil {
 		_ = tracerProvider.Shutdown(ctx)
 		return nil, fmt.Errorf("create the metric exporter: %w", err)
