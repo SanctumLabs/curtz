@@ -12,26 +12,60 @@ import (
 )
 
 const queryClaimOutboxEvents = `-- name: QueryClaimOutboxEvents :many
+WITH RECURSIVE destinations AS (
+  (
+    SELECT oe.destination
+    FROM outbox_events oe
+    WHERE oe.sent_time IS NULL
+      AND oe.parked_at IS NULL
+      AND oe.deleted_at IS NULL
+    ORDER BY oe.destination
+    LIMIT 1
+  )
+  UNION ALL
+  SELECT (
+    SELECT oe.destination
+    FROM outbox_events oe
+    WHERE oe.destination > d.destination
+      AND oe.sent_time IS NULL
+      AND oe.parked_at IS NULL
+      AND oe.deleted_at IS NULL
+    ORDER BY oe.destination
+    LIMIT 1
+  )
+  FROM destinations d
+  WHERE d.destination IS NOT NULL
+)
 SELECT
-  ranked.id,
-  ranked.partition_key,
-  ranked.destination,
-  ranked.event_type,
-  ranked.headers,
-  ranked.payload,
-  ranked.attempts,
-  ranked.created_at
-FROM (
+  claimed.id,
+  claimed.partition_key,
+  claimed.destination,
+  claimed.event_type,
+  claimed.headers,
+  claimed.payload,
+  claimed.attempts,
+  claimed.created_at
+FROM destinations d
+CROSS JOIN LATERAL (
   SELECT
-    oe.id, oe.group_id, oe.correlation_id, oe.partition_key, oe.destination, oe.event_type, oe.headers, oe.payload, oe.error_message, oe.metadata, oe.sent_time, oe.processing_at, oe.attempts, oe.parked_at, oe.created_at, oe.updated_at, oe.deleted_at,
-    row_number() OVER (PARTITION BY oe.destination ORDER BY oe.created_at, oe.id) AS position
+    oe.id,
+    oe.partition_key,
+    oe.destination,
+    oe.event_type,
+    oe.headers,
+    oe.payload,
+    oe.attempts,
+    oe.created_at
   FROM outbox_events oe
-  WHERE oe.sent_time IS NULL
+  WHERE oe.destination = d.destination
+    AND oe.sent_time IS NULL
     AND oe.parked_at IS NULL
     AND oe.deleted_at IS NULL
-) ranked
-WHERE ranked.position <= $1::int
-ORDER BY ranked.created_at, ranked.id
+  ORDER BY oe.created_at, oe.id
+  LIMIT $1::int
+) claimed
+WHERE d.destination IS NOT NULL
+ORDER BY claimed.created_at, claimed.id
 `
 
 type QueryClaimOutboxEventsRow struct {
@@ -49,26 +83,65 @@ type QueryClaimOutboxEventsRow struct {
 // whose topic is unavailable cannot starve the others. The creation order is (created_at, id); id is a UUIDv7 and keeps
 // the events of one transaction in the order they were recorded.
 //
+// Its cost depends on the batch size and the number of destinations, never on the size of the backlog: the recursive part
+// walks the distinct destinations with one index probe each (a skip scan over the partial index), and each destination
+// then reads only its first per_destination rows from the same index. A window function over the whole backlog would read
+// every waiting row to hand out one batch.
+//
+//	WITH RECURSIVE destinations AS (
+//	  (
+//	    SELECT oe.destination
+//	    FROM outbox_events oe
+//	    WHERE oe.sent_time IS NULL
+//	      AND oe.parked_at IS NULL
+//	      AND oe.deleted_at IS NULL
+//	    ORDER BY oe.destination
+//	    LIMIT 1
+//	  )
+//	  UNION ALL
+//	  SELECT (
+//	    SELECT oe.destination
+//	    FROM outbox_events oe
+//	    WHERE oe.destination > d.destination
+//	      AND oe.sent_time IS NULL
+//	      AND oe.parked_at IS NULL
+//	      AND oe.deleted_at IS NULL
+//	    ORDER BY oe.destination
+//	    LIMIT 1
+//	  )
+//	  FROM destinations d
+//	  WHERE d.destination IS NOT NULL
+//	)
 //	SELECT
-//	  ranked.id,
-//	  ranked.partition_key,
-//	  ranked.destination,
-//	  ranked.event_type,
-//	  ranked.headers,
-//	  ranked.payload,
-//	  ranked.attempts,
-//	  ranked.created_at
-//	FROM (
+//	  claimed.id,
+//	  claimed.partition_key,
+//	  claimed.destination,
+//	  claimed.event_type,
+//	  claimed.headers,
+//	  claimed.payload,
+//	  claimed.attempts,
+//	  claimed.created_at
+//	FROM destinations d
+//	CROSS JOIN LATERAL (
 //	  SELECT
-//	    oe.id, oe.group_id, oe.correlation_id, oe.partition_key, oe.destination, oe.event_type, oe.headers, oe.payload, oe.error_message, oe.metadata, oe.sent_time, oe.processing_at, oe.attempts, oe.parked_at, oe.created_at, oe.updated_at, oe.deleted_at,
-//	    row_number() OVER (PARTITION BY oe.destination ORDER BY oe.created_at, oe.id) AS position
+//	    oe.id,
+//	    oe.partition_key,
+//	    oe.destination,
+//	    oe.event_type,
+//	    oe.headers,
+//	    oe.payload,
+//	    oe.attempts,
+//	    oe.created_at
 //	  FROM outbox_events oe
-//	  WHERE oe.sent_time IS NULL
+//	  WHERE oe.destination = d.destination
+//	    AND oe.sent_time IS NULL
 //	    AND oe.parked_at IS NULL
 //	    AND oe.deleted_at IS NULL
-//	) ranked
-//	WHERE ranked.position <= $1::int
-//	ORDER BY ranked.created_at, ranked.id
+//	  ORDER BY oe.created_at, oe.id
+//	  LIMIT $1::int
+//	) claimed
+//	WHERE d.destination IS NOT NULL
+//	ORDER BY claimed.created_at, claimed.id
 func (q *Queries) QueryClaimOutboxEvents(ctx context.Context, perDestination int32) ([]QueryClaimOutboxEventsRow, error) {
 	rows, err := q.db.Query(ctx, queryClaimOutboxEvents, perDestination)
 	if err != nil {

@@ -101,9 +101,12 @@ CREATE INDEX ix_outbox_events_sent_time_purge_idx ON outbox_events (sent_time) W
 
 New sqlc queries (`queries/outbox/outbox_relay_queries.sql`, hand-written, not the generic filter style):
 
-- **Claim:** up to `batch` unsent, unparked, undeleted rows **per destination** ordered by `(created_at, id)`, using
-  `row_number() OVER (PARTITION BY destination ORDER BY created_at, id)`. Per destination so one destination whose topic is missing cannot
-  starve the others. Ordering by `id` (UUIDv7, generated in sequence) keeps one transaction's events in order.
+- **Claim:** up to `batch` unsent, unparked, undeleted rows **per destination** ordered by `(created_at, id)`. Per destination so one
+  destination whose topic is missing cannot starve the others. Ordering by `id` (UUIDv7, generated in sequence) keeps one transaction's events
+  in order. Amended after the final review: the query walks the distinct destinations with a recursive skip scan over the partial index and reads
+  each destination's first `batch` rows with a lateral `ORDER BY created_at, id LIMIT`, so its cost depends on the batch and the number of
+  destinations and not on the backlog; the first draft used `row_number() OVER (PARTITION BY destination ...)`, which read every waiting row to
+  hand out one batch (30000 rows read for 30 returned, measured), making a drain after a long outage quadratic.
 - **Mark sent:** `UPDATE … SET sent_time = now() WHERE id = ANY($1)`.
 - **Record rejection:** `attempts = attempts + 1, error_message = $2`.
 - **Park:** `parked_at = now(), error_message = $2`.

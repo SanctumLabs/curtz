@@ -4,6 +4,8 @@ package outboxdatastore_test
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -368,4 +370,91 @@ func TestTheUnsentIndexServesTheClaimPredicate(t *testing.T) {
 		plan = append(plan, line)
 	}
 	assert.Contains(t, strings.Join(plan, "\n"), "ix_outbox_events_unsent_idx")
+}
+
+// The destinations are found with a skip scan that compares names with > while the index orders them: names that differ
+// by case, share a prefix or contain dots and dashes must each be visited exactly once, none skipped and none repeated.
+func TestClaim_VisitsEveryDestinationOnceWhateverItsName(t *testing.T) {
+	f := newFixture(t)
+	destinations := []string{"a", "a.b", "a-b", "A", "B", "b", "identity.events", "url.events", "z"}
+	want := map[string]string{}
+	for i, destination := range destinations {
+		want[destination] = f.insert(t, destination, "key", base.Add(time.Duration(i)*time.Second))
+	}
+
+	events, err := f.adapter.Claim(context.Background(), 5)
+	require.NoError(t, err)
+
+	got := map[string]string{}
+	for _, e := range events {
+		_, repeated := got[e.Destination]
+		assert.False(t, repeated, "destination %q is claimed once", e.Destination)
+		got[e.Destination] = e.ID
+	}
+	assert.Equal(t, want, got)
+}
+
+// claimStatement is the claim query exactly as it is written in the sqlc source, with its argument as $1.
+func claimStatement(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile("../sql/queries/outbox/outbox_relay_queries.sql")
+	require.NoError(t, err)
+	_, rest, found := strings.Cut(string(raw), "-- name: QueryClaimOutboxEvents :many")
+	require.True(t, found)
+	body, _, _ := strings.Cut(rest, "-- name:")
+	var lines []string
+	for _, line := range strings.Split(body, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+			lines = append(lines, line)
+		}
+	}
+	statement := strings.TrimSpace(strings.Join(lines, "\n"))
+	statement = strings.TrimSuffix(statement, ";")
+	statement = strings.ReplaceAll(statement, "sqlc.arg(per_destination)", "$1")
+	require.NotContains(t, statement, "sqlc.", "every sqlc argument is replaced")
+	return statement
+}
+
+// rowsScanned adds up the rows every scan of outbox_events in an EXPLAIN (ANALYZE, FORMAT JSON) plan produced.
+func rowsScanned(node map[string]any) float64 {
+	var total float64
+	if relation, _ := node["Relation Name"].(string); relation == "outbox_events" {
+		rows, _ := node["Actual Rows"].(float64)
+		loops, _ := node["Actual Loops"].(float64)
+		total += rows * loops
+	}
+	if children, ok := node["Plans"].([]any); ok {
+		for _, child := range children {
+			total += rowsScanned(child.(map[string]any))
+		}
+	}
+	return total
+}
+
+// After an outage the table can hold a very large backlog, and every claim must stay cheap: the work of one claim depends
+// on the batch size and the number of destinations, not on how many events are waiting. A claim that reads the whole
+// backlog to hand out one batch makes draining it quadratic and, past a size, slower than the statement timeout.
+func TestClaim_ReadsOnlyTheRowsItReturnsHoweverLargeTheBacklogIs(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	f.exec(t, `INSERT INTO outbox_events (id, partition_key, destination, event_type, headers, payload, created_at)
+		SELECT gen_random_uuid(), 'key-' || (g % 50), 'dest-' || (g % 3), 'user.registered', '{}'::json, '{}'::json,
+		       now() - make_interval(secs => 30000 - g)
+		FROM generate_series(1, 30000) g`)
+	f.exec(t, "ANALYZE outbox_events")
+
+	var plan []byte
+	require.NoError(t, f.pool.QueryRow(ctx, "EXPLAIN (ANALYZE, FORMAT JSON) "+claimStatement(t), int32(10)).Scan(&plan))
+	var explained []map[string]any
+	require.NoError(t, json.Unmarshal(plan, &explained))
+	require.Len(t, explained, 1)
+
+	scanned := rowsScanned(explained[0]["Plan"].(map[string]any))
+	const batch, destinations = 10, 3
+	assert.LessOrEqual(t, scanned, float64(4*batch*(destinations+1)),
+		"a claim of %d events from %d destinations read %.0f of the 30000 waiting rows", batch, destinations, scanned)
+
+	events, err := f.adapter.Claim(ctx, batch)
+	require.NoError(t, err)
+	assert.Len(t, events, batch*destinations, "and it still hands out a full batch of every destination")
 }
