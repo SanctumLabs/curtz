@@ -2,6 +2,7 @@ package outbox
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
+	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -187,4 +190,35 @@ func TestRelay_AStandbyReportsOnlyThatItIsNotTheLeader(t *testing.T) {
 	for _, name := range []string{"outbox.relay.backlog", "outbox.relay.parked_rows", "outbox.relay.oldest_unsent_age"} {
 		assert.False(t, hasGauge(standby, name), "a standby does not report %s", name)
 	}
+}
+
+// failingMeter makes one counter fail to be created and hands out working instruments for everything else.
+type failingMeter struct {
+	metric.Meter
+	failOn string
+}
+
+func (m failingMeter) Int64Counter(name string, opts ...metric.Int64CounterOption) (metric.Int64Counter, error) {
+	if name == m.failOn {
+		return nil, errors.New("cannot create " + name)
+	}
+	return m.Meter.Int64Counter(name, opts...)
+}
+
+type failingMeterProvider struct {
+	metricnoop.MeterProvider
+	failOn string
+}
+
+func (p failingMeterProvider) Meter(name string, opts ...metric.MeterOption) metric.Meter {
+	return failingMeter{Meter: p.MeterProvider.Meter(name, opts...), failOn: p.failOn}
+}
+
+// A counter that cannot be created must fail NewRelay: a nil counter would panic the first time a batch is delivered.
+func TestNewRelay_AnInstrumentThatCannotBeCreatedIsAnErrorNotANilCounter(t *testing.T) {
+	_, err := NewRelay(&fakeStore{}, &fakePublisher{}, testConfig(),
+		WithMeterProvider(failingMeterProvider{MeterProvider: metricnoop.NewMeterProvider(), failOn: "outbox.relay.published"}))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outbox.relay.published")
 }

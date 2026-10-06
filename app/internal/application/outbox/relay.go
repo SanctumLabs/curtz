@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/sanctumlabs/curtz/app/internal/ports"
 	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
@@ -329,9 +330,14 @@ func (r *Relay) purge(ctx context.Context) {
 	}
 }
 
+// truncate cuts s to at most limit bytes without splitting a character: the result is stored in a text column, which rejects
+// invalid UTF-8.
 func truncate(s string, limit int) string {
 	if len(s) <= limit {
 		return s
+	}
+	for limit > 0 && !utf8.RuneStart(s[limit]) {
+		limit--
 	}
 	return s[:limit]
 }

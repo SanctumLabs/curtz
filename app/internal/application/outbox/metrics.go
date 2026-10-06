@@ -44,9 +44,14 @@ func newMetrics(provider metric.MeterProvider, now func() time.Time) (*metrics, 
 	m.failures = counter("outbox.relay.failures", "Events the broker did not acknowledge, by kind (transient or permanent).")
 	m.parked = counter("outbox.relay.parked", "Events the relay gave up on.")
 
-	if m.duration, err = meter.Float64Histogram("outbox.relay.publish.duration",
-		metric.WithUnit("s"), metric.WithDescription("Time to publish one batch.")); err != nil {
+	if err != nil {
 		return nil, err
+	}
+
+	var histogramErr error
+	if m.duration, histogramErr = meter.Float64Histogram("outbox.relay.publish.duration",
+		metric.WithUnit("s"), metric.WithDescription("Time to publish one batch.")); histogramErr != nil {
+		return nil, histogramErr
 	}
 
 	// leaderOnly gauges describe the outbox, which only the active relay samples. A standby reports no data point at all:

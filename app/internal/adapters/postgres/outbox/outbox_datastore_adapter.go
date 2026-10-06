@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"math"
 	"strconv"
 	"time"
 
@@ -88,6 +89,17 @@ func NewAdapter(client database.PostgresDatabaseClient, connString string, timeo
 	return a, nil
 }
 
+// clampInt32 narrows n to int32, saturating at the ends of the range instead of wrapping.
+func clampInt32(n int) int32 {
+	switch {
+	case n > math.MaxInt32:
+		return math.MaxInt32
+	case n < math.MinInt32:
+		return math.MinInt32
+	}
+	return int32(n)
+}
+
 func (a *Adapter) bounded(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, a.timeout)
 }
@@ -144,7 +156,7 @@ func (a *Adapter) Claim(ctx context.Context, perDestination int) ([]ports.Outbox
 	ctx, cancel := a.bounded(ctx)
 	defer cancel()
 
-	rows, err := a.queries.QueryClaimOutboxEvents(ctx, int32(perDestination))
+	rows, err := a.queries.QueryClaimOutboxEvents(ctx, clampInt32(perDestination))
 	if err != nil {
 		return nil, fmt.Errorf("claim outbox events: %w", err)
 	}
@@ -240,7 +252,7 @@ func (a *Adapter) Purge(ctx context.Context, olderThan time.Time, limit int) (in
 
 	deleted, err := a.queries.QueryPurgeSentOutboxEvents(ctx, postgresql.QueryPurgeSentOutboxEventsParams{
 		OlderThan: pgtype.Timestamptz{Time: olderThan, Valid: true},
-		LimitBy:   int32(limit),
+		LimitBy:   clampInt32(limit),
 	})
 	if err != nil {
 		return 0, fmt.Errorf("purge sent outbox events: %w", err)

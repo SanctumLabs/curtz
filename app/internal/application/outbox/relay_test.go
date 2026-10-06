@@ -3,8 +3,10 @@ package outbox
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/sanctumlabs/curtz/app/internal/ports"
 	"github.com/stretchr/testify/assert"
@@ -260,4 +262,18 @@ func TestRelay_HealthyUntilTheLoopHasBeenSilentTooLong(t *testing.T) {
 
 	h.run(t)
 	assert.True(t, h.relay.Healthy(30*time.Second), "a completed cycle is a heartbeat")
+}
+
+// The reason is stored in a VARCHAR column, and PostgreSQL rejects text that is not valid UTF-8: a reason cut in the middle
+// of a character would make the rejection fail to record and the event retry for ever without being counted or parked.
+func TestTruncate_NeverSplitsACharacter(t *testing.T) {
+	assert.Equal(t, "short", truncate("short", 500))
+
+	got := truncate(strings.Repeat("é", 10), 5) // each é is two bytes, so a cut at byte 5 is inside one
+	assert.True(t, utf8.ValidString(got), "%q is valid UTF-8", got)
+	assert.Equal(t, "éé", got)
+
+	got = truncate("日本語のエラー", 7) // three bytes per character
+	assert.True(t, utf8.ValidString(got), "%q is valid UTF-8", got)
+	assert.LessOrEqual(t, len(got), 7)
 }
