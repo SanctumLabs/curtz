@@ -245,9 +245,11 @@ Metrics (meter `…/application/outbox`, exported by the worker's own `Setup`): 
 `outbox.relay.parked_rows` (gauge) and `outbox.relay.leader` (gauge, 0 or 1). The backlog gauges come from the leader's 5 second `Backlog` query; a
 standby reports only `leader = 0`.
 
-Two alert rules in `deploy/observability/prometheus/rules/stack.yml`, both silent when no worker runs (the series are absent, matching how slice 1
-avoids false "down" alerts): `OutboxBacklogOld` (`max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}) > 300` for 2 minutes) and
-`OutboxEventsParked` (`max(outbox_relay_parked_rows{service_name="curtz-worker"}) > 0` for 5 minutes). A dashboard `curtz-worker.json` (folder Curtz)
+Three alert rules in `deploy/observability/prometheus/rules/stack.yml`, all silent when no worker runs (the series are absent, matching how slice 1
+avoids false "down" alerts): `OutboxBacklogOld` (`max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}) > 300` for 2 minutes),
+`OutboxEventsParked` (`max(outbox_relay_parked_rows{service_name="curtz-worker"}) > 0` for 5 minutes) and, added after the final review,
+`OutboxNoActiveRelay` (`sum(outbox_relay_leader{service_name="curtz-worker"}) == 0` for 2 minutes: workers are up but none holds the lease, so no
+backlog gauge is reported and the other two cannot see the stall). A dashboard `curtz-worker.json` (folder Curtz)
 shows the rates, the backlog and its oldest age, parked rows and the leader. The Prometheus names are confirmed from the running stack, as in slice 4.
 
 ## 9. Compose, image and documentation

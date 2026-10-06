@@ -76,7 +76,7 @@ The image also contains `/app/worker`, which delivers the transactional outbox t
 
 ```bash
 docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... -e KAFKA_BROKERS=... \
-  --entrypoint /app/worker --name curtz-worker <IMAGE_NAME>:<IMAGE_TAG>
+  --no-healthcheck --entrypoint /app/worker --name curtz-worker <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
 | Variable | Default | Meaning |
@@ -93,9 +93,9 @@ docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_US
 
 The database, logging and telemetry variables are the API's; the worker's service name defaults to `curtz-worker`.
 
-- Run more than one for failover: one is active (it holds a Postgres advisory lock), the others stand by. A second worker is not extra capacity.
+- Run more than one for failover: one is active (it holds a Postgres advisory lock on a connection of its own), the others stand by. A second worker is not extra capacity. The lock connection sets `idle_session_timeout` (60 seconds, kept busy by the active relay's checks), so a leader that vanishes without closing its connection loses the lock within a minute; this needs PostgreSQL 14 or newer.
 - The topics must exist (the relay does not create them); an event for a missing topic waits and shows in the backlog alert.
-- `GET /health` is liveness: 503 when the relay loop has not completed a cycle or a standby attempt for 30 seconds, so a wedged worker is restarted. `GET /health/ready` is 503 when Postgres or Kafka is down or the worker is draining; neither is a reason to restart. The container's health check is `/app/worker healthcheck`.
+- `GET /health` is liveness: 503 when the relay loop has not completed a cycle or a standby attempt for 30 seconds, so a wedged worker is restarted. `GET /health/ready` is 503 when Postgres or Kafka is down or the worker is draining; neither is a reason to restart. The image's built-in `HEALTHCHECK` is the API's (`/app/curtz healthcheck`, port 8085), which is why the command above passes `--no-healthcheck`: give the worker its own, either `GET :8086/health` or `/app/worker healthcheck` (the binary has no shell, so use the exec form, as `deploy/worker/compose.yml` does).
 - On SIGTERM the worker finishes the batch it has in flight (bounded by `KAFKA_PUBLISH_TIMEOUT` and `SHUTDOWN_TIMEOUT`), releases the lock, exports its last telemetry and exits 0. Give it the same stop grace period as the API (25 seconds locally).
 - Delivery is at least once: consumers must de-duplicate on the `event_id` header. See ADR-0018 and the operations notes in `docs/LocalInfrastructure.md` (parked events, purge, failure behaviour).
 
