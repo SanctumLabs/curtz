@@ -42,3 +42,21 @@ groups:
           severity: warning
         annotations:
           summary: p99 request latency is above 100ms
+
+      # Fed by the outbox relay worker's metrics (OpenTelemetry, via the collector). Both are silent when no worker runs:
+      # the series are absent, so a stack without the worker never raises them.
+      - alert: OutboxBacklogOld
+        expr: max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}) > 300
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: The oldest outbox event has been waiting for delivery for more than 5 minutes
+
+      - alert: OutboxEventsParked
+        expr: max(outbox_relay_parked_rows{service_name="curtz-worker"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The outbox relay gave up on events; fix the cause and re-queue them (docs/LocalInfrastructure.md)

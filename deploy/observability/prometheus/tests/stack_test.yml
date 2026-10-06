@@ -71,3 +71,55 @@ tests:
         exp_alerts:
           - exp_labels: {severity: critical, cluster: curtz-logs, color: red}
             exp_annotations: {summary: Elasticsearch cluster status is red}
+
+  - name: The oldest outbox event has been waiting for more than five minutes
+    interval: 1m
+    input_series:
+      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}', values: "301 400 500 600 700"}
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: OutboxBacklogOld
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: The oldest outbox event has been waiting for delivery for more than 5 minutes}
+
+  - name: A backlog that is only a minute old is not an alert
+    interval: 1m
+    input_series:
+      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}', values: "60 60 60 60 60"}
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: OutboxBacklogOld
+        exp_alerts: []
+
+  - name: No worker series at all, so neither outbox alert
+    interval: 1m
+    input_series:
+      - {series: 'up{job="prometheus"}', values: "1 1 1 1 1 1 1"}
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OutboxBacklogOld
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: OutboxEventsParked
+        exp_alerts: []
+
+  - name: Parked outbox events
+    interval: 1m
+    input_series:
+      - {series: 'outbox_relay_parked_rows{service_name="curtz-worker"}', values: "1 1 1 1 1 1 1"}
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OutboxEventsParked
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: The outbox relay gave up on events; fix the cause and re-queue them (docs/LocalInfrastructure.md)}
+
+  - name: Nothing parked, so no alert
+    interval: 1m
+    input_series:
+      - {series: 'outbox_relay_parked_rows{service_name="curtz-worker"}', values: "0 0 0 0 0 0 0"}
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OutboxEventsParked
+        exp_alerts: []
