@@ -82,6 +82,18 @@ func gaugeValue(t *testing.T, rm metricdata.ResourceMetrics, name string) float6
 	return 0
 }
 
+// hasGauge reports whether the metric was exported with at least one data point.
+func hasGauge(rm metricdata.ResourceMetrics, name string) bool {
+	for _, scope := range rm.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if gauge, ok := m.Data.(metricdata.Gauge[float64]); ok && m.Name == name && len(gauge.DataPoints) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func counterValue(t *testing.T, rm metricdata.ResourceMetrics, name string, attrs ...attribute.KeyValue) int64 {
 	t.Helper()
 	want := attribute.NewSet(attrs...)
@@ -140,9 +152,39 @@ func TestRelay_ReportsItsBacklogLeadershipAndOutcomesAsMetrics(t *testing.T) {
 	var after metricdata.ResourceMetrics
 	require.NoError(t, reader.Collect(context.Background(), &after))
 	assert.Equal(t, 0.0, gaugeValue(t, after, "outbox.relay.leader"), "no longer the leader once the run ended")
-	assert.Equal(t, 0.0, gaugeValue(t, after, "outbox.relay.backlog"), "and no stale backlog is reported")
+	for _, name := range []string{"outbox.relay.backlog", "outbox.relay.parked_rows", "outbox.relay.oldest_unsent_age"} {
+		assert.False(t, hasGauge(after, name), "%s is not reported once the leadership is gone: a zero would read as an empty backlog", name)
+	}
 	assert.Equal(t, int64(2), counterValue(t, after, "outbox.relay.published", attribute.String("destination", "identity.events")))
 	assert.Equal(t, int64(0), counterValue(t, after, "outbox.relay.published", attribute.String("destination", "url.events")))
 	assert.Equal(t, int64(1), counterValue(t, after, "outbox.relay.failures", attribute.String("kind", "transient")))
 	assert.Equal(t, int64(1), counterValue(t, after, "outbox.relay.failures", attribute.String("kind", "permanent")))
+}
+
+// While no instance leads, a standby that reported a backlog of zero would hide a stuck outbox from the alerts that read
+// the backlog gauges: it reports only that it is not the leader, and the backlog series are absent.
+func TestRelay_AStandbyReportsOnlyThatItIsNotTheLeader(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
+
+	store := &fakeStore{
+		acquireErrs: []error{ports.ErrNotLeader, ports.ErrNotLeader},
+		backlog:     ports.Backlog{Unsent: 7, OldestUnsent: time.Now().Add(-time.Hour), Parked: 2},
+	}
+	h := newHarness(t, store, &fakePublisher{}, testConfig(), 2, WithMeterProvider(provider))
+
+	var standby metricdata.ResourceMetrics
+	baseSleep := h.relay.sleep
+	h.relay.sleep = func(ctx context.Context, d time.Duration) {
+		require.NoError(t, reader.Collect(context.Background(), &standby))
+		baseSleep(ctx, d)
+	}
+
+	h.run(t)
+
+	assert.Equal(t, 0.0, gaugeValue(t, standby, "outbox.relay.leader"))
+	for _, name := range []string{"outbox.relay.backlog", "outbox.relay.parked_rows", "outbox.relay.oldest_unsent_age"} {
+		assert.False(t, hasGauge(standby, name), "a standby does not report %s", name)
+	}
 }

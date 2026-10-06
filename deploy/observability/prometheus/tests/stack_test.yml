@@ -123,3 +123,34 @@ tests:
       - eval_time: 6m
         alertname: OutboxEventsParked
         exp_alerts: []
+
+  - name: Workers are up but none of them is the active relay
+    interval: 1m
+    input_series:
+      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-a"}', values: "0 0 0 0 0 0"}
+      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-b"}', values: "0 0 0 0 0 0"}
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OutboxNoActiveRelay
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: "Workers are running but none is the active outbox relay, so nothing is delivered"}
+
+  - name: One active relay and a standby, so no alert
+    interval: 1m
+    input_series:
+      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-a"}', values: "1 1 1 1 1 1"}
+      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-b"}', values: "0 0 0 0 0 0"}
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OutboxNoActiveRelay
+        exp_alerts: []
+
+  - name: No worker series at all, so no active-relay alert either
+    interval: 1m
+    input_series:
+      - {series: 'up{job="prometheus"}', values: "1 1 1 1 1 1"}
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OutboxNoActiveRelay
+        exp_alerts: []

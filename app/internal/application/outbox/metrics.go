@@ -49,9 +49,14 @@ func newMetrics(provider metric.MeterProvider, now func() time.Time) (*metrics, 
 		return nil, err
 	}
 
-	gauge := func(name, unit, description string, read func() float64) {
+	// leaderOnly gauges describe the outbox, which only the active relay samples. A standby reports no data point at all:
+	// a zero would read as an empty backlog and keep the backlog alerts silent while nobody delivers.
+	gauge := func(name, unit, description string, leaderOnly bool, read func() float64) {
 		_, gaugeErr := meter.Float64ObservableGauge(name, metric.WithUnit(unit), metric.WithDescription(description),
 			metric.WithFloat64Callback(func(_ context.Context, observer metric.Float64Observer) error {
+				if leaderOnly && !m.leader.Load() {
+					return nil
+				}
 				observer.Observe(read())
 				return nil
 			}))
@@ -59,15 +64,15 @@ func newMetrics(provider metric.MeterProvider, now func() time.Time) (*metrics, 
 			err = gaugeErr
 		}
 	}
-	gauge("outbox.relay.leader", "{instance}", "1 while this instance is the active relay.", func() float64 {
+	gauge("outbox.relay.leader", "{instance}", "1 while this instance is the active relay.", false, func() float64 {
 		if m.leader.Load() {
 			return 1
 		}
 		return 0
 	})
-	gauge("outbox.relay.backlog", "{event}", "Events waiting for delivery.", func() float64 { return float64(m.unsent.Load()) })
-	gauge("outbox.relay.parked_rows", "{event}", "Events the relay gave up on.", func() float64 { return float64(m.parkedRows.Load()) })
-	gauge("outbox.relay.oldest_unsent_age", "s", "Age of the oldest event waiting for delivery.", func() float64 {
+	gauge("outbox.relay.backlog", "{event}", "Events waiting for delivery.", true, func() float64 { return float64(m.unsent.Load()) })
+	gauge("outbox.relay.parked_rows", "{event}", "Events the relay gave up on.", true, func() float64 { return float64(m.parkedRows.Load()) })
+	gauge("outbox.relay.oldest_unsent_age", "s", "Age of the oldest event waiting for delivery.", true, func() float64 {
 		oldest := m.oldestUnsent.Load()
 		if oldest == 0 {
 			return 0

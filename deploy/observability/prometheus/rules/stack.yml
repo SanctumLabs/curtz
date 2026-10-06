@@ -60,3 +60,13 @@ groups:
           severity: warning
         annotations:
           summary: The outbox relay gave up on events; fix the cause and re-queue them (docs/LocalInfrastructure.md)
+
+      # Workers are up (they report leader = 0 or 1) but none holds the lease, so no backlog gauge is reported at all and the
+      # two alerts above cannot see the stall. Silent when no worker runs: the series are absent.
+      - alert: OutboxNoActiveRelay
+        expr: sum(outbox_relay_leader{service_name="curtz-worker"}) == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Workers are running but none is the active outbox relay, so nothing is delivered
