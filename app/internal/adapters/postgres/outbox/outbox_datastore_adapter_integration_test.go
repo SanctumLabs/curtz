@@ -296,6 +296,57 @@ func TestLease_IsLostWhenItsConnectionIsKilledAndTheHolderNoticesOnItsNextCheck(
 	other.Release()
 }
 
+// A holder whose host or network dies without closing the connection (no FIN, no RST) leaves a backend that never notices:
+// without a server-side limit it would keep the lock for hours and no standby could take over. The lease connection asks the
+// server to drop it after it has sat idle for a while; a holder that checks its lease regularly is never idle that long.
+func TestLease_ASessionThatStopsCheckingItsLeaseLosesItOnTheServer(t *testing.T) {
+	ctx := context.Background()
+	client := test.TestPostgresDatabaseClientHelper(t, ctx)
+	t.Cleanup(client.Close)
+	adapter, err := outboxdatastore.NewAdapter(client, client.GetDB().Config().ConnString(), 10*time.Second,
+		outboxdatastore.WithLeaseIdleTimeout(time.Second))
+	require.NoError(t, err)
+
+	silent, err := adapter.Acquire(ctx)
+	require.NoError(t, err)
+	t.Cleanup(silent.Release)
+
+	var holders int
+	require.NoError(t, client.GetDB().QueryRow(ctx,
+		"SELECT count(*) FROM pg_stat_activity WHERE application_name = 'curtz-outbox-lease'").Scan(&holders))
+	assert.Equal(t, 1, holders, "the lease connection can be told apart from the others")
+
+	require.Eventually(t, func() bool {
+		other, acquireErr := adapter.Acquire(ctx)
+		if acquireErr != nil {
+			return false
+		}
+		other.Release()
+		return true
+	}, 10*time.Second, 250*time.Millisecond, "the server dropped the idle lease connection, so another instance can take over")
+	assert.Error(t, silent.Alive(ctx), "and the silent holder finds out the next time it checks")
+}
+
+func TestLease_AHolderThatKeepsCheckingKeepsItPastTheIdleTimeout(t *testing.T) {
+	ctx := context.Background()
+	client := test.TestPostgresDatabaseClientHelper(t, ctx)
+	t.Cleanup(client.Close)
+	adapter, err := outboxdatastore.NewAdapter(client, client.GetDB().Config().ConnString(), 10*time.Second,
+		outboxdatastore.WithLeaseIdleTimeout(time.Second))
+	require.NoError(t, err)
+
+	held, err := adapter.Acquire(ctx)
+	require.NoError(t, err)
+	t.Cleanup(held.Release)
+
+	for i := 0; i < 8; i++ { // 3.2 s, more than three idle timeouts, with a check every 400 ms
+		time.Sleep(400 * time.Millisecond)
+		require.NoError(t, held.Alive(ctx), "check %d", i)
+	}
+	_, err = adapter.Acquire(ctx)
+	assert.ErrorIs(t, err, ports.ErrNotLeader, "a holder that keeps checking is never dropped")
+}
+
 // The claim query depends on the partial index to stay cheap while the table holds a long history of sent rows.
 func TestTheUnsentIndexServesTheClaimPredicate(t *testing.T) {
 	f := newFixture(t)

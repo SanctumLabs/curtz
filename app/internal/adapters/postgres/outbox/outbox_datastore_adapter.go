@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,13 +32,30 @@ type Adapter struct {
 	queries *postgresql.Queries
 	// leaseConfig opens the dedicated connection the lease lives on. It is parsed through the pool's parser so the
 	// pool_* parameters of the connection string are removed; a plain connection would send them to the server.
-	leaseConfig *pgx.ConnConfig
-	timeout     time.Duration
+	leaseConfig      *pgx.ConnConfig
+	timeout          time.Duration
+	leaseIdleTimeout time.Duration
+}
+
+// defaultLeaseIdleTimeout is how long the server lets the lease connection sit idle before it drops it. The relay checks
+// its lease on every cycle, which takes far less than this, so a healthy holder is never idle that long.
+const defaultLeaseIdleTimeout = 60 * time.Second
+
+// leaseApplicationName tells the lease connection apart from the others in pg_stat_activity.
+const leaseApplicationName = "curtz-outbox-lease"
+
+// Option configures an Adapter.
+type Option func(*Adapter)
+
+// WithLeaseIdleTimeout sets how long the server lets the lease connection sit idle before it drops it (and with it the
+// lock). The default is a minute; a shorter time is for tests.
+func WithLeaseIdleTimeout(d time.Duration) Option {
+	return func(a *Adapter) { a.leaseIdleTimeout = d }
 }
 
 // NewAdapter builds the adapter. connString is the same connection string the pool was built from; timeout bounds every
 // statement, because the relay runs some of them on a context that does not carry a deadline.
-func NewAdapter(client database.PostgresDatabaseClient, connString string, timeout time.Duration) (*Adapter, error) {
+func NewAdapter(client database.PostgresDatabaseClient, connString string, timeout time.Duration, opts ...Option) (*Adapter, error) {
 	poolConfig, err := pgxpool.ParseConfig(connString)
 	if err != nil {
 		return nil, fmt.Errorf("parse the connection string for the outbox lease: %w", err)
@@ -45,11 +63,29 @@ func NewAdapter(client database.PostgresDatabaseClient, connString string, timeo
 	// The lease connection is housekeeping and must not create a span per statement.
 	poolConfig.ConnConfig.Tracer = nil
 
-	return &Adapter{
-		queries:     postgresql.New(client.GetDB()),
-		leaseConfig: poolConfig.ConnConfig,
-		timeout:     timeout,
-	}, nil
+	a := &Adapter{
+		queries:          postgresql.New(client.GetDB()),
+		leaseConfig:      poolConfig.ConnConfig,
+		timeout:          timeout,
+		leaseIdleTimeout: defaultLeaseIdleTimeout,
+	}
+	for _, opt := range opts {
+		opt(a)
+	}
+
+	// A holder that vanishes without closing its connection (a dead host, a partition) leaves a backend that never notices,
+	// and the advisory lock would stay held for as long as the operating system or a proxy keeps the idle socket (hours),
+	// with no standby able to take over. Asking the server to drop a session that sits idle bounds that to the timeout.
+	// A holder that is alive checks its lease on every cycle, so it is never idle that long; one that is merely slow loses
+	// the lease, which is safe: it notices on its next check and asks for it again. Needs PostgreSQL 14 or newer.
+	runtimeParams := make(map[string]string, len(a.leaseConfig.RuntimeParams)+2)
+	for key, value := range a.leaseConfig.RuntimeParams {
+		runtimeParams[key] = value
+	}
+	runtimeParams["application_name"] = leaseApplicationName
+	runtimeParams["idle_session_timeout"] = strconv.FormatInt(a.leaseIdleTimeout.Milliseconds(), 10)
+	a.leaseConfig.RuntimeParams = runtimeParams
+	return a, nil
 }
 
 func (a *Adapter) bounded(ctx context.Context) (context.Context, context.CancelFunc) {
