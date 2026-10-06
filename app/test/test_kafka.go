@@ -87,7 +87,9 @@ func (k *KafkaBroker) Stop(t *testing.T) {
 	}
 }
 
-// Start starts the stopped broker again on the same address and waits until it answers.
+// Start starts the stopped broker again on the same address and waits until it serves its partitions. A broker answers
+// a ping long before every partition has a leader again (under load that gap is several seconds), and a test that
+// produces in that gap fails on a timeout that has nothing to do with what it is testing.
 func (k *KafkaBroker) Start(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
@@ -101,17 +103,38 @@ func (k *KafkaBroker) Start(t *testing.T) {
 	defer client.Close()
 	deadline := time.Now().Add(containerReadyTimeout())
 	for {
-		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		err := client.Ping(pingCtx)
+		requestCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		pending, err := partitionsWithoutLeader(requestCtx, client)
 		cancel()
-		if err == nil {
+		if err == nil && pending == 0 {
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("kafka did not answer after a restart: %v", err)
+			t.Fatalf("kafka did not serve its partitions after a restart (%d without a leader): %v", pending, err)
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+// partitionsWithoutLeader asks for the metadata of every topic and counts the partitions that have no leader yet.
+func partitionsWithoutLeader(ctx context.Context, client *kgo.Client) (int, error) {
+	response, err := kmsg.NewPtrMetadataRequest().RequestWith(ctx, client)
+	if err != nil {
+		return 0, err
+	}
+	pending := 0
+	for _, topic := range response.Topics {
+		if topic.ErrorCode != 0 {
+			pending++
+			continue
+		}
+		for _, partition := range topic.Partitions {
+			if partition.ErrorCode != 0 || partition.Leader < 0 {
+				pending++
+			}
+		}
+	}
+	return pending, nil
 }
 
 // CreateTopic creates a topic with the given number of partitions.
