@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Guards the CI rules this repository relies on (docs/superpowers/specs/2026-10-04-dockerfile-hardening-design.md):
-#  1. every action is pinned to a full commit SHA (local actions and reusable workflows from SanctumLabs/ci-workflows are exempt);
+#  1. every action is pinned to an exact version (v1.2.3, 14.0.6, 1.5) or a full commit SHA, never a branch, "latest" or a floating
+#     major such as v4 (local actions and reusable workflows from SanctumLabs/ci-workflows are exempt);
 #  2. every workflow declares top-level permissions;
 #  3. in a workflow_run workflow every checkout names the triggering commit or branch (the default is the default branch);
 #  4. Dependabot keeps the gomod, docker and github-actions pins current;
@@ -16,7 +17,8 @@ for f in .github/workflows/*.yml; do
 
   while IFS= read -r ref; do
     case "$ref" in ./* | SanctumLabs/ci-workflows/*) continue ;; esac
-    grep -Eq '@[0-9a-f]{40}$' <<<"$ref" || fail "$f: $ref is not pinned to a full commit SHA"
+    grep -Eq '@([0-9a-f]{40}|v?[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.]+)?)$' <<<"$ref" ||
+      fail "$f: $ref is not pinned to an exact version or a full commit SHA"
   done < <(sed -nE 's/^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]*([^[:space:]#]+).*/\2/p' "$f")
 
   if grep -qE '^[[:space:]]*workflow_run:' "$f"; then
