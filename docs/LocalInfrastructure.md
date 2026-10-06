@@ -183,7 +183,7 @@ UPDATE outbox_events SET parked_at = NULL, attempts = 0, error_message = NULL WH
 ```
 
 - **Purge:** the active worker deletes rows sent more than `OUTBOX_RETENTION_DAYS` ago (default 7; `0` keeps them) when it starts and every ten minutes. Unsent and parked rows are never deleted.
-- **Observing it:** the "Curtz worker" dashboard (folder Curtz) and the traces: each published event is a span `<destination> publish` of the service `curtz-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader).
+- **Observing it:** the "Curtz worker" dashboard (folder Curtz) and the traces: each published event is a span `<destination> publish` of the service `curtz-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader). The collector keeps a stopped container's series for about five minutes, so after a worker restarts "Active relays" can briefly read 2.
 - Settings (all in `.env.example`): `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_PUBLISH_TIMEOUT`, `OUTBOX_POLL_INTERVAL_MS`, `OUTBOX_BATCH_SIZE`, `OUTBOX_MAX_ATTEMPTS`, `OUTBOX_STANDBY_INTERVAL`, `OUTBOX_RETENTION_DAYS` and `WORKER_HTTP_PORT`.
 
 ## Observing the app
