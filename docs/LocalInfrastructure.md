@@ -45,6 +45,7 @@ Elasticsearch setup) has finished, or fails after five minutes and prints what i
 | ELK | `elk-ha` | `elk-single` | `infra.elk.up` |
 | Postgres + Redis + Kafka | `core-ha` | `core-single` | `infra.core.up` |
 | Everything except legacy | `full-ha` | `full-single` | `infra.full.up` |
+| Outbox relay worker (needs Postgres and Kafka) | `worker-ha` | `worker-single` | `infra.worker.up` |
 | Prometheus, Grafana, Tempo, Alertmanager, Collector | `observability` | `observability` | `infra.observability.up` |
 | MongoDB + standalone Redis (deprecated) | `legacy` | `legacy` | `infra.legacy.up` |
 
@@ -58,7 +59,7 @@ Elasticsearch setup) has finished, or fails after five minutes and prints what i
 
 | Command | What it does |
 |---|---|
-| `make infra.<stack>.up [MODE=ha\|single]` / `.down` | start / stop a stack: `kafka redis postgres elk observability legacy core full app` |
+| `make infra.<stack>.up [MODE=ha\|single]` / `.down` | start / stop a stack: `kafka redis postgres elk observability legacy core full app worker` |
 | `make infra.wait STACK=kafka MODE=single` | wait until a stack is healthy |
 | `make infra.ps` / `infra.stats` | status and health / live memory and CPU |
 | `make infra.logs SERVICE=kafka-1` | follow logs (omit `SERVICE` for everything) |
@@ -146,6 +147,44 @@ make infra.app.down                # stops only the API; Postgres and Redis keep
 - It runs with a read-only filesystem, no Linux capabilities and `no-new-privileges`. Its health check is `/app/curtz healthcheck`; `docker compose ps` shows `healthy` once it serves.
 - `make infra.app.up` rebuilds the image each time (cached layers make it quick). `make build.docker`, `make lint.docker` and `make scan.docker` build, lint and scan the image on its own.
 - The image has no shell. To look inside it use `docker cp curtz-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network curtz --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
+
+## Relaying events to Kafka
+
+The outbox relay is a second process, `worker`, built into the same image. It reads `outbox_events` from Postgres and publishes each row to the Kafka topic named by its `destination` (`identity.events`), keyed by `partition_key` so one aggregate's events stay in order. The API never talks to Kafka.
+
+```bash
+make infra.worker.up MODE=single   # or HA; brings up Postgres and Kafka for that mode first, then builds and starts the worker
+curl -s localhost:8086/health/ready
+make infra.worker.down             # stops only the worker; Postgres and Kafka keep running
+```
+
+- It listens on `127.0.0.1:8086` (`GET /health`, `GET /health/ready`). Its environment is an explicit list in `deploy/worker/compose.yml` (not your `.env`), it runs with `ENVIRONMENT=development`, a read-only filesystem and no capabilities, and its health check is `/app/worker healthcheck`.
+- One worker is active at a time: they compete for a Postgres advisory lock and the others stand by, taking over within `OUTBOX_STANDBY_INTERVAL` seconds (default 5) after the active one stops. To try a failover, run a second worker on your host with `WORKER_HTTP_PORT=8087 go run ./app/cmd/worker` (the defaults reach `localhost:19092` and `localhost:5432`; in HA mode also set `KAFKA_BROKERS=localhost:19092,localhost:29092,localhost:39092`).
+- Read what it published, headers included (`event_id`, `event_type`, `aggregate_id`, `occurred_at`, and `traceparent` when the request had a trace), or look at the topic in Kafka UI (<http://localhost:8080>):
+
+```bash
+docker compose --profile kafka-single exec kafka-single /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server kafka-1:9092 --topic identity.events --from-beginning --timeout-ms 5000 \
+  --property print.key=true --property print.headers=true
+```
+
+  In HA mode use `--profile kafka-ha exec kafka-1`.
+- Delivery is **at least once**: a worker killed between a publish and recording it can publish the event again, so a consumer de-duplicates on the `event_id` header. Order is per `partition_key`.
+- **Kafka down:** nothing is lost and nothing is parked. Events wait in the table, the worker backs off (200 ms up to 10 s) and `OutboxBacklogOld` fires when the oldest has waited more than five minutes; when Kafka returns they are published in order.
+- **Parked events:** a record Kafka permanently refuses (for example one larger than the broker accepts) is retried until `OUTBOX_MAX_ATTEMPTS` (default 3) and then parked: `parked_at` and `error_message` are set, the rest keep flowing, and `OutboxEventsParked` fires after five minutes. Look at them and, once the cause is fixed, put one back:
+
+```bash
+make infra.psql MODE=single
+```
+
+```sql
+SELECT id, destination, event_type, attempts, error_message, parked_at FROM outbox_events WHERE parked_at IS NOT NULL;
+UPDATE outbox_events SET parked_at = NULL, attempts = 0, error_message = NULL WHERE id = '<id>';
+```
+
+- **Purge:** the active worker deletes rows sent more than `OUTBOX_RETENTION_DAYS` ago (default 7; `0` keeps them) when it starts and every ten minutes. Unsent and parked rows are never deleted.
+- **Observing it:** the "Curtz worker" dashboard (folder Curtz) and the traces: each published event is a span `<destination> publish` of the service `curtz-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader).
+- Settings (all in `.env.example`): `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_PUBLISH_TIMEOUT`, `OUTBOX_POLL_INTERVAL_MS`, `OUTBOX_BATCH_SIZE`, `OUTBOX_MAX_ATTEMPTS`, `OUTBOX_STANDBY_INTERVAL`, `OUTBOX_RETENTION_DAYS` and `WORKER_HTTP_PORT`.
 
 ## Observing the app
 
@@ -252,6 +291,7 @@ All credentials are development defaults from `.env.example`. You can override t
 |---|---|---|
 | Kafka (host) | `localhost:19092` (HA also `29092`, `39092`) | none |
 | Kafka UI | <http://localhost:8080> | none |
+| Worker health | `localhost:8086` (`/health`, `/health/ready`) | none |
 | Redis | `localhost:7001`..`7006` | user `curtz-svc`, password `curtz-svc`; admin (default user) `curtz-redis-admin` |
 | Postgres | `localhost:5432` write, `5433` read | `curtz-user` / `curtz-pass`, database `curtzdb`; superuser `postgres` / `curtz-postgres-admin` |
 | Elasticsearch | `localhost:9200` | `elastic` / `curtz-elastic-dev` |
@@ -287,6 +327,7 @@ Heaps are small on purpose (512 MB for Kafka, Elasticsearch and Logstash); tune 
 | Stack | Do | Expect |
 |---|---|---|
 | Kafka | `docker compose --profile '*' stop kafka-2` | produce and consume keep working; `start` it and under-replicated partitions drain |
+| Outbox relay | stop the worker (`make infra.worker.down`) while a second one runs on your host | the second worker becomes the relay within `OUTBOX_STANDBY_INTERVAL` seconds; no event is lost (a duplicate carries the same `event_id`) |
 | Redis | stop a master (see `cluster nodes` in `make infra.redis.cli`) | a replica is promoted within ~10 seconds; writes continue |
 | Postgres | stop the leader shown by `make infra.patroni.list` | a replica becomes leader (a few seconds after a graceful stop, about 30 seconds after a crash, measured); `localhost:5432` follows it once HAProxy's health checks see the new primary (about 6 more seconds) |
 | Elasticsearch | stop `es-2` | cluster stays green or yellow; logs keep arriving |

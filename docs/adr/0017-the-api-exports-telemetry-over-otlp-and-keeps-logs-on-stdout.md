@@ -26,4 +26,4 @@ The unauthenticated Fiber `/metrics` page, the `monitoring/metrics` package that
 - The readiness checks' Redis `PING` and Postgres ping still count in the Redis and Postgres client metrics; only their spans are suppressed.
 - A failed query or command records the driver's error message on its span, and PostgreSQL's own messages can echo a value it rejected; SQL arguments and Redis keys and values are otherwise never recorded.
 - Logs from an API run on the host reach the terminal only; Filebeat reads container logs.
-- Writing the trace context into `outbox_events.headers` and Kafka instrumentation belong to the outbox relay slice.
+- Writing the trace context into `outbox_events.headers` and Kafka instrumentation belong to the outbox relay slice (ADR-0018).

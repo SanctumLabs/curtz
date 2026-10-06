@@ -22,7 +22,7 @@ Without Docker: `make build` writes the binary to `bin/curtz`.
 
 ## Configuration
 
-The image sets `ENVIRONMENT=production`. In that mode the API and the migrator refuse the development secrets and exit 1 naming the variables that are missing, so a deployment must set at least:
+The image sets `ENVIRONMENT=production`. In that mode the API, the migrator and the worker refuse the development secrets and exit 1 naming the variables that are missing, so a deployment must set at least:
 
 | Variable | Meaning |
 |---|---|
@@ -69,6 +69,35 @@ docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_PASS
 - The image's `HEALTHCHECK` runs `/app/curtz healthcheck`, which calls `/health`.
 - On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that plus the five seconds the API may spend exporting its last telemetry (the local compose stack uses 25 seconds).
 - For hardening, also run it with a read-only root filesystem, `--cap-drop ALL` and `--security-opt no-new-privileges`, as `deploy/app/compose.yml` does.
+
+## The outbox relay worker
+
+The image also contains `/app/worker`, which delivers the transactional outbox to Kafka. Run it as its own container from the same image, after the migrator and with the same database settings as the API (it never migrates):
+
+```bash
+docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... -e KAFKA_BROKERS=... \
+  --entrypoint /app/worker --name curtz-worker <IMAGE_NAME>:<IMAGE_TAG>
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `KAFKA_BROKERS` | `localhost:19092` | comma-separated `host:port` list; set it |
+| `KAFKA_CLIENT_ID` | `curtz-worker` | |
+| `KAFKA_PUBLISH_TIMEOUT` | `10` | seconds a record may take to be acknowledged before it counts as a transient failure |
+| `OUTBOX_POLL_INTERVAL_MS` | `100` | milliseconds between cycles when nothing was claimed (at least 10) |
+| `OUTBOX_BATCH_SIZE` | `100` | rows claimed per destination per cycle (1 to 1000) |
+| `OUTBOX_MAX_ATTEMPTS` | `3` | permanent rejections before an event is parked (at least 1) |
+| `OUTBOX_STANDBY_INTERVAL` | `5` | seconds between a standby's attempts to become the active relay |
+| `OUTBOX_RETENTION_DAYS` | `7` | days sent rows are kept; `0` keeps them forever |
+| `WORKER_HTTP_PORT` | `8086` | the health listener |
+
+The database, logging and telemetry variables are the API's; the worker's service name defaults to `curtz-worker`.
+
+- Run more than one for failover: one is active (it holds a Postgres advisory lock), the others stand by. A second worker is not extra capacity.
+- The topics must exist (the relay does not create them); an event for a missing topic waits and shows in the backlog alert.
+- `GET /health` is liveness: 503 when the relay loop has not completed a cycle or a standby attempt for 30 seconds, so a wedged worker is restarted. `GET /health/ready` is 503 when Postgres or Kafka is down or the worker is draining; neither is a reason to restart. The container's health check is `/app/worker healthcheck`.
+- On SIGTERM the worker finishes the batch it has in flight (bounded by `KAFKA_PUBLISH_TIMEOUT` and `SHUTDOWN_TIMEOUT`), releases the lock, exports its last telemetry and exits 0. Give it the same stop grace period as the API (25 seconds locally).
+- Delivery is at least once: consumers must de-duplicate on the `event_id` header. See ADR-0018 and the operations notes in `docs/LocalInfrastructure.md` (parked events, purge, failure behaviour).
 
 ## Continuous integration
 
