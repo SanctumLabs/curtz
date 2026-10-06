@@ -195,10 +195,12 @@ whether the broker stored it), so a broker that dies mid-request keeps `Produce`
 the relay loop and stall its shutdown. The price is a possible duplicate, which at-least-once delivery already allows (D7).
 
 The producer wrapper classifies each error (`kafka.IsPermanent`, called by the adapter). **Permanent** is an explicit allowlist of the broker
-answers that never change for the same record: `MESSAGE_TOO_LARGE`, `RECORD_LIST_TOO_LARGE`, `INVALID_TOPIC_EXCEPTION`, `INVALID_RECORD`,
-`UNSUPPORTED_FOR_MESSAGE_FORMAT`, `TOPIC_AUTHORIZATION_FAILED` and `CLUSTER_AUTHORIZATION_FAILED`; not every non-retriable code, so an unknown
-server error can never park an event. **Everything else is transient**, including a delivery timeout and an unknown topic. The classification
-has a table test.
+answers that never change for the same record: `MESSAGE_TOO_LARGE`, `RECORD_LIST_TOO_LARGE`, `INVALID_TOPIC_EXCEPTION`, `INVALID_RECORD` and
+`UNSUPPORTED_FOR_MESSAGE_FORMAT`; not every non-retriable code, so an unknown server error can never park an event. **Everything else is
+transient**, including a delivery timeout and an unknown topic. The two authorization errors (`TOPIC_AUTHORIZATION_FAILED`,
+`CLUSTER_AUTHORIZATION_FAILED`) are transient on purpose (amended after the final review): they say the client's configuration is wrong, not the
+record, and listing them as permanent would park the whole backlog within seconds of an ACL mistake, against D3's own rationale; as transient
+errors the events wait and flow once it is fixed. The classification has a table test.
 
 Spans: `outbox.publish` is a producer span named `<destination> publish` with `messaging.system=kafka`, `messaging.destination.name`,
 `messaging.operation.type=publish`, `messaging.message.id` (the event ID) and `outbox.event_type`; a failed record marks the span as an error with

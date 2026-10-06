@@ -103,16 +103,16 @@ func (p *Producer) Ping(ctx context.Context) error { return p.client.Ping(ctx) }
 func (p *Producer) Close() { p.client.Close() }
 
 // permanentErrors are the broker answers that will never change for the same record: it is too large, its topic name is
-// invalid, it is malformed, or the client is not allowed to write it. Everything else, including the broker being down, a
-// timeout, an unknown topic (auto-creation is off, so it may be created later) and every retriable answer, is transient.
+// invalid, or it is malformed. Everything else, including the broker being down, a timeout, an unknown topic
+// (auto-creation is off, so it may be created later) and every retriable answer, is transient. The two authorization
+// errors are transient on purpose: they say the client's configuration is wrong, not the record, and a mistaken ACL
+// would otherwise park the whole backlog within seconds; as transient errors the events wait and flow once it is fixed.
 var permanentErrors = []*kerr.Error{
 	kerr.MessageTooLarge,
 	kerr.RecordListTooLarge,
 	kerr.InvalidTopicException,
 	kerr.InvalidRecord,
 	kerr.UnsupportedForMessageFormat,
-	kerr.TopicAuthorizationFailed,
-	kerr.ClusterAuthorizationFailed,
 }
 
 // IsPermanent reports whether err says the broker will never accept the record as it is.
