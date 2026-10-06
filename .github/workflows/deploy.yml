@@ -34,6 +34,7 @@ jobs:
           flyctl secrets set \
             DATABASE_HOST="$DATABASE_HOST" \
             DATABASE="$DATABASE" \
+            DATABASE_NAME="$DATABASE" \
             DATABASE_USERNAME="$DATABASE_USERNAME" \
             DATABASE_PASSWORD="$DATABASE_PASSWORD" \
             DATABASE_PORT="$DATABASE_PORT" \
@@ -44,6 +45,9 @@ jobs:
             CACHE_PORT="$CACHE_PORT" \
             CACHE_USERNAME="$CACHE_USERNAME" \
             CACHE_PASSWORD="$CACHE_PASSWORD" \
+            REDIS_ADDRESS="${CACHE_HOST}:${CACHE_PORT}" \
+            REDIS_USERNAME="$CACHE_USERNAME" \
+            REDIS_PASSWORD="$CACHE_PASSWORD" \
             CACHE_REQUIRE_AUTH="$CACHE_REQUIRE_AUTH" \
             SENTRY_DSN="$SENTRY_DSN" \
             SENTRY_ENV="$SENTRY_ENV" \

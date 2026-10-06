@@ -104,7 +104,7 @@ Notes:
 The API defaults match the stack, so on your host no `.env` edits are needed.
 
 ```bash
-make infra.core.up MODE=single      # or HA: also run `make infra.hosts` once, and use the six-address REDIS_ADDRESS in .env.example
+make infra.core.up MODE=single      # or HA: also run `make infra.hosts` once, and set the six-address REDIS_ADDRESS from .env.example in your own .env
 go run ./app/cmd/migrator           # optional: infra.core.up already migrated through the compose job; a second run says "no change"
 make run                            # the API on :8085
 curl -s localhost:8085/health/ready

@@ -90,7 +90,9 @@ type Options struct {
 ```
 
 - **Resource:** `service.name` (`OTEL_SERVICE_NAME`, default `curtz`), `service.version`, `deployment.environment.name`, plus the SDK's
-  process and host detectors. The collector's Prometheus exporter turns `service.name` into the `service_name` label.
+  host detector. The process detector is omitted on purpose: the collector turns every resource attribute into a label on every metric
+  series, and `process.pid` or `process.command_args` are not labels anyone wants. The collector's Prometheus exporter turns
+  `service.name` into the `service_name` label.
 - **Traces:** OTLP/gRPC exporter behind the batch span processor, sampler from `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`).
 - **Metrics:** OTLP/gRPC exporter behind a periodic reader (interval from `OTEL_METRIC_EXPORT_INTERVAL`, default 15 seconds, the stack's scrape interval).
 - **Propagation:** W3C `traceparent` and `baggage`.

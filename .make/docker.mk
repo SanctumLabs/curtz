@@ -14,8 +14,9 @@ HADOLINT_IMAGE ?= hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e2
 TRIVY_IMAGE ?= aquasec/trivy:0.75.0
 
 # `docker save <repository>` exports every tag of the repository, and Trivy rejects a tar with more than one image, so the
-# scan always names exactly one reference (a bare name means :latest).
-DOCKER_IMAGE_REF = $(if $(findstring :,$(DOCKER_IMAGE_TAG)),$(DOCKER_IMAGE_TAG),$(DOCKER_IMAGE_TAG):latest)
+# scan always names exactly one reference (a bare name means :latest). Only the last path component can carry a tag: a
+# registry port (localhost:5000/team/app) is not one.
+DOCKER_IMAGE_REF = $(if $(findstring :,$(lastword $(subst /, ,$(DOCKER_IMAGE_TAG)))),$(DOCKER_IMAGE_TAG),$(DOCKER_IMAGE_TAG):latest)
 
 # Build metadata for the image labels and the version variables in the binary
 DOCKER_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo unknown)

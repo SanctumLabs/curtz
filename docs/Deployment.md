@@ -61,7 +61,7 @@ It exits 0 when it applied the migrations or found nothing to do. If it reports 
 ## Running
 
 ```bash
-docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_PASSWORD=... -e REDIS_ADDRESS=... -e REDIS_PASSWORD=... \
+docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... -e REDIS_ADDRESS=... -e REDIS_PASSWORD=... \
   --name curtz-api <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
