@@ -22,12 +22,12 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      uses: actions/checkout@v7.0.1
       with:
         persist-credentials: false
 
     - name: Use NodeJS ${{ matrix.node-version }}
-      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      uses: actions/setup-node@v7.0.0
       with:
         node-version: ${{ matrix.node-version }}
 
@@ -35,7 +35,7 @@ jobs:
       id: cache-dir-path
       run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
 
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    - uses: actions/cache@v6.1.0
       id: cache # use this to check for `cache-hit` (`steps.cache.outputs.cache-hit != 'true'`)
       with:
         path: |
@@ -50,7 +50,7 @@ jobs:
       run: yarn add danger
 
     - name: Danger CI Check
-      uses: danger/danger-js@279443b7b3fdf4488d79546b3d40dbd76c51d83a # 14.0.6
+      uses: danger/danger-js@14.0.6
       env:
         CI: true
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

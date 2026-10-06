@@ -24,13 +24,13 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      uses: actions/checkout@v7.0.1
       with:
         ref: ${{ github.event.workflow_run.head_sha }}
         persist-credentials: false
 
     - name: Install Go
-      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      uses: actions/setup-go@v7.0.0
       with:
         go-version-file: go.mod
 
@@ -42,7 +42,7 @@ jobs:
 
     - name: Create Sentry Staging release
       if: github.event.workflow_run.head_branch == 'develop'
-      uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
+      uses: getsentry/action-release@v3.7.0
       env:
         SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_GH_RELEASE_AUTH_TOKEN }}
         SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
@@ -52,7 +52,7 @@ jobs:
 
     - name: Create Sentry Production release
       if: github.event.workflow_run.head_branch == 'main'
-      uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
+      uses: getsentry/action-release@v3.7.0
       env:
         SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_GH_RELEASE_AUTH_TOKEN }}
         SENTRY_ORG: ${{ secrets.SENTRY_ORG }}

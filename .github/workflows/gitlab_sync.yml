@@ -16,13 +16,13 @@ jobs:
     name: Gitlab Repo Sync
     steps:
 
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - uses: actions/checkout@v7.0.1
       with:
         fetch-depth: 0
         persist-credentials: false
 
     - name: Mirror to Gitlab
-      uses: wangchucheng/git-repo-sync@63782025e80e84c48b25a1ee6bb9a22a3bd570d3 # v0.1.0
+      uses: wangchucheng/git-repo-sync@v0.1.0
       with:
         # Such as https://gitlab.com/SomeUser/some-repo-sync.git
         target-url: ${{ secrets.GITLAB_REPO_URL }}
