@@ -183,7 +183,7 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
 - **Single:** `redis-single` on 7001; `redis-init-single` runs `CLUSTER ADDSLOTSRANGE 0 16383`.
 - Cluster state lives in a per-node volume (`nodes.conf`); init jobs are idempotent (skip when
   `cluster_state:ok`).
-- Nodes have **fixed IP addresses** (`${CURTZ_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
+- Nodes have **fixed IP addresses** (`${FUPI_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
   peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `curtz` network
   therefore has an explicit subnet, with other containers drawn from its upper half (`ip_range`).
 

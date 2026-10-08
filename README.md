@@ -1,4 +1,4 @@
-# Curtz
+# Fupi
 
 [![License](https://img.shields.io/github/license/sanctumlabs/curtz)](https://github.com/sanctumlabs/curtz/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/release/sanctumlabs/curtz?color=%235351FB&label=version)](https://github.com/sanctumlabs/curtz/releases)

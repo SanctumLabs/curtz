@@ -1,6 +1,6 @@
-# Local infrastructure for Curtz. Nothing starts without a profile: use `make infra.<stack>.up`
+# Local infrastructure for Fupi. Nothing starts without a profile: use `make infra.<stack>.up`
 # (see docs/LocalInfrastructure.md). Each stack lives in deploy/<stack>/compose.yml.
-name: curtz
+name: fupi
 
 include:
   - path: deploy/kafka/compose.yml
@@ -21,12 +21,12 @@ include:
     env_file: .env
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
     driver: bridge
     # Redis Cluster nodes persist their peers' IP addresses, so they get fixed addresses (.11-.16) from the
     # lower half of the subnet; every other container is assigned from the upper half (ip_range).
     ipam:
       config:
-        - subnet: ${CURTZ_NET_PREFIX:-172.29.0}.0/24
-          ip_range: ${CURTZ_NET_PREFIX:-172.29.0}.128/25
+        - subnet: ${FUPI_NET_PREFIX:-172.29.0}.0/24
+          ip_range: ${FUPI_NET_PREFIX:-172.29.0}.128/25

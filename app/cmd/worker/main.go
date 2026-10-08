@@ -31,7 +31,7 @@ import (
 
 const (
 	// serviceName is the worker's service name unless OTEL_SERVICE_NAME says otherwise; the API's is "curtz".
-	serviceName = "curtz-worker"
+	serviceName = "fupi-worker"
 
 	// livenessMaxAge is how long the relay loop may go without completing a cycle before liveness fails.
 	livenessMaxAge = 30 * time.Second

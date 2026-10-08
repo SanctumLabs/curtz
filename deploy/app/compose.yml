@@ -8,7 +8,7 @@ x-app: &app
   build:
     context: ../..
     dockerfile: Dockerfile
-  image: curtz-app:local
+  image: fupi-app:local
   restart: unless-stopped
   # longer than SHUTDOWN_TIMEOUT (15s) plus the 5s telemetry flush, so a stop never kills a drain or the final export
   stop_grace_period: 25s
@@ -18,22 +18,22 @@ x-app: &app
   security_opt: ["no-new-privileges:true"]
   ports: ["127.0.0.1:8085:8085"]
   networks:
-    curtz:
-      aliases: [curtz-app]
+    fupi:
+      aliases: [fupi-app]
 
 x-app-env: &app-env
   ENVIRONMENT: development
   HTTP_PORT: "8085"
   DATABASE_HOST: postgres
   DATABASE_PORT: "5432"
-  DATABASE_NAME: ${PG_DATABASE:-curtzdb}
-  DATABASE_USERNAME: ${PG_APP_USER:-curtz-user}
-  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
-  REDIS_USERNAME: ${REDIS_USERNAME:-curtz-svc}
-  REDIS_PASSWORD: ${REDIS_PASSWORD:-curtz-svc}
-  AUTH_SECRET: ${AUTH_SECRET:-curtz-secret}
+  DATABASE_NAME: ${PG_DATABASE:-fupidb}
+  DATABASE_USERNAME: ${PG_APP_USER:-fupi-user}
+  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-fupi-pass}
+  REDIS_USERNAME: ${REDIS_USERNAME:-fupi-svc}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-fupi-svc}
+  AUTH_SECRET: ${AUTH_SECRET:-fupi-secret}
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-  OTEL_SERVICE_NAME: curtz
+  OTEL_SERVICE_NAME: fupi
 
 services:
   app-ha:
@@ -51,5 +51,5 @@ services:
       REDIS_ADDRESS: redis-1:7001
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi

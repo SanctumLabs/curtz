@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Creates the Curtz topics. Safe to run repeatedly. Retention and partition counts are local-development defaults
+# Creates the Fupi topics. Safe to run repeatedly. Retention and partition counts are local-development defaults
 # taken from the v2 data architecture; production sizing is out of scope.
 # Env: BOOTSTRAP (broker address), REPLICATION_FACTOR, MIN_ISR.
 set -euo pipefail

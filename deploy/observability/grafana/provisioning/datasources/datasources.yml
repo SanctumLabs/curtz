@@ -19,7 +19,7 @@ datasources:
     basicAuthUser: grafana_reader
     editable: false
     jsonData:
-      index: "logs-curtz-*"
+      index: "logs-fupi-*"
       timeField: "@timestamp"
       logMessageField: message
       logLevelField: log.level

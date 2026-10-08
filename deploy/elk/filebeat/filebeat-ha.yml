@@ -17,7 +17,7 @@ processors:
       when:
         not:
           equals:
-            container.labels.com_docker_compose_project: curtz
+            container.labels.com_docker_compose_project: fupi
   - drop_event:
       when:
         contains:

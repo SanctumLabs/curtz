@@ -14,7 +14,7 @@ services:
     volumes:
       - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
     networks:
-      - curtz
+      - fupi
 
   tempo:
     image: grafana/tempo:3.1.0
@@ -27,7 +27,7 @@ services:
       - ./tempo.yml:/etc/tempo.yaml:ro
       - tempo-data:/var/tempo
     networks:
-      - curtz
+      - fupi
 
   prometheus:
     image: prom/prometheus:v3.15.0
@@ -45,7 +45,7 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     networks:
-      - curtz
+      - fupi
 
   alertmanager:
     image: prom/alertmanager:v0.34.1
@@ -60,7 +60,7 @@ services:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
     networks:
-      - curtz
+      - fupi
 
   grafana:
     image: grafana/grafana:13.2.3
@@ -68,10 +68,10 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-curtz-grafana-dev}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-fupi-grafana-dev}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-curtz-grafana-reader}
+      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-fupi-grafana-reader}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
@@ -85,7 +85,7 @@ services:
       retries: 20
       start_period: 20s
     networks:
-      - curtz
+      - fupi
 
 volumes:
   tempo-data:
@@ -94,5 +94,5 @@ volumes:
   grafana-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi

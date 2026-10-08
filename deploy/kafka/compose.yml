@@ -51,7 +51,7 @@ services:
     volumes:
       - kafka-1-data:/var/lib/kafka/data
     networks:
-      - curtz
+      - fupi
 
   kafka-2:
     <<: *kafka-common
@@ -66,7 +66,7 @@ services:
     volumes:
       - kafka-2-data:/var/lib/kafka/data
     networks:
-      - curtz
+      - fupi
 
   kafka-3:
     <<: *kafka-common
@@ -81,7 +81,7 @@ services:
     volumes:
       - kafka-3-data:/var/lib/kafka/data
     networks:
-      - curtz
+      - fupi
 
   kafka-single:
     <<: *kafka-common
@@ -104,7 +104,7 @@ services:
     volumes:
       - kafka-single-data:/var/lib/kafka/data
     networks:
-      curtz:
+      fupi:
         aliases: [kafka-1]
 
   kafka-init-ha:
@@ -123,7 +123,7 @@ services:
     volumes:
       - ./create-topics.sh:/create-topics.sh:ro
     networks:
-      - curtz
+      - fupi
 
   kafka-init-single:
     image: *kafka-image
@@ -139,7 +139,7 @@ services:
     volumes:
       - ./create-topics.sh:/create-topics.sh:ro
     networks:
-      - curtz
+      - fupi
 
   # Shared by both modes: both reach the cluster through the kafka-1 name.
   kafka-ui:
@@ -149,11 +149,11 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: curtz-local
+      KAFKA_CLUSTERS_0_NAME: fupi-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:9092
       DYNAMIC_CONFIG_ENABLED: "false"
     networks:
-      - curtz
+      - fupi
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.10.0
@@ -161,7 +161,7 @@ services:
     restart: unless-stopped
     command: ["--kafka.server=kafka-1:9092"]
     networks:
-      - curtz
+      - fupi
 
 volumes:
   kafka-1-data:
@@ -170,5 +170,5 @@ volumes:
   kafka-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi

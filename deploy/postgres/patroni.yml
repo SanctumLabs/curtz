@@ -1,6 +1,6 @@
 # Shared by patroni-1..3. Node identity comes from PATRONI_NAME, PATRONI_RESTAPI_CONNECT_ADDRESS and
 # PATRONI_POSTGRESQL_CONNECT_ADDRESS; credentials from PATRONI_SUPERUSER_* and PATRONI_REPLICATION_*.
-scope: curtz
+scope: fupi
 namespace: /service/
 
 etcd3:

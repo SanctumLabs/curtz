@@ -15,10 +15,10 @@ x-redis-common: &redis-common
     retries: 20
 
 x-redis-env: &redis-env
-  REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
-  REDISCLI_AUTH: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
-  REDIS_USERNAME: ${REDIS_USERNAME:-curtz-svc}
-  REDIS_PASSWORD: ${REDIS_PASSWORD:-curtz-svc}
+  REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
+  REDISCLI_AUTH: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
+  REDIS_USERNAME: ${REDIS_USERNAME:-fupi-svc}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-fupi-svc}
 
 services:
   redis-1:
@@ -28,8 +28,8 @@ services:
     ports: ["127.0.0.1:7001:7001"]
     volumes: ["redis-1-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.11
+      fupi:
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.11
 
   redis-2:
     <<: *redis-common
@@ -38,8 +38,8 @@ services:
     ports: ["127.0.0.1:7002:7002"]
     volumes: ["redis-2-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.12
+      fupi:
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.12
 
   redis-3:
     <<: *redis-common
@@ -48,8 +48,8 @@ services:
     ports: ["127.0.0.1:7003:7003"]
     volumes: ["redis-3-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.13
+      fupi:
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.13
 
   redis-4:
     <<: *redis-common
@@ -58,8 +58,8 @@ services:
     ports: ["127.0.0.1:7004:7004"]
     volumes: ["redis-4-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.14
+      fupi:
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.14
 
   redis-5:
     <<: *redis-common
@@ -68,8 +68,8 @@ services:
     ports: ["127.0.0.1:7005:7005"]
     volumes: ["redis-5-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.15
+      fupi:
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.15
 
   redis-6:
     <<: *redis-common
@@ -78,8 +78,8 @@ services:
     ports: ["127.0.0.1:7006:7006"]
     volumes: ["redis-6-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.16
+      fupi:
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.16
 
   redis-single:
     <<: *redis-common
@@ -88,9 +88,9 @@ services:
     ports: ["127.0.0.1:7001:7001"]
     volumes: ["redis-single-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         aliases: [redis-1]
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.11
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.11
 
   redis-init-ha:
     image: redis:8.10.2-alpine
@@ -104,12 +104,12 @@ services:
       redis-5: {condition: service_healthy}
       redis-6: {condition: service_healthy}
     environment:
-      REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
+      REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
       CLUSTER_MODE: ha
-      NET_PREFIX: ${CURTZ_NET_PREFIX:-172.29.0}
+      NET_PREFIX: ${FUPI_NET_PREFIX:-172.29.0}
     entrypoint: ["/bin/sh", "/init-cluster.sh"]
     volumes: ["./init-cluster.sh:/init-cluster.sh:ro"]
-    networks: [curtz]
+    networks: [fupi]
 
   redis-init-single:
     image: redis:8.10.2-alpine
@@ -117,10 +117,10 @@ services:
     restart: "no"
     depends_on:
       redis-single: {condition: service_healthy}
-    environment: {REDIS_ADMIN_PASSWORD: "${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}", CLUSTER_MODE: single}
+    environment: {REDIS_ADMIN_PASSWORD: "${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}", CLUSTER_MODE: single}
     entrypoint: ["/bin/sh", "/init-cluster.sh"]
     volumes: ["./init-cluster.sh:/init-cluster.sh:ro"]
-    networks: [curtz]
+    networks: [fupi]
 
   # One exporter serves both modes: in cluster mode it discovers the other nodes from redis-1.
   redis-exporter:
@@ -129,9 +129,9 @@ services:
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis-1:7001
-      REDIS_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
+      REDIS_PASSWORD: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
       REDIS_EXPORTER_IS_CLUSTER: "true"
-    networks: [curtz]
+    networks: [fupi]
 
 volumes:
   redis-1-data:
@@ -143,5 +143,5 @@ volumes:
   redis-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi

@@ -1,5 +1,5 @@
 groups:
-  - name: curtz-stack
+  - name: fupi-stack
     rules:
       # "no leader" is only meaningful when Patroni members exist, so single mode (no Patroni) never alerts.
       - alert: PatroniNoLeader
@@ -36,7 +36,7 @@ groups:
 
       # Fed by the API's http.server.request.duration histogram (OpenTelemetry, via the collector).
       - alert: RedirectLatencyHigh
-        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="curtz"}[5m]))) > 0.1
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="fupi"}[5m]))) > 0.1
         for: 5m
         labels:
           severity: warning
@@ -46,7 +46,7 @@ groups:
       # Fed by the outbox relay worker's metrics (OpenTelemetry, via the collector). Both are silent when no worker runs:
       # the series are absent, so a stack without the worker never raises them.
       - alert: OutboxBacklogOld
-        expr: max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}) > 300
+        expr: max(outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}) > 300
         for: 2m
         labels:
           severity: warning
@@ -54,7 +54,7 @@ groups:
           summary: The oldest outbox event has been waiting for delivery for more than 5 minutes
 
       - alert: OutboxEventsParked
-        expr: max(outbox_relay_parked_rows{service_name="curtz-worker"}) > 0
+        expr: max(outbox_relay_parked_rows{service_name="fupi-worker"}) > 0
         for: 5m
         labels:
           severity: warning
@@ -64,7 +64,7 @@ groups:
       # Workers are up (they report leader = 0 or 1) but none holds the lease, so no backlog gauge is reported at all and the
       # two alerts above cannot see the stall. Silent when no worker runs: the series are absent.
       - alert: OutboxNoActiveRelay
-        expr: sum(outbox_relay_leader{service_name="curtz-worker"}) == 0
+        expr: sum(outbox_relay_leader{service_name="fupi-worker"}) == 0
         for: 2m
         labels:
           severity: warning

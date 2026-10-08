@@ -3,25 +3,25 @@
 services:
   documentdb:
     image: mongo:4.4.14
-    container_name: curtz-documentdb
+    container_name: fupi-documentdb
     hostname: documentdb
     profiles: [legacy]
     ports:
       - "127.0.0.1:27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: curtzUser
-      MONGO_INITDB_ROOT_PASSWORD: curtzPassword
-      MONGO_INITDB_DATABASE: curtzdb
-      MONGO_INITDB_USER: curtzUser
-      MONGO_INITDB_PASSWORD: curtzPassword
+      MONGO_INITDB_ROOT_USERNAME: fupiUser
+      MONGO_INITDB_ROOT_PASSWORD: fupiPassword
+      MONGO_INITDB_DATABASE: fupidb
+      MONGO_INITDB_USER: fupiUser
+      MONGO_INITDB_PASSWORD: fupiPassword
     volumes:
       - docdb:/data/db
     networks:
-      - curtz
+      - fupi
 
   cache:
     image: redis:7.0.2
-    container_name: curtz-cache
+    container_name: fupi-cache
     hostname: cache
     profiles: [legacy]
     ports:
@@ -29,12 +29,12 @@ services:
     volumes:
       - cache:/data
     networks:
-      - curtz
+      - fupi
 
 volumes:
   docdb:
   cache:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi

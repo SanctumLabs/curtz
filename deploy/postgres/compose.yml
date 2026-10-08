@@ -5,17 +5,17 @@
 #           reads (5433) from writes (5432) works in both modes. It answers to the alias "postgres" too.
 #   migrate and postgres-exporter are shared by both modes and reach the database through "postgres:5432".
 x-pg-env: &pg-env
-  PG_DATABASE: ${PG_DATABASE:-curtzdb}
-  PG_APP_USER: ${PG_APP_USER:-curtz-user}
-  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
-  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-curtz-exporter}
+  PG_DATABASE: ${PG_DATABASE:-fupidb}
+  PG_APP_USER: ${PG_APP_USER:-fupi-user}
+  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-fupi-pass}
+  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-fupi-exporter}
 
 x-patroni-env: &patroni-env
   <<: *pg-env
   PATRONI_SUPERUSER_USERNAME: postgres
-  PATRONI_SUPERUSER_PASSWORD: ${PG_SUPERUSER_PASSWORD:-curtz-postgres-admin}
+  PATRONI_SUPERUSER_PASSWORD: ${PG_SUPERUSER_PASSWORD:-fupi-postgres-admin}
   PATRONI_REPLICATION_USERNAME: replicator
-  PATRONI_REPLICATION_PASSWORD: ${PG_REPLICATION_PASSWORD:-curtz-replication}
+  PATRONI_REPLICATION_PASSWORD: ${PG_REPLICATION_PASSWORD:-fupi-replication}
 
 x-etcd: &etcd
   image: quay.io/coreos/etcd:v3.6.15
@@ -25,7 +25,7 @@ x-patroni: &patroni
   build:
     context: .
     dockerfile: Dockerfile
-  image: curtz-patroni:18.6-4.1.5
+  image: fupi-patroni:18.6-4.1.5
   restart: unless-stopped
   depends_on:
     etcd-1: {condition: service_started}
@@ -51,13 +51,13 @@ services:
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-advertise-peer-urls=http://etcd-1:2380
       - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
-      - --initial-cluster-token=curtz-etcd
+      - --initial-cluster-token=fupi-etcd
       - --initial-cluster-state=new
       - --listen-metrics-urls=http://0.0.0.0:2381
     volumes:
       - etcd-1-data:/etcd-data
     networks:
-      - curtz
+      - fupi
 
   etcd-2:
     <<: *etcd
@@ -71,13 +71,13 @@ services:
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-advertise-peer-urls=http://etcd-2:2380
       - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
-      - --initial-cluster-token=curtz-etcd
+      - --initial-cluster-token=fupi-etcd
       - --initial-cluster-state=new
       - --listen-metrics-urls=http://0.0.0.0:2381
     volumes:
       - etcd-2-data:/etcd-data
     networks:
-      - curtz
+      - fupi
 
   etcd-3:
     <<: *etcd
@@ -91,13 +91,13 @@ services:
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-advertise-peer-urls=http://etcd-3:2380
       - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
-      - --initial-cluster-token=curtz-etcd
+      - --initial-cluster-token=fupi-etcd
       - --initial-cluster-state=new
       - --listen-metrics-urls=http://0.0.0.0:2381
     volumes:
       - etcd-3-data:/etcd-data
     networks:
-      - curtz
+      - fupi
 
   patroni-1:
     <<: *patroni
@@ -113,7 +113,7 @@ services:
       - pgdata-1:/var/lib/postgresql
       - ./patroni.yml:/etc/patroni/patroni.yml:ro
     networks:
-      - curtz
+      - fupi
 
   patroni-2:
     <<: *patroni
@@ -129,7 +129,7 @@ services:
       - pgdata-2:/var/lib/postgresql
       - ./patroni.yml:/etc/patroni/patroni.yml:ro
     networks:
-      - curtz
+      - fupi
 
   patroni-3:
     <<: *patroni
@@ -145,7 +145,7 @@ services:
       - pgdata-3:/var/lib/postgresql
       - ./patroni.yml:/etc/patroni/patroni.yml:ro
     networks:
-      - curtz
+      - fupi
 
   haproxy:
     image: haproxy:3.2.25-alpine
@@ -162,7 +162,7 @@ services:
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
-      curtz:
+      fupi:
         aliases: [postgres]
 
   postgres-single:
@@ -172,7 +172,7 @@ services:
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=200"]
     environment:
       <<: *pg-env
-      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-curtz-postgres-admin}
+      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-fupi-postgres-admin}
     ports:
       - "127.0.0.1:5432:5432"
       - "127.0.0.1:5433:5432"
@@ -185,7 +185,7 @@ services:
       timeout: 3s
       retries: 20
     networks:
-      curtz:
+      fupi:
         aliases: [postgres]
 
   # Applies ./app/internal/adapters/postgres/migrations. Retries until the database accepts connections, so it also
@@ -196,21 +196,21 @@ services:
     restart: "on-failure:10"
     command:
       - "-path=/migrations"
-      - "-database=postgres://${PG_APP_USER:-curtz-user}:${PG_APP_PASSWORD:-curtz-pass}@postgres:5432/${PG_DATABASE:-curtzdb}?sslmode=disable&x-migrations-table=schema_migrations"
+      - "-database=postgres://${PG_APP_USER:-fupi-user}:${PG_APP_PASSWORD:-fupi-pass}@postgres:5432/${PG_DATABASE:-fupidb}?sslmode=disable&x-migrations-table=schema_migrations"
       - "up"
     volumes:
       - ../../app/internal/adapters/postgres/migrations:/migrations:ro
     networks:
-      - curtz
+      - fupi
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.20.1
     profiles: [postgres-ha, postgres-single, core-ha, core-single, full-ha, full-single]
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-curtz-exporter}@postgres:5432/postgres?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-fupi-exporter}@postgres:5432/postgres?sslmode=disable"
     networks:
-      - curtz
+      - fupi
 
 volumes:
   etcd-1-data:
@@ -222,5 +222,5 @@ volumes:
   postgres-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi

@@ -628,7 +628,7 @@ REDIS_MASTER_NAME=curtz-cache
 # .env keeps working. Never reuse any of them outside local development. Values must not contain quotes,
 # backslashes or dollar signs (make infra.config checks this).
 # REDIS_USERNAME and REDIS_PASSWORD above are the application's Redis user.
-CURTZ_NET_PREFIX=172.29.0
+FUPI_NET_PREFIX=172.29.0
 
 KAFKA_CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
 KAFKA_HEAP=512m
@@ -750,8 +750,8 @@ networks:
     # lower half of the subnet; every other container is assigned from the upper half (ip_range).
     ipam:
       config:
-        - subnet: ${CURTZ_NET_PREFIX:-172.29.0}.0/24
-          ip_range: ${CURTZ_NET_PREFIX:-172.29.0}.128/25
+        - subnet: ${FUPI_NET_PREFIX:-172.29.0}.0/24
+          ip_range: ${FUPI_NET_PREFIX:-172.29.0}.128/25
 ```
 
 - [ ] **Step 12: Append the Make plumbing to `.make/docker.mk`**
@@ -1202,8 +1202,8 @@ git commit -m "feat(infra): add Kafka stack with HA and single-node modes" \
 - Modify: `.make/docker.mk` (append `infra.redis.cli`)
 
 **Interfaces:**
-- Consumes: Task 1 (`CURTZ_NET_PREFIX`, `REDIS_ADMIN_PASSWORD`, `REDIS_USERNAME`, `REDIS_PASSWORD`).
-- Produces: services `redis-1..6` on ports `7001..7006` with static IPs `${CURTZ_NET_PREFIX}.11` to `.16` + `redis-init-ha`; `redis-single` (alias `redis-1`, port 7001, IP `.11`) + `redis-init-single`; shared `redis-exporter` (in-network `redis-exporter:9121`). Every node announces its hostname (`redis-N`). Make target `infra.redis.cli`.
+- Consumes: Task 1 (`FUPI_NET_PREFIX`, `REDIS_ADMIN_PASSWORD`, `REDIS_USERNAME`, `REDIS_PASSWORD`).
+- Produces: services `redis-1..6` on ports `7001..7006` with static IPs `${FUPI_NET_PREFIX}.11` to `.16` + `redis-init-ha`; `redis-single` (alias `redis-1`, port 7001, IP `.11`) + `redis-init-single`; shared `redis-exporter` (in-network `redis-exporter:9121`). Every node announces its hostname (`redis-N`). Make target `infra.redis.cli`.
 
 - [ ] **Step 1: Write `deploy/redis/redis.conf`**
 
@@ -1338,7 +1338,7 @@ services:
     volumes: ["redis-1-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
       curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.11
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.11
 
   redis-2:
     <<: *redis-common
@@ -1348,7 +1348,7 @@ services:
     volumes: ["redis-2-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
       curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.12
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.12
 
   redis-3:
     <<: *redis-common
@@ -1358,7 +1358,7 @@ services:
     volumes: ["redis-3-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
       curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.13
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.13
 
   redis-4:
     <<: *redis-common
@@ -1368,7 +1368,7 @@ services:
     volumes: ["redis-4-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
       curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.14
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.14
 
   redis-5:
     <<: *redis-common
@@ -1378,7 +1378,7 @@ services:
     volumes: ["redis-5-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
       curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.15
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.15
 
   redis-6:
     <<: *redis-common
@@ -1388,7 +1388,7 @@ services:
     volumes: ["redis-6-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
       curtz:
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.16
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.16
 
   redis-single:
     <<: *redis-common
@@ -1399,7 +1399,7 @@ services:
     networks:
       curtz:
         aliases: [redis-1]
-        ipv4_address: ${CURTZ_NET_PREFIX:-172.29.0}.11
+        ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.11
 
   redis-init-ha:
     image: redis:8.10.2-alpine
@@ -1415,7 +1415,7 @@ services:
     environment:
       REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
       CLUSTER_MODE: ha
-      NET_PREFIX: ${CURTZ_NET_PREFIX:-172.29.0}
+      NET_PREFIX: ${FUPI_NET_PREFIX:-172.29.0}
     entrypoint: ["/bin/sh", "/init-cluster.sh"]
     volumes: ["./init-cluster.sh:/init-cluster.sh:ro"]
     networks: [curtz]
@@ -4408,7 +4408,7 @@ Edit 1, Redis. `old_string`:
 ```text
 - Cluster state lives in a per-node volume (`nodes.conf`); init jobs are idempotent (skip when
   `cluster_state:ok`).
-- Nodes have **fixed IP addresses** (`${CURTZ_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
+- Nodes have **fixed IP addresses** (`${FUPI_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
   peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `curtz` network
   therefore has an explicit subnet, with other containers drawn from its upper half (`ip_range`).
 ```

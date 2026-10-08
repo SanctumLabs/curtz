@@ -1,4 +1,4 @@
-// Command curtz runs the Curtz HTTP API.
+// Command fupi runs the Fupi HTTP API.
 //
 // Only the Identity bounded context is wired up so far; the URL context follows once its
 // application layer exists.
@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	baseURI = "/api/v1/curtz"
+	baseURI = "/api/v1/fupi"
 
 	// redisStartupPingTimeout bounds the one ping that only decides which startup line is logged.
 	redisStartupPingTimeout = 2 * time.Second
@@ -81,7 +81,7 @@ func main() {
 	err = run(ctx, cfg)
 	stop()
 	if err != nil {
-		slog.Error("curtz stopped", "error", err)
+		slog.Error("fupi stopped", "error", err)
 		os.Exit(1)
 	}
 }

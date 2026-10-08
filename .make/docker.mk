@@ -3,7 +3,7 @@
 ############################################################################################################################################################################################################
 # make arguments that are defaulted
 DOCKER_FILE ?= Dockerfile
-DOCKER_IMAGE_TAG ?= curtz-service
+DOCKER_IMAGE_TAG ?= fupi-service
 
 .PHONY: create.dockerenvfile
 create.dockerenvfile: ## Create a docker environment file
@@ -37,7 +37,7 @@ lint.docker: ## lints the Dockerfile with the rules in hadolint.yaml
 scan.docker: ## scans the image for fixable HIGH and CRITICAL vulnerabilities, building it first if it is missing
 	@if ! docker image inspect $(DOCKER_IMAGE_REF) >/dev/null 2>&1; then $(MAKE) build.docker; fi
 	@dir=$$(mktemp -d) && docker save -o "$$dir/image.tar" $(DOCKER_IMAGE_REF) && \
-		docker run --rm -v "$$dir":/scan:ro -v curtz-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
+		docker run --rm -v "$$dir":/scan:ro -v fupi-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
 		status=$$?; rm -rf "$$dir"; exit $$status
 
 ACTIONLINT_IMAGE ?= rhysd/actionlint:1.7.12
@@ -49,7 +49,7 @@ lint.workflows: ## lints the GitHub workflows (actionlint, pinning rules) and ch
 	docker run --rm -v "$(ROOT_DIR):/repo:ro" -w /repo $(ACTIONLINT_IMAGE) -color
 
 .PHONY: build.docker
-build.docker: ## Build the Docker image with its version metadata, usage: make build.docker DOCKER_IMAGE_TAG=curtz-service
+build.docker: ## Build the Docker image with its version metadata, usage make build.docker DOCKER_IMAGE_TAG=fupi-service
 	@echo "Building Docker image"
 	docker build -f $(DOCKER_FILE) -t $(DOCKER_IMAGE_TAG) \
 		--build-arg VERSION=$(DOCKER_VERSION) \
@@ -58,7 +58,7 @@ build.docker: ## Build the Docker image with its version metadata, usage: make b
 	@echo "Done building Docker image"
 
 .PHONY: push.docker
-push.docker: ## Pushes Docker image if it exists, otherwise it builds it, usage: 'make push.docker DOCKER_IMAGE_TAG=notification-svc', the DOCKER_IMAGE_TAG is optional
+push.docker: ## Pushes Docker image if it exists, otherwise it builds it, usage 'make push.docker DOCKER_IMAGE_TAG=notification-svc', the DOCKER_IMAGE_TAG is optional
 	@if ! docker image inspect $(DOCKER_IMAGE_TAG) >/dev/null 2>&1; then \
 		echo "Docker Image $(DOCKER_IMAGE_TAG) does not exist, building..."; \
 		docker build -f $(DOCKER_FILE) . -t $(DOCKER_IMAGE_TAG); \
@@ -86,7 +86,7 @@ run.docker: create.dockerEnvFile # Run the Docker container
 
 # Ref: https://github.com/slimtoolkit/slim
 .PHONY: slim.dockerxray
-slim.dockerxray: ## Runs an xray command using slim on the docker image, usage: 'make slim.dockerxray DOCKER_IMAGE_TAG=notification-svc', the DOCKER_IMAGE_TAG is optional
+slim.dockerxray: ## Runs an xray command using slim on the docker image, usage 'make slim.dockerxray DOCKER_IMAGE_TAG=notification-svc', the DOCKER_IMAGE_TAG is optional
 	@if ! docker image inspect $(DOCKER_IMAGE_TAG) >/dev/null 2>&1; then \
 		echo ">>> Building Docker image '$(DOCKER_IMAGE_TAG)' as it does not exist locally <<<<"; \
 		docker build -f $(DOCKER_FILE) . -t $(DOCKER_IMAGE_TAG); \
@@ -198,7 +198,7 @@ infra.logs: create.envfile ## Follow logs, usage - make infra.logs SERVICE=kafka
 .PHONY: infra.stats
 infra.stats: create.envfile ## Show memory and CPU of the running infrastructure containers
 	@docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}" \
-		$$(docker ps --filter label=com.docker.compose.project=curtz -q)
+		$$(docker ps --filter label=com.docker.compose.project=fupi -q)
 
 .PHONY: infra.clean
 infra.clean: create.envfile confirm ## Remove every infrastructure container AND volume except the legacy MongoDB and Redis

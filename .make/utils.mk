@@ -42,7 +42,7 @@ buf.generate: ## Generates code from protobuf files
 
 BUF_CLIENTS_TEMPLATE ?= buf.gen.infra.yaml
 .PHONY: buf.generate.clients
-buf.generate.clients: ## Generates gRPC client code from protobuf files for external gRPC services, defaults to buf.gen.infra.yaml template. Usage: make bufGenerateClients BUF_CLIENTS_TEMPLATE=path/to/buf.gen.infra.yaml
+buf.generate.clients: ## Generates gRPC client code from protobuf files for external gRPC services, defaults to buf.gen.infra.yaml template. Usage make bufGenerateClients BUF_CLIENTS_TEMPLATE=path/to/buf.gen.infra.yaml
 	@echo "${GREEN} Generating gRPC Client APIs For external services ${NC}"
 	buf generate --template $(BUF_CLIENTS_TEMPLATE)
 	@echo "${GREEN} Done generating gRPC client APIs for external services ${NC}" 
