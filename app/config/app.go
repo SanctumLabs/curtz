@@ -112,7 +112,7 @@ func LoadServer(lookup Lookup) (ServerSettings, error) {
 		Host:    r.str("SERVER_HOST", "0.0.0.0"),
 		Port:    r.integer("HTTP_PORT", 8085),
 		Header:  r.str("SERVER_HEADER", "Curtz"),
-		Name:    r.str("SERVER_NAME", "Curtz"),
+		Name:    r.str("SERVER_NAME", "Fupi"),
 		Version: r.str("SERVER_VERSION", "1.0.0"),
 		BaseURL: r.str("APP_BASE_URL", "http://localhost:8085"),
 	}

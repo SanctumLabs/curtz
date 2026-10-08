@@ -21,7 +21,7 @@ stages:
 variables:
   GOPATH: $CI_PROJECT_DIR/.go
   GOFLAGS: -buildvcs=false
-  IMAGE_TAG: curtz-service:ci
+  IMAGE_TAG: fupi-service:ci
 
 .go-cache: &go-cache
   cache:
@@ -83,7 +83,7 @@ build:
     - make build
   artifacts:
     paths:
-      - bin/curtz
+      - bin/fupi
     expire_in: 1 week
 
 docker-lint:
@@ -103,10 +103,10 @@ docker-build:
   script:
     - docker build -t "$IMAGE_TAG" --build-arg VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}" --build-arg GIT_COMMIT="$CI_COMMIT_SHA" --build-arg BUILD_TIME="$CI_COMMIT_TIMESTAMP" .
     - scripts/image_test.sh image "$IMAGE_TAG"
-    - docker save -o curtz-image.tar "$IMAGE_TAG"
+    - docker save -o fupi-image.tar "$IMAGE_TAG"
   artifacts:
     paths:
-      - curtz-image.tar
+      - fupi-image.tar
     expire_in: 1 day
 
 # The image is scanned from the saved tar, so the scanner needs no Docker daemon and no shared paths.
@@ -124,4 +124,4 @@ docker-scan:
     paths:
       - .trivycache/
   script:
-    - trivy image --quiet --no-progress --input curtz-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+    - trivy image --quiet --no-progress --input fupi-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1

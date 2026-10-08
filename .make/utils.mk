@@ -56,5 +56,5 @@ buf.dep.update: ## Update Buf dependencies
 .PHONY: generate.open.api.docs
 generate.open.api.docs: ## Generate OpenApi Docs
 	@echo "${GREEN} Generating Open API Docs ${NC}"
-	swag init --generalInfo main.go --dir cmd,api/rest/routes/service/v1/curtz,api/rest/routes/monitoring/health --output api/openapi-spec
+	swag init --generalInfo main.go --dir cmd,api/rest/routes/service/v1/fupi,api/rest/routes/monitoring/health --output api/openapi-spec
 	@echo "${GREEN} Done Generating Open API Docs ${NC}"

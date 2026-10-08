@@ -60,7 +60,7 @@ definitions:
         script:
           - make build
         artifacts:
-          - bin/curtz
+          - bin/fupi
 
     - step: &docker-lint
         name: Lint the Dockerfile
@@ -74,21 +74,21 @@ definitions:
         services:
           - docker
         script:
-          - export IMAGE_TAG=curtz-service:ci
+          - export IMAGE_TAG=fupi-service:ci
           # the docker service builds with the classic builder unless BuildKit is on, and the Dockerfile uses RUN --mount
           - export DOCKER_BUILDKIT=1
           - docker build -t "$IMAGE_TAG" --build-arg VERSION="$(echo "$BITBUCKET_COMMIT" | cut -c1-7)" --build-arg GIT_COMMIT="$BITBUCKET_COMMIT" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
           - scripts/image_test.sh image "$IMAGE_TAG"
-          - docker save -o curtz-image.tar "$IMAGE_TAG"
+          - docker save -o fupi-image.tar "$IMAGE_TAG"
         artifacts:
-          - curtz-image.tar
+          - fupi-image.tar
 
     # The image is scanned from the saved tar, so the scanner needs no Docker daemon and no shared paths.
     - step: &docker-scan
         name: Scan the image
         image: aquasec/trivy:0.75.0
         script:
-          - trivy image --quiet --no-progress --input curtz-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          - trivy image --quiet --no-progress --input fupi-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
 
 pipelines:
   default: &verify

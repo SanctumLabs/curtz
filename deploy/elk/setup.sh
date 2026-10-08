@@ -64,12 +64,12 @@ es -X POST "$ES/_security/user/kibana_system/_password" -d "{\"password\":\"${KI
 
 es -X PUT "$ES/_security/role/logstash_writer" -d '{
   "cluster": ["monitor"],
-  "indices": [{"names": ["logs-curtz-*"], "privileges": ["create_doc", "auto_configure", "view_index_metadata"]}]
+  "indices": [{"names": ["logs-fupi-*"], "privileges": ["create_doc", "auto_configure", "view_index_metadata"]}]
 }' >/dev/null
 # Grafana's datasource health check calls GET / on the cluster, which needs the cluster "monitor" privilege.
 es -X PUT "$ES/_security/role/grafana_reader" -d '{
   "cluster": ["monitor"],
-  "indices": [{"names": ["logs-curtz-*"], "privileges": ["read", "view_index_metadata"]}]
+  "indices": [{"names": ["logs-fupi-*"], "privileges": ["read", "view_index_metadata"]}]
 }' >/dev/null
 es -X PUT "$ES/_security/role/metrics_reader" -d '{
   "cluster": ["monitor"],
@@ -81,19 +81,19 @@ es -X PUT "$ES/_security/user/grafana_reader" -d "{\"password\":\"${GRAFANA_READ
 es -X PUT "$ES/_security/user/metrics_reader" -d "{\"password\":\"${METRICS_READER_PASSWORD}\",\"roles\":[\"metrics_reader\"]}" >/dev/null
 
 echo "installing the ILM policy and the index template"
-es -X PUT "$ES/_ilm/policy/curtz-logs" -d '{
+es -X PUT "$ES/_ilm/policy/fupi-logs" -d '{
   "policy": {"phases": {
     "hot": {"actions": {"rollover": {"max_age": "1d", "max_primary_shard_size": "5gb"}}},
     "delete": {"min_age": "7d", "actions": {"delete": {}}}
   }}
 }' >/dev/null
 
-es -X PUT "$ES/_index_template/logs-curtz" -d "{
-  \"index_patterns\": [\"logs-curtz-*\"],
+es -X PUT "$ES/_index_template/logs-fupi" -d "{
+  \"index_patterns\": [\"logs-fupi-*\"],
   \"data_stream\": {},
   \"priority\": 500,
   \"template\": {
-    \"settings\": {\"index.lifecycle.name\": \"curtz-logs\", \"index.number_of_replicas\": ${REPLICAS}},
+    \"settings\": {\"index.lifecycle.name\": \"fupi-logs\", \"index.number_of_replicas\": ${REPLICAS}},
     \"mappings\": {\"properties\": {
       \"@timestamp\": {\"type\": \"date\"},
       \"message\": {\"type\": \"text\"},

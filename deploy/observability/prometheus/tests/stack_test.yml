@@ -63,19 +63,19 @@ tests:
   - name: Elasticsearch cluster red
     interval: 1m
     input_series:
-      - {series: 'elasticsearch_cluster_health_status{cluster="curtz-logs",color="red"}', values: "1 1 1 1 1"}
-      - {series: 'elasticsearch_cluster_health_status{cluster="curtz-logs",color="green"}', values: "0 0 0 0 0"}
+      - {series: 'elasticsearch_cluster_health_status{cluster="fupi-logs",color="red"}', values: "1 1 1 1 1"}
+      - {series: 'elasticsearch_cluster_health_status{cluster="fupi-logs",color="green"}', values: "0 0 0 0 0"}
     alert_rule_test:
       - eval_time: 4m
         alertname: ElasticsearchClusterRed
         exp_alerts:
-          - exp_labels: {severity: critical, cluster: curtz-logs, color: red}
+          - exp_labels: {severity: critical, cluster: fupi-logs, color: red}
             exp_annotations: {summary: Elasticsearch cluster status is red}
 
   - name: The oldest outbox event has been waiting for more than five minutes
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}', values: "301 400 500 600 700"}
+      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}', values: "301 400 500 600 700"}
     alert_rule_test:
       - eval_time: 4m
         alertname: OutboxBacklogOld
@@ -86,7 +86,7 @@ tests:
   - name: A backlog that is only a minute old is not an alert
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}', values: "60 60 60 60 60"}
+      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}', values: "60 60 60 60 60"}
     alert_rule_test:
       - eval_time: 4m
         alertname: OutboxBacklogOld
@@ -107,7 +107,7 @@ tests:
   - name: Parked outbox events
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_parked_rows{service_name="curtz-worker"}', values: "1 1 1 1 1 1 1"}
+      - {series: 'outbox_relay_parked_rows{service_name="fupi-worker"}', values: "1 1 1 1 1 1 1"}
     alert_rule_test:
       - eval_time: 6m
         alertname: OutboxEventsParked
@@ -118,7 +118,7 @@ tests:
   - name: Nothing parked, so no alert
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_parked_rows{service_name="curtz-worker"}', values: "0 0 0 0 0 0 0"}
+      - {series: 'outbox_relay_parked_rows{service_name="fupi-worker"}', values: "0 0 0 0 0 0 0"}
     alert_rule_test:
       - eval_time: 6m
         alertname: OutboxEventsParked
@@ -127,8 +127,8 @@ tests:
   - name: Workers are up but none of them is the active relay
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-a"}', values: "0 0 0 0 0 0"}
-      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-b"}', values: "0 0 0 0 0 0"}
+      - {series: 'outbox_relay_leader{service_name="fupi-worker",host_name="worker-a"}', values: "0 0 0 0 0 0"}
+      - {series: 'outbox_relay_leader{service_name="fupi-worker",host_name="worker-b"}', values: "0 0 0 0 0 0"}
     alert_rule_test:
       - eval_time: 5m
         alertname: OutboxNoActiveRelay
@@ -139,8 +139,8 @@ tests:
   - name: One active relay and a standby, so no alert
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-a"}', values: "1 1 1 1 1 1"}
-      - {series: 'outbox_relay_leader{service_name="curtz-worker",host_name="worker-b"}', values: "0 0 0 0 0 0"}
+      - {series: 'outbox_relay_leader{service_name="fupi-worker",host_name="worker-a"}', values: "1 1 1 1 1 1"}
+      - {series: 'outbox_relay_leader{service_name="fupi-worker",host_name="worker-b"}', values: "0 0 0 0 0 0"}
     alert_rule_test:
       - eval_time: 5m
         alertname: OutboxNoActiveRelay

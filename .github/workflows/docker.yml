@@ -61,7 +61,7 @@ jobs:
         uses: docker/metadata-action@v6.2.0
         with:
           images: |
-            ${{ secrets.DOCKER_REGISTRY }}/curtz
+            ${{ secrets.DOCKER_REGISTRY }}/fupi
             ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=${{ github.event.workflow_run.head_branch }}
@@ -74,7 +74,7 @@ jobs:
           context: .
           load: true
           push: false
-          tags: curtz-scan:ci
+          tags: fupi-scan:ci
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             GIT_COMMIT=${{ github.event.workflow_run.head_sha }}
@@ -83,12 +83,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Check the image is hardened
-        run: scripts/image_test.sh image curtz-scan:ci
+        run: scripts/image_test.sh image fupi-scan:ci
 
       - name: Scan the image for vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: curtz-scan:ci
+          image-ref: fupi-scan:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'

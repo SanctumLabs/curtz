@@ -212,8 +212,8 @@ expect_calls "redis init (single): does nothing when the slots are already assig
 
 # --- the developer's own .env is checked too, against an allowlist ----------------------------------------------------
 cat >"$tmp/example2.env" <<'EOF'
-REDIS_USERNAME=curtz-svc
-REDIS_PASSWORD=curtz-svc
+REDIS_USERNAME=fupi-svc
+REDIS_PASSWORD=fupi-svc
 LOG_FORMAT="json"
 
 # --- Local infrastructure
@@ -300,12 +300,12 @@ esac
 
 # `docker save <repository>` with no tag exports every tag of the repository, and Trivy rejects a tar with more than one image.
 case "$scan_plan" in
-  *'image.tar" curtz-service:latest'*) pass "scan.docker saves one explicit image reference" ;;
+  *'image.tar" fupi-service:latest'*) pass "scan.docker saves one explicit image reference" ;;
   *) fail "scan.docker saves one explicit image reference" ;;
 esac
-scan_tagged_plan="$(make -n scan.docker DOCKER_IMAGE_TAG=curtz-service:1.2.3 2>/dev/null)"
+scan_tagged_plan="$(make -n scan.docker DOCKER_IMAGE_TAG=fupi-service:1.2.3 2>/dev/null)"
 case "$scan_tagged_plan" in
-  *'image.tar" curtz-service:1.2.3'*) pass "scan.docker keeps a tag that was given" ;;
+  *'image.tar" fupi-service:1.2.3'*) pass "scan.docker keeps a tag that was given" ;;
   *) fail "scan.docker keeps a tag that was given" ;;
 esac
 case "$scan_plan" in *"--no-progress"*) pass "scan.docker keeps the scanner's progress bar out of the log" ;; *) fail "scan.docker keeps the scanner's progress bar out of the log" ;; esac

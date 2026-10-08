@@ -42,5 +42,5 @@ jobs:
         # due to possible limitations of artifact upload size limits, we can allow this failure
         continue-on-error: true
         with:
-          name: curtz-${{ matrix.platform }}
-          path: bin/curtz*
+          name: fupi-${{ matrix.platform }}
+          path: bin/fupi*

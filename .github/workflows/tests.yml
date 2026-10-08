@@ -36,9 +36,9 @@ jobs:
        command: make test.integration
        database-image-name: dhi.io/postgres
        database-image-version: 18-alpine3.23-dev
-       database-name: curtz_database_test
-       database-username: curtz_user
-       database-password: curtz_password
+       database-name: fupi
+       database-username: fupi_user
+       database-password: fupi_password
        database-port: 5432
        database-port-internal: 5432
 
@@ -54,8 +54,8 @@ jobs:
        command: make test.e2e
        database-image-name: dhi.io/postgres
        database-image-version: 18-alpine3.23-dev
-       database-name: curtz_database_test
-       database-username: curtz_user
-       database-password: curtz_password
+       database-name: fupi_database_test
+       database-username: fupi_user
+       database-password: fupi_password
        database-port: 5432
        database-port-internal: 5432

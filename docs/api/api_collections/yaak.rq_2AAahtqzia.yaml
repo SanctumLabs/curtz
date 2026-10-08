@@ -1,8 +1,8 @@
 type: http_request
 model: http_request
-id: rq_Z2nqYcyFeT
-createdAt: 2026-10-08T16:44:46.555774
-updatedAt: 2026-10-08T17:11:49.196896
+id: rq_2AAahtqzia
+createdAt: 2026-10-08T17:31:14.382187
+updatedAt: 2026-10-08T17:31:54.515405
 workspaceId: wk_J5K7834vTe
 folderId: fl_XkNjGBUAiU
 authentication: {}
@@ -10,9 +10,6 @@ authenticationType: null
 body:
   text: |-
     {
-      "username": "janedoe",
-      "first_name": "Jane",
-      "last_name": "Doe",
       "password": "Pas%word134",
       "email": "janedoe@example.com"
     }
@@ -24,10 +21,18 @@ headers:
   value: application/json
   id: pDFW3FHFHM
 method: POST
-name: Register
-sortPriority: 111.1111111111111
-url: ${[ API_BASE_URL_V1 ]}/auth/register
-urlParameters: []
+name: Login
+sortPriority: 111.11311111111112
+url: ${[ API_BASE_URL_V1 ]}/auth/login
+urlParameters:
+- enabled: true
+  name: ''
+  value: ''
+  id: IDKJTdBKWr
+- enabled: true
+  name: ''
+  value: ''
+  id: RqP3MR2zAc
 settingSendCookies:
   enabled: false
   value: true
