@@ -1,4 +1,4 @@
-// Command worker runs the Curtz background worker. Today that is the outbox relay: one leader-elected process that delivers
+// Command worker runs the Fupi background worker. Today that is the outbox relay: one leader-elected process that delivers
 // the transactional outbox (ADR-0011) to Kafka with at-least-once delivery. The API never talks to Kafka (ADR-0015).
 package main
 

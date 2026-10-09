@@ -41,7 +41,7 @@ func TestRun_MigratesTheConfiguredDatabase(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, rec.calls, 1)
-	assert.Contains(t, rec.calls[0].url, "postgres://fupi-user:fupi-pass@db.internal:6432/curtzdb?")
+	assert.Contains(t, rec.calls[0].url, "postgres://fupi-user:fupi-pass@db.internal:6432/fupidb?")
 	assert.Equal(t, "file://"+dir, rec.calls[0].path)
 	assert.False(t, rec.calls[0].inDocker)
 }

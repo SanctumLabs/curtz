@@ -736,7 +736,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8085",
 	BasePath:         "/api/v1/fupi",
 	Schemes:          []string{"http", "https"},
-	Title:            "Curtz API",
+	Title:            "Fupi API",
 	Description:      "URL Shortener Service",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

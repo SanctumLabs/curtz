@@ -17,7 +17,7 @@ func TestConnectionString_UrlWinsWhenSet(t *testing.T) {
 func TestConnectionString_EscapesCredentialsSoTheyRoundTrip(t *testing.T) {
 	password := "p@ss/w:rd?#%x y"
 	cfg := PostgresDatabaseConfig{
-		Host: "db.internal", Port: "5432", Name: "curtzdb",
+		Host: "db.internal", Port: "5432", Name: "fupidb",
 		Username: "fupi user", Password: password,
 		SslMode: "disable", MaxConns: 30, MinConns: 5,
 	}
@@ -29,7 +29,7 @@ func TestConnectionString_EscapesCredentialsSoTheyRoundTrip(t *testing.T) {
 	assert.Equal(t, "fupi user", parsed.ConnConfig.User)
 	assert.Equal(t, "db.internal", parsed.ConnConfig.Host)
 	assert.Equal(t, uint16(5432), parsed.ConnConfig.Port)
-	assert.Equal(t, "curtzdb", parsed.ConnConfig.Database)
+	assert.Equal(t, "fupidb", parsed.ConnConfig.Database)
 	assert.Equal(t, int32(30), parsed.MaxConns)
 	assert.Equal(t, int32(5), parsed.MinConns)
 }

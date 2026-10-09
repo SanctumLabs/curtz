@@ -49,14 +49,14 @@ func NewServer(cfg ServerConfig) *Server {
 		{
 			BasePath: "/",
 			Path:     "docs/v1",
-			FilePath: "./api/openapi-spec/curtz_v1.swagger.json",
-			Title:    "Curtz V1 API Docs",
+			FilePath: "./api/openapi-spec/fupi_v1.swagger.json",
+			Title:    "Fupi V1 API Docs",
 		},
 		{
 			BasePath: "/",
 			Path:     "docs/monitoring",
 			FilePath: "./api/openapi-spec/monitoring.swagger.json",
-			Title:    "Curtz Monitoring API Docs",
+			Title:    "Fupi Monitoring API Docs",
 		},
 	} {
 		if _, err := os.Stat(cfg.FilePath); err != nil {

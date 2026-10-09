@@ -25,14 +25,14 @@ func TestLoad_DefaultsMatchTheLocalStack(t *testing.T) {
 
 	assert.Equal(t, "development", app.Environment)
 	assert.Equal(t, ServerSettings{
-		Host: "0.0.0.0", Port: 8085, Header: "Curtz", Name: "Curtz", Version: "1.0.0", BaseURL: "http://localhost:8085",
+		Host: "0.0.0.0", Port: 8085, Header: "Fupi", Name: "Fupi", Version: "1.0.0", BaseURL: "http://localhost:8085",
 	}, app.Server)
 	assert.Equal(t, 15*time.Second, app.ShutdownTimeout)
 
 	pg := app.Database.Postgres
 	assert.Equal(t, "localhost", pg.Host)
 	assert.Equal(t, "5432", pg.Port, "writes go to the primary on 5432; 5433 is the HA read port")
-	assert.Equal(t, "curtzdb", pg.Name)
+	assert.Equal(t, "fupidb", pg.Name)
 	assert.Equal(t, "fupi-user", pg.Username)
 	assert.Equal(t, "fupi-pass", pg.Password)
 	assert.Equal(t, "disable", pg.SslMode)
@@ -194,14 +194,14 @@ func TestLoad_AcceptsOverriddenSecretsInProduction(t *testing.T) {
 // When DATABASE_URL is set the password lives in the URL, so that is where the development default is rejected.
 func TestLoadDatabase_ChecksThePasswordInsideDatabaseURL(t *testing.T) {
 	_, err := LoadDatabase(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:fupi-pass@db:5432/curtzdb",
+		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:fupi-pass@db:5432/fupidb",
 	}))
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "DATABASE_URL")
 	assert.NotContains(t, err.Error(), "fupi-pass")
 
 	_, err = LoadDatabase(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:a-real-password@db:5432/curtzdb",
+		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:a-real-password@db:5432/fupidb",
 	}))
 	assert.NoError(t, err)
 }
@@ -246,13 +246,13 @@ func TestLoadDatabase_RejectsAHostThatBreaksTheConnectionStringWithoutLeakingThe
 }
 
 func TestLoadDatabase_AcceptsUnixSocketURLsAndRejectsOtherSchemes(t *testing.T) {
-	_, err := LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "postgres:///curtzdb?host=/var/run/postgresql"}))
+	_, err := LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "postgres:///fupidb?host=/var/run/postgresql"}))
 	assert.NoError(t, err, "a unix-socket URL has no host and is valid")
 
-	_, err = LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "postgresql://u:p@db:5432/curtzdb"}))
+	_, err = LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "postgresql://u:p@db:5432/fupidb"}))
 	assert.NoError(t, err)
 
-	_, err = LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "mongodb://u:p@db:27017/curtzdb"}))
+	_, err = LoadDatabase(lookupOf(map[string]string{"DATABASE_URL": "mongodb://u:p@db:27017/fupidb"}))
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "DATABASE_URL")
 }

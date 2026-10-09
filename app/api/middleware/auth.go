@@ -1,4 +1,4 @@
-// Package middleware holds HTTP middleware for the Curtz API.
+// Package middleware holds HTTP middleware for the Fupi API.
 package middleware
 
 import (

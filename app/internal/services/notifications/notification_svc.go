@@ -55,7 +55,7 @@ func (n *NotificationService) SendEmailVerificationNotification(recipient, token
 	if err != nil {
 		baseUrl = n.baseUrl
 	}
-	subject := "Welcome to Curtz, Kindly verify your account"
+	subject := "Welcome to Fupi, Kindly verify your account"
 	message := fmt.Sprintf("Click on link %s/auth/verify/?v=%s to verify account", baseUrl, token)
 	return n.emailSvc.SendEmail(recipient, subject, message)
 }

@@ -22,7 +22,7 @@ func TestNewPostgresClient_LogsThroughTheDefaultSlogLogger(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 
 	_, err := NewPostgresClient(PostgresDatabaseConfig{
-		Host: "127.0.0.1", Port: "1", Name: "curtzdb", Username: "u", Password: "p", SslMode: "disable",
+		Host: "127.0.0.1", Port: "1", Name: "fupidb", Username: "u", Password: "p", SslMode: "disable",
 		MaxConns: 1, ConnTimeout: time.Second,
 	})
 

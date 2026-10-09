@@ -111,7 +111,7 @@ func LoadServer(lookup Lookup) (ServerSettings, error) {
 	settings := ServerSettings{
 		Host:    r.str("SERVER_HOST", "0.0.0.0"),
 		Port:    r.integer("HTTP_PORT", 8085),
-		Header:  r.str("SERVER_HEADER", "Curtz"),
+		Header:  r.str("SERVER_HEADER", "Fupi"),
 		Name:    r.str("SERVER_NAME", "Fupi"),
 		Version: r.str("SERVER_VERSION", "1.0.0"),
 		BaseURL: r.str("APP_BASE_URL", "http://localhost:8085"),
@@ -160,7 +160,7 @@ func LoadDatabase(lookup Lookup) (DatabaseSettings, error) {
 	pg := postgres.PostgresDatabaseConfig{
 		Host:            r.str("DATABASE_HOST", "localhost"),
 		Port:            r.str("DATABASE_PORT", "5432"),
-		Name:            r.str("DATABASE_NAME", "curtzdb"),
+		Name:            r.str("DATABASE_NAME", "fupidb"),
 		Username:        r.str("DATABASE_USERNAME", "fupi-user"),
 		Password:        r.str("DATABASE_PASSWORD", devDatabasePassword),
 		Url:             r.str("DATABASE_URL", ""),

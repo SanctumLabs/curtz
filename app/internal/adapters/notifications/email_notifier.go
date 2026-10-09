@@ -28,7 +28,7 @@ func NewEmailNotifier(baseURL string, sender EmailSender) ports.Notifier {
 }
 
 func (n *emailNotifier) SendEmailVerification(ctx context.Context, recipient, token string) error {
-	subject := "Welcome to Curtz, kindly verify your account"
+	subject := "Welcome to Fupi, kindly verify your account"
 	body := fmt.Sprintf("Click on link %s/auth/verify?v=%s to verify your account", n.baseURL, token)
 
 	if err := n.sender.SendEmail(ctx, recipient, subject, body); err != nil {
