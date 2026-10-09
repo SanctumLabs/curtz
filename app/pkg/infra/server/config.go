@@ -20,6 +20,8 @@ type (
 		AppName     string `env:"SERVER_NAME" env-required:"false" env-description:"Application name" env-default:"Bids Service"`
 		Version     string `env:"SERVER_VERSION" env-required:"false" env-description:"Application Version" env-default:"1.0.0"`
 		Environment string `env:"ENVIRONMENT" env-required:"false" env-description:"Application Environment" env-default:"production"`
+		// ProbePaths are the health probe routes. They get no span and no metric, and their access log line is debug level.
+		ProbePaths []string
 	}
 
 	GrpcServerConfig struct {

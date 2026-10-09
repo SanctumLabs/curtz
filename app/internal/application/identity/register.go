@@ -24,7 +24,10 @@ type RegisterCommand struct {
 // Register creates a new user, persists them, and sends a verification email.
 //
 // The user is created INACTIVE and becomes ACTIVE only once VerifyEmail succeeds.
-func (svc *Service) Register(ctx context.Context, cmd RegisterCommand) (identity.User, error) {
+func (svc *Service) Register(ctx context.Context, cmd RegisterCommand) (_ identity.User, err error) {
+	ctx, span := svc.startUseCase(ctx, "Register")
+	defer func() { endUseCase(span, err) }()
+
 	handlerLogPrefix := fmt.Sprintf("%s<Register>", svc.logPrefix)
 
 	passwordHash, hashErr := utils.HashPassword(cmd.Password)

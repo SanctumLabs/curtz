@@ -183,6 +183,10 @@ type OutboxEvent struct {
 	// When the outbox event was sent out. Null if not sent out yet
 	SentTime     pgtype.Timestamptz `db:"sent_time" json:"sent_time"`
 	ProcessingAt pgtype.Timestamptz `db:"processing_at" json:"processing_at"`
+	// Times the broker permanently rejected this event; transient failures are not counted
+	Attempts int32 `db:"attempts" json:"attempts"`
+	// When the relay gave up on this event after the maximum number of attempts; null if not parked
+	ParkedAt pgtype.Timestamptz `db:"parked_at" json:"parked_at"`
 	// Timestamp when the outbox event was created
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	// Timestamp when the outbox event was last updated

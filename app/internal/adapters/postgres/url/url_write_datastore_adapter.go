@@ -97,6 +97,9 @@ func (repo *urlWriteDatastoreAdapter) Save(ctx context.Context, urlEntity url.UR
 				"original_url", originalUrl.Value(),
 				"error", createdUrlErr,
 			)
+			if conflictErr := asConflict(createdUrlErr); conflictErr != nil {
+				return url.URL{}, conflictErr
+			}
 			return url.URL{}, fmt.Errorf("failed to create URL: %w", createdUrlErr)
 		}
 

@@ -24,7 +24,6 @@ func NewGrpcServer(cfg GrpcServerConfig) *GrpcServer {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			interceptors.GrpcServerTracingInterceptor(),
-			interceptors.GrpcServerMetricsInterceptor(),
 			interceptors.GrpcServerRecoveryUnaryInterceptor(),
 		),
 	)

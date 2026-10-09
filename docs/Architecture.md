@@ -4,7 +4,7 @@ There are a couple of components of the overal architecture that are just as imp
 
 Below is a diagram with the components at a high level.
 
-![architecture](./images/Curtz-Architecture.png)
+![architecture](./images/Fupi-Architecture.png)
 
 ## Cache
 
@@ -166,4 +166,4 @@ The [services](../app/internal/services/) package contains sub packages that han
 
 [server](../app/server/) package contains the server or infrastracture code that is used to setup the application to run. This has been setup in a way that allows switching out the underlying framework preventing the proverbial _lock in_.
 
-Finally, the [cmd](../app/cmd/) package contains the entry point of the application where everything is wired up together to form the **Curtz** application.
+Finally, the [cmd](../app/cmd/) package contains the entry point of the application where everything is wired up together to form the **Fupi** application.

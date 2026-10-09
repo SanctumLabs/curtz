@@ -42,7 +42,7 @@ buf.generate: ## Generates code from protobuf files
 
 BUF_CLIENTS_TEMPLATE ?= buf.gen.infra.yaml
 .PHONY: buf.generate.clients
-buf.generate.clients: ## Generates gRPC client code from protobuf files for external gRPC services, defaults to buf.gen.infra.yaml template. Usage: make bufGenerateClients BUF_CLIENTS_TEMPLATE=path/to/buf.gen.infra.yaml
+buf.generate.clients: ## Generates gRPC client code from protobuf files for external gRPC services, defaults to buf.gen.infra.yaml template. Usage make bufGenerateClients BUF_CLIENTS_TEMPLATE=path/to/buf.gen.infra.yaml
 	@echo "${GREEN} Generating gRPC Client APIs For external services ${NC}"
 	buf generate --template $(BUF_CLIENTS_TEMPLATE)
 	@echo "${GREEN} Done generating gRPC client APIs for external services ${NC}" 
@@ -56,5 +56,5 @@ buf.dep.update: ## Update Buf dependencies
 .PHONY: generate.open.api.docs
 generate.open.api.docs: ## Generate OpenApi Docs
 	@echo "${GREEN} Generating Open API Docs ${NC}"
-	swag init --generalInfo main.go --dir cmd,api/rest/routes/service/v1/curtz,api/rest/routes/monitoring/health --output api/openapi-spec
+	swag init --generalInfo main.go --dir cmd,api/rest/routes/service/v1/fupi,api/rest/routes/monitoring/health --output api/openapi-spec
 	@echo "${GREEN} Done Generating Open API Docs ${NC}"

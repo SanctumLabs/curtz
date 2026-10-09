@@ -64,7 +64,6 @@ func DefaultPostgresDatabaseConfig(host, port, connectionString string) postgres
 		Name:        TEST_DATABASE_NAME,
 		Port:        port,
 		Url:         connectionString,
-		Schema:      TEST_DATABASE_SCHEMA,
 		MaxConns:    TEST_DATABASE_MAX_CONNS,
 		MinConns:    TEST_DATABASE_MIN_CONNS,
 		ConnTimeout: TEST_DATABASE_CONN_TIMEOUT,

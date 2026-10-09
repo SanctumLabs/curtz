@@ -11,7 +11,7 @@ var (
 	ErrServerError                  = errors.New("unexpected error encountered in server side")
 	ErrInvalidURL                   = errors.New("url '%s' is invalid")
 	ErrFilteredURL                  = errors.New("url '%s' matches filter pattern")
-	ErrURLAlreadyExists             = errors.New("url '%s' matches filter pattern")
+	ErrURLAlreadyExists             = errors.New("url '%s' has already been shortened")
 	ErrURLNotFound                  = errors.New("url '%s' not found")
 	ErrURLExpired                   = errors.New("url expired")
 	ErrEmailInvalid                 = errors.New("email %s' is invalid")
