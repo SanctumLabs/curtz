@@ -96,7 +96,7 @@ func LoadKafka(lookup Lookup) (KafkaSettings, error) {
 	r := newReader(lookup)
 	settings := KafkaSettings{
 		Brokers:        splitList(r.str("KAFKA_BROKERS", "localhost:19092")),
-		ClientID:       r.str("KAFKA_CLIENT_ID", "curtz-worker"),
+		ClientID:       r.str("KAFKA_CLIENT_ID", "fupi-worker"),
 		PublishTimeout: r.units("KAFKA_PUBLISH_TIMEOUT", 10, time.Second),
 	}
 	if len(settings.Brokers) == 0 {

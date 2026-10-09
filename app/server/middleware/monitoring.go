@@ -5,7 +5,7 @@ package middleware
 import (
 	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/fupi/app/config"
 )
 
 func NewMonitoringMiddleware(config config.MonitoringConfig) Middleware {

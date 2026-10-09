@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const instrumentationName = "github.com/sanctumlabs/curtz/app/pkg/infra/server/middleware"
+const instrumentationName = "github.com/sanctumlabs/fupi/app/pkg/infra/server/middleware"
 
 // OTelConfig configures OTelMiddleware. The zero value uses the global tracer provider, meter provider and propagator,
 // which is what the running API wants; tests inject their own.

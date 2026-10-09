@@ -8,7 +8,7 @@ schemes:
   - http
   - https   
 host: localhost:8085
-basePath: /api/v1/curtz
+basePath: /api/v1/fupi
 paths:
   /auth/register:
     post:

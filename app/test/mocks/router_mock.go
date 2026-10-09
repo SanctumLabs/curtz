@@ -11,7 +11,7 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	gomock "github.com/golang/mock/gomock"
-	router "github.com/sanctumlabs/curtz/app/server/router"
+	router "github.com/sanctumlabs/fupi/app/server/router"
 )
 
 // MockRouter is a mock of Router interface.

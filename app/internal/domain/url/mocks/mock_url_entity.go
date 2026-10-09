@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/go-faker/faker/v4"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/domain/url"
-	timeutils "github.com/sanctumlabs/curtz/app/pkg/utils/time"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/domain/url"
+	timeutils "github.com/sanctumlabs/fupi/app/pkg/utils/time"
 )
 
 // base62Alphabet is the character set shared by the ShortCode and CustomAlias value objects.

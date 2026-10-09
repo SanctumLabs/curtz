@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	entities "github.com/sanctumlabs/curtz/app/internal/core/entities"
-	identifier "github.com/sanctumlabs/curtz/app/pkg/identifier"
+	entities "github.com/sanctumlabs/fupi/app/internal/core/entities"
+	identifier "github.com/sanctumlabs/fupi/app/pkg/identifier"
 )
 
 // MockUserService is a mock of UserService interface.

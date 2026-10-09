@@ -25,9 +25,9 @@ func TestStart_PassesTheOptionsOn(t *testing.T) {
 		return func(context.Context) error { return nil }, nil
 	})
 
-	Start(context.Background(), Options{ServiceName: "curtz-worker", ServiceVersion: "1.2.3", Environment: "staging"})()
+	Start(context.Background(), Options{ServiceName: "fupi-worker", ServiceVersion: "1.2.3", Environment: "staging"})()
 
-	assert.Equal(t, Options{ServiceName: "curtz-worker", ServiceVersion: "1.2.3", Environment: "staging"}, got)
+	assert.Equal(t, Options{ServiceName: "fupi-worker", ServiceVersion: "1.2.3", Environment: "staging"}, got)
 }
 
 // The run context is cancelled by the SIGTERM that starts the shutdown, so a flush that reused it would give up at once.

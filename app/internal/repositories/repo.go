@@ -5,10 +5,10 @@ package repositories
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/internal/repositories/userepo"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
-	"github.com/sanctumlabs/curtz/app/tools/monitoring"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/internal/repositories/userepo"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/tools/monitoring"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"

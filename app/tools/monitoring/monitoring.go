@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
 )
 
 var log = logger.NewLogger("monitoring")

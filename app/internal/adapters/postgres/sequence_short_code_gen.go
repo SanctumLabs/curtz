@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sanctumlabs/curtz/app/internal/domain/url"
+	"github.com/sanctumlabs/fupi/app/internal/domain/url"
 )
 
 // PostgreSQL sequence-backed implementation

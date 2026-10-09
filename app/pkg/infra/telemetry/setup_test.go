@@ -133,7 +133,7 @@ func TestSetup_ExportsSpansAndMetricsOnShutdownWithTheServiceResource(t *testing
 	name, _ := resourceAttribute(attrs, "service.name")
 	version, _ := resourceAttribute(attrs, "service.version")
 	environment, _ := resourceAttribute(attrs, "deployment.environment.name")
-	assert.Equal(t, "curtz", name, "the service name defaults to curtz: the dashboard filters on it")
+	assert.Equal(t, "fupi", name, "the service name defaults to fupi: the dashboard filters on it")
 	assert.Equal(t, "1.2.3", version)
 	assert.Equal(t, "test", environment)
 	for _, key := range []string{"process.pid", "process.command_args", "process.owner"} {
@@ -146,7 +146,7 @@ func TestSetup_ExportsSpansAndMetricsOnShutdownWithTheServiceResource(t *testing
 	for _, request := range c.metricRequests() {
 		for _, resourceMetrics := range request.GetResourceMetrics() {
 			metricName, _ := resourceAttribute(resourceMetrics.GetResource().GetAttributes(), "service.name")
-			assert.Equal(t, "curtz", metricName)
+			assert.Equal(t, "fupi", metricName)
 			for _, scope := range resourceMetrics.GetScopeMetrics() {
 				for _, m := range scope.GetMetrics() {
 					metricNames = append(metricNames, m.GetName())
@@ -184,14 +184,14 @@ func TestSetup_TheEnvironmentOverridesTheDefaults(t *testing.T) {
 	assert.Equal(t, "1.2.3", version, "what the environment does not set keeps the application's value")
 }
 
-// The worker passes its own service name; the API passes none and keeps "curtz". The variable still wins over both.
+// The worker passes its own service name; the API passes none and keeps "fupi". The variable still wins over both.
 func TestSetup_TheApplicationsServiceNameIsTheDefaultAndTheEnvironmentStillWins(t *testing.T) {
 	for name, tc := range map[string]struct {
 		env, option, want string
 	}{
-		"no option, no variable": {"", "", "curtz"},
-		"option only":            {"", "curtz-worker", "curtz-worker"},
-		"variable beats option":  {"billing", "curtz-worker", "billing"},
+		"no option, no variable": {"", "", "fupi"},
+		"option only":            {"", "fupi-worker", "fupi-worker"},
+		"variable beats option":  {"billing", "fupi-worker", "billing"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			c, endpoint := startCollector(t)

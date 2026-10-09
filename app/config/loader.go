@@ -14,9 +14,9 @@ const (
 	environmentTest        = "test"
 
 	// The development defaults. They match the local infrastructure stack and are refused outside development and test.
-	devAuthSecret       = "curtz-secret"
-	devDatabasePassword = "curtz-pass"
-	devRedisPassword    = "curtz-svc"
+	devAuthSecret       = "fupi-secret"
+	devDatabasePassword = "fupi-pass"
+	devRedisPassword    = "fupi-svc"
 )
 
 // Lookup reads one environment variable. os.LookupEnv satisfies it; tests pass a map.

@@ -1,10 +1,11 @@
 package logger
 
 import (
-	"github.com/sanctumlabs/curtz/app/pkg"
-	"github.com/sirupsen/logrus"
 	"os"
 	"time"
+
+	"github.com/sanctumlabs/fupi/app/pkg"
+	"github.com/sirupsen/logrus"
 )
 
 type appLogger struct {

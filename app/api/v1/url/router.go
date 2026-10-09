@@ -5,8 +5,8 @@ package url
 import (
 	"fmt"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
-	"github.com/sanctumlabs/curtz/app/server/router"
+	"github.com/sanctumlabs/fupi/app/internal/core/contracts"
+	"github.com/sanctumlabs/fupi/app/server/router"
 )
 
 // urlRouter is a router for the url API.

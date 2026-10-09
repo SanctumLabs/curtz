@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

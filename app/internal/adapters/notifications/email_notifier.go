@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 )
 
 // EmailSender sends a single email. Splitting it out keeps the verification-link wording in the

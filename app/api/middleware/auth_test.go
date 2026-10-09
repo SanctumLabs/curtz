@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,7 +37,7 @@ func newTestApp(config AuthConfig) *fiber.App {
 		return ctx.SendString("anonymous")
 	}
 	app.Get("/protected", handler)
-	app.Get("/api/v1/curtz/auth/login", handler)
+	app.Get("/api/v1/fupi/auth/login", handler)
 	app.Get("/health", handler)
 	app.Get("/docs/v1", handler)
 	app.Get("/abc123", handler)
@@ -47,7 +47,7 @@ func newTestApp(config AuthConfig) *fiber.App {
 func testConfig() AuthConfig {
 	return AuthConfig{
 		TokenService:   stubTokenService{validToken: "good-token", userID: "user-42"},
-		PublicPaths:    []string{"/api/v1/curtz/auth/login", "/health"},
+		PublicPaths:    []string{"/api/v1/fupi/auth/login", "/health"},
 		PublicPrefixes: []string{"/docs/"},
 	}
 }
@@ -122,7 +122,7 @@ func TestAuthMiddleware_Rejects(t *testing.T) {
 func TestAuthMiddleware_SkipsPublicPaths(t *testing.T) {
 	app := newTestApp(testConfig())
 
-	for _, path := range []string{"/api/v1/curtz/auth/login", "/health"} {
+	for _, path := range []string{"/api/v1/fupi/auth/login", "/health"} {
 		t.Run(path, func(t *testing.T) {
 			resp, err := app.Test(httptest.NewRequest("GET", path, nil))
 			require.NoError(t, err)

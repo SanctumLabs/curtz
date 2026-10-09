@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-const instrumentationName = "github.com/sanctumlabs/curtz/app/internal/application/outbox"
+const instrumentationName = "github.com/sanctumlabs/fupi/app/internal/application/outbox"
 
 // metrics are the relay's instruments. The backlog numbers are sampled by the leader every few seconds and read by the
 // gauges' callbacks; the oldest event's age is computed when it is read, so it keeps growing between samples.

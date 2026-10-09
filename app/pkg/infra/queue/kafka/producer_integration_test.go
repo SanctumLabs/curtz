@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
-	"github.com/sanctumlabs/curtz/app/test"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"

@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/app/test/mocks"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/test/mocks"
 )
 
 type testCase struct {
@@ -24,7 +24,7 @@ var authConfig = config.AuthConfig{
 		Secret:             "jwt-secret",
 		ExpireDelta:        5,
 		RefreshExpireDelta: 1,
-		Issuer:             "curtz-test",
+		Issuer:             "fupi-test",
 	},
 }
 

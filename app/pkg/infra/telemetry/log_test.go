@@ -39,7 +39,7 @@ func logLine(t *testing.T, buf *bytes.Buffer) map[string]any {
 
 func TestNewLogger_JSONCarriesTheKeysTheELKPipelineMaps(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(spanContext(t, trace.FlagsSampled), "hello", "user", "u-1")
 
@@ -47,7 +47,7 @@ func TestNewLogger_JSONCarriesTheKeysTheELKPipelineMaps(t *testing.T) {
 	assert.Equal(t, "hello", line["msg"])
 	assert.Equal(t, "INFO", line["level"])
 	assert.NotEmpty(t, line["time"])
-	assert.Equal(t, "curtz", line["service"])
+	assert.Equal(t, "fupi", line["service"])
 	assert.Equal(t, "u-1", line["user"])
 	assert.Equal(t, testTraceID, line["trace_id"])
 	assert.Equal(t, testSpanID, line["span_id"])
@@ -55,7 +55,7 @@ func TestNewLogger_JSONCarriesTheKeysTheELKPipelineMaps(t *testing.T) {
 
 func TestNewLogger_OmitsTheIDsWithoutASpan(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(context.Background(), "no span")
 	logger.Info("no context at all")
@@ -63,14 +63,14 @@ func TestNewLogger_OmitsTheIDsWithoutASpan(t *testing.T) {
 	for _, raw := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
 		assert.NotContains(t, raw, "trace_id")
 		assert.NotContains(t, raw, "span_id")
-		assert.Contains(t, raw, `"service":"curtz"`)
+		assert.Contains(t, raw, `"service":"fupi"`)
 	}
 }
 
 // A span that was sampled out still has IDs, and the log line is still worth finding by them.
 func TestNewLogger_AddsTheIDsOfAnUnsampledSpanToo(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(spanContext(t, 0), "sampled out")
 
@@ -80,7 +80,7 @@ func TestNewLogger_AddsTheIDsOfAnUnsampledSpanToo(t *testing.T) {
 // slog.With wraps the handler through WithAttrs; a wrapper that forgot to wrap its result would silently stop adding IDs.
 func TestNewLogger_DerivedLoggersKeepAddingTheIDs(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.With("component", "x").WithGroup("g").InfoContext(spanContext(t, trace.FlagsSampled), "derived", "k", "v")
 
@@ -95,7 +95,7 @@ func TestNewLogger_DerivedLoggersKeepAddingTheIDs(t *testing.T) {
 
 func TestNewLogger_HonoursTheLevel(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelWarn, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelWarn, "fupi")
 
 	logger.Info("dropped")
 	logger.Debug("dropped")
@@ -107,22 +107,22 @@ func TestNewLogger_HonoursTheLevel(t *testing.T) {
 
 func TestNewLogger_TextFormatIsForTerminals(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "text", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "text", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(spanContext(t, trace.FlagsSampled), "hello")
 
 	out := buf.String()
 	assert.False(t, strings.HasPrefix(out, "{"), "text format must not be JSON: %s", out)
 	assert.Contains(t, out, "msg=hello")
-	assert.Contains(t, out, "service=curtz")
+	assert.Contains(t, out, "service=fupi")
 	assert.Contains(t, out, "trace_id="+testTraceID)
 }
 
 func TestServiceName(t *testing.T) {
 	t.Setenv("OTEL_SERVICE_NAME", "")
-	assert.Equal(t, "curtz", ServiceName(DefaultServiceName), "an empty value counts as unset")
-	assert.Equal(t, "curtz-worker", ServiceName("curtz-worker"))
+	assert.Equal(t, "fupi", ServiceName(DefaultServiceName), "an empty value counts as unset")
+	assert.Equal(t, "fupi-worker", ServiceName("fupi-worker"))
 
-	t.Setenv("OTEL_SERVICE_NAME", "  curtz-api ")
-	assert.Equal(t, "curtz-api", ServiceName("curtz-worker"), "the variable wins over the fallback")
+	t.Setenv("OTEL_SERVICE_NAME", "  fupi-api ")
+	assert.Equal(t, "fupi-api", ServiceName("fupi-worker"), "the variable wins over the fallback")
 }

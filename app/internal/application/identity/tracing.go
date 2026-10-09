@@ -3,13 +3,13 @@ package identityapp
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
-const instrumentationName = "github.com/sanctumlabs/curtz/app/internal/application/identity"
+const instrumentationName = "github.com/sanctumlabs/fupi/app/internal/application/identity"
 
 // startUseCase starts the span of one use case, named identity.<useCase>, as a child of the request's span.
 func (svc *Service) startUseCase(ctx context.Context, useCase string) (context.Context, trace.Span) {

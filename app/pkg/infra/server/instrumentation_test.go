@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
@@ -34,7 +34,7 @@ func instrumented(t *testing.T, routes ...router.Route) (*Server, *tracetest.InM
 
 	var logs bytes.Buffer
 	previousLogger := slog.Default()
-	slog.SetDefault(telemetry.NewLogger(&logs, "json", slog.LevelInfo, "curtz-test"))
+	slog.SetDefault(telemetry.NewLogger(&logs, "json", slog.LevelInfo, "fupi-test"))
 
 	t.Cleanup(func() {
 		slog.SetDefault(previousLogger)
@@ -43,7 +43,7 @@ func instrumented(t *testing.T, routes ...router.Route) (*Server, *tracetest.InM
 		_ = provider.Shutdown(context.Background())
 	})
 
-	srv := NewServer(ServerConfig{AppName: "curtz-test", ProbePaths: []string{"/health", "/health/ready"}})
+	srv := NewServer(ServerConfig{AppName: "fupi-test", ProbePaths: []string{"/health", "/health/ready"}})
 	srv.RegisterHandlers([]router.Router{stubRouter{routes: routes}})
 	return srv, exporter, &logs
 }
@@ -100,7 +100,7 @@ func TestNewServer_ProbesAreNeitherTracedNorLoggedAtInfo(t *testing.T) {
 
 // The Fiber monitor page was unauthenticated, exposed runtime statistics and was not Prometheus. Metrics leave over OTLP.
 func TestNewServer_DoesNotServeAMetricsPage(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 
 	resp, err := srv.App().Test(httptest.NewRequest("GET", "/metrics", nil))
 	require.NoError(t, err)

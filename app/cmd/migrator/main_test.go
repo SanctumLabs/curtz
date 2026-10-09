@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/fupi/app/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +41,7 @@ func TestRun_MigratesTheConfiguredDatabase(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, rec.calls, 1)
-	assert.Contains(t, rec.calls[0].url, "postgres://curtz-user:curtz-pass@db.internal:6432/curtzdb?")
+	assert.Contains(t, rec.calls[0].url, "postgres://fupi-user:fupi-pass@db.internal:6432/curtzdb?")
 	assert.Equal(t, "file://"+dir, rec.calls[0].path)
 	assert.False(t, rec.calls[0].inDocker)
 }

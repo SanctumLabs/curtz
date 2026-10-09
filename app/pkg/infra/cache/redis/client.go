@@ -8,7 +8,7 @@ import (
 	"github.com/google/wire"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	redisGo "github.com/redis/go-redis/v9"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/cache"
 )
 
 const _statsEnabled = true

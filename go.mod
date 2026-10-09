@@ -1,4 +1,4 @@
-module github.com/sanctumlabs/curtz
+module github.com/sanctumlabs/fupi
 
 go 1.26.0
 

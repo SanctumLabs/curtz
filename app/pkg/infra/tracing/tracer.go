@@ -3,7 +3,7 @@ package tracing
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
 	"go.opentelemetry.io/otel/trace"
 )
 

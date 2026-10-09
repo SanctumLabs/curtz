@@ -9,7 +9,7 @@ import (
 	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
 )
 
 type (

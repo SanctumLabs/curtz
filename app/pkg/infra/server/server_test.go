@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +24,7 @@ import (
 // a reason to take the service down.
 func TestNewServer_StartsWithoutSwaggerSpecs(t *testing.T) {
 	require.NotPanics(t, func() {
-		srv := NewServer(ServerConfig{Port: 0, AppName: "curtz-test"})
+		srv := NewServer(ServerConfig{Port: 0, AppName: "fupi-test"})
 		require.NotNil(t, srv)
 		require.NotNil(t, srv.App())
 	})
@@ -35,7 +35,7 @@ type stubRouter struct{ routes []router.Route }
 func (s stubRouter) Routes() []router.Route { return s.routes }
 
 func TestServer_RegisterHandlers(t *testing.T) {
-	srv := NewServer(ServerConfig{Port: 0, AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{Port: 0, AppName: "fupi-test"})
 	srv.RegisterHandlers([]router.Router{
 		stubRouter{routes: []router.Route{
 			router.NewGetRoute("/ping", func(ctx *fiber.Ctx) error {
@@ -50,7 +50,7 @@ func TestServer_RegisterHandlers(t *testing.T) {
 }
 
 func TestServer_UseRegistersMiddleware(t *testing.T) {
-	srv := NewServer(ServerConfig{Port: 0, AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{Port: 0, AppName: "fupi-test"})
 
 	called := false
 	srv.Use(func(ctx *fiber.Ctx) error {
@@ -86,7 +86,7 @@ func waitFor(t *testing.T, ch <-chan struct{}, what string) {
 
 // Cancelling the context calls onDrain first, lets the in-flight request finish, and only then returns.
 func TestServe_FinishesInFlightRequestsBeforeReturning(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 	started := make(chan struct{})
 	release := make(chan struct{})
 	srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
@@ -141,7 +141,7 @@ func TestServe_FinishesInFlightRequestsBeforeReturning(t *testing.T) {
 
 // A request that never finishes must not hold the process forever: shutdown gives up at the timeout and says so.
 func TestServe_ReturnsAnErrorWhenInFlightRequestsOutlastTheTimeout(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 	started := make(chan struct{})
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
@@ -179,7 +179,7 @@ func (failingListener) Accept() (net.Conn, error) { return nil, errors.New("acce
 // fasthttp reports a listener that was merely closed as a clean stop, so a listener failure has to be a permanent
 // accept error to reach the caller.
 func TestServe_ReturnsTheListenerError(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 	ln := listenOnFreePort(t)
 	t.Cleanup(func() { _ = ln.Close() })
 
@@ -215,7 +215,7 @@ func TestServe_LogsTheShutdown(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(out, nil)))
 	t.Cleanup(func() { slog.SetDefault(previous) })
 
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 	srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
 		router.NewGetRoute("/ping", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusNoContent) }),
 	}}})
@@ -244,7 +244,7 @@ func TestServe_LogsTheShutdown(t *testing.T) {
 // A context that is already cancelled (a SIGTERM during startup) must not leave a server accepting connections behind
 // a Serve that has returned: the caller is about to close the databases.
 func TestServe_AContextCancelledBeforeServingStopsTheServer(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 	ln := listenOnFreePort(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -261,7 +261,7 @@ func TestServe_AContextCancelledBeforeServingStopsTheServer(t *testing.T) {
 // Cancelling while the listener is still being registered races with startup: Serve must still end with the port closed.
 func TestServe_ACancelDuringStartupStillClosesThePort(t *testing.T) {
 	for i := range 20 {
-		srv := NewServer(ServerConfig{AppName: "curtz-test"})
+		srv := NewServer(ServerConfig{AppName: "fupi-test"})
 		ln := listenOnFreePort(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		served := make(chan error, 1)

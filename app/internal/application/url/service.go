@@ -1,8 +1,8 @@
 package urlapp
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/domain/url"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/domain/url"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )

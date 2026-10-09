@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 )
 
 // DefaultCheckTimeout bounds each dependency check, so a hung dependency cannot hang the readiness endpoint.

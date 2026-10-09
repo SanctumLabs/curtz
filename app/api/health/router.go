@@ -3,7 +3,7 @@
 package health
 
 import (
-	router2 "github.com/sanctumlabs/curtz/app/server/router"
+	router2 "github.com/sanctumlabs/fupi/app/server/router"
 )
 
 // healthRouter is a router to talk to when we are checking health of the api

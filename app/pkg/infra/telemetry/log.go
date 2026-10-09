@@ -11,7 +11,7 @@ import (
 )
 
 // DefaultServiceName is the service name of the API when OTEL_SERVICE_NAME is not set.
-const DefaultServiceName = "curtz"
+const DefaultServiceName = "fupi"
 
 // ServiceName is the name this process reports: OTEL_SERVICE_NAME, or fallback when it is not set. The log lines and the
 // telemetry resource both use it, so a log line and the trace it belongs to name the same service.

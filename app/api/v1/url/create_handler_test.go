@@ -13,9 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/app/test/utils"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/test/utils"
 	"github.com/stretchr/testify/assert"
 )
 

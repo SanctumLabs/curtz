@@ -3,7 +3,7 @@ package urlmock
 import (
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/internal/domain/url"
+	"github.com/sanctumlabs/fupi/app/internal/domain/url"
 )
 
 // TestMockUrl_AlwaysBuildsAValidUrl pins down three separate ways MockUrl used to fail at random:

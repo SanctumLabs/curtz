@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sanctumlabs/curtz/app/test"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -14,9 +14,9 @@ import (
 	reflect "reflect"
 	time "time"
 
-	repository "github.com/sanctumlabs/curtz/app/internal/core/ports/repository"
-	url "github.com/sanctumlabs/curtz/app/internal/domain/url"
-	common "github.com/sanctumlabs/curtz/app/internal/pkg/common"
+	repository "github.com/sanctumlabs/fupi/app/internal/core/ports/repository"
+	url "github.com/sanctumlabs/fupi/app/internal/domain/url"
+	common "github.com/sanctumlabs/fupi/app/internal/pkg/common"
 	gomock "go.uber.org/mock/gomock"
 )
 

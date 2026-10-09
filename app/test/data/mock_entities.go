@@ -3,7 +3,7 @@
 package data
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
 )
 
 // MockUser creates a mock user given an email and a password

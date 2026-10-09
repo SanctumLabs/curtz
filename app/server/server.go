@@ -4,11 +4,11 @@ package server
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/config"
-	_ "github.com/sanctumlabs/curtz/app/docs"
-	"github.com/sanctumlabs/curtz/app/server/middleware"
-	"github.com/sanctumlabs/curtz/app/server/router"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/config"
+	_ "github.com/sanctumlabs/fupi/app/docs"
+	"github.com/sanctumlabs/fupi/app/server/middleware"
+	"github.com/sanctumlabs/fupi/app/server/router"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )

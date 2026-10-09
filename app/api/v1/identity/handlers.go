@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	identityapp "github.com/sanctumlabs/curtz/app/internal/application/identity"
+	identityapp "github.com/sanctumlabs/fupi/app/internal/application/identity"
 )
 
 // register creates a new account and triggers the verification email.

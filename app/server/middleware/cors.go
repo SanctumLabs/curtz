@@ -4,7 +4,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
 )
 
 func NewCORSMiddleware(defaultHeaders string) Middleware {

@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/interceptors"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/middleware"
 	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/interceptors"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/middleware"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

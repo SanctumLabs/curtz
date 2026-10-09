@@ -5,8 +5,8 @@ package kafkaadapter
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
 )
 
 // producer is the part of kafka.Producer the adapter uses.

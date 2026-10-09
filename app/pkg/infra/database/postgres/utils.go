@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
+	recoveryutils "github.com/sanctumlabs/fupi/app/pkg/utils/recover"
 )
 
 // ConnectionString returns the DSN for a database config. DATABASE_URL (Url) wins when set; otherwise the DSN is

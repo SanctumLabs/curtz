@@ -3,11 +3,11 @@ package jwtauth
 import (
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
-	"github.com/sanctumlabs/curtz/app/pkg/jwt"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +16,7 @@ func testConfig() config.AuthConfig {
 	return config.AuthConfig{
 		Jwt: config.Jwt{
 			Secret:             "test-secret",
-			Issuer:             "curtz-test",
+			Issuer:             "fupi-test",
 			ExpireDelta:        15,
 			RefreshExpireDelta: 24,
 		},

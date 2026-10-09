@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	outboxdatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/outbox"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/test"
+	outboxdatastore "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/outbox"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -315,7 +315,7 @@ func TestLease_ASessionThatStopsCheckingItsLeaseLosesItOnTheServer(t *testing.T)
 
 	var holders int
 	require.NoError(t, client.GetDB().QueryRow(ctx,
-		"SELECT count(*) FROM pg_stat_activity WHERE application_name = 'curtz-outbox-lease'").Scan(&holders))
+		"SELECT count(*) FROM pg_stat_activity WHERE application_name = 'fupi-outbox-lease'").Scan(&holders))
 	assert.Equal(t, 1, holders, "the lease connection can be told apart from the others")
 
 	require.Eventually(t, func() bool {

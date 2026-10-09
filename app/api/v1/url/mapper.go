@@ -2,7 +2,7 @@
 
 package url
 
-import "github.com/sanctumlabs/curtz/app/internal/core/entities"
+import "github.com/sanctumlabs/fupi/app/internal/core/entities"
 
 func mapEntityToResponseDto(url entities.URL) urlResponseDto {
 	keywords := []string{}

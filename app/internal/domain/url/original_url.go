@@ -4,7 +4,7 @@ import (
 	neturl "net/url"
 	"strings"
 
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 )
 
 // OriginalURL is a value object that encapsulates validation.

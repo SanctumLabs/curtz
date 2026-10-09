@@ -17,20 +17,20 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/sanctumlabs/curtz/app/api/probes"
-	"github.com/sanctumlabs/curtz/app/config"
-	kafkaadapter "github.com/sanctumlabs/curtz/app/internal/adapters/kafka"
-	outboxdatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/outbox"
-	"github.com/sanctumlabs/curtz/app/internal/application/outbox"
-	"github.com/sanctumlabs/curtz/app/pkg"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/api/probes"
+	"github.com/sanctumlabs/fupi/app/config"
+	kafkaadapter "github.com/sanctumlabs/fupi/app/internal/adapters/kafka"
+	outboxdatastore "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/outbox"
+	"github.com/sanctumlabs/fupi/app/internal/application/outbox"
+	"github.com/sanctumlabs/fupi/app/pkg"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 )
 
 const (
-	// serviceName is the worker's service name unless OTEL_SERVICE_NAME says otherwise; the API's is "curtz".
+	// serviceName is the worker's service name unless OTEL_SERVICE_NAME says otherwise; the API's is "fupi".
 	serviceName = "fupi-worker"
 
 	// livenessMaxAge is how long the relay loop may go without completing a cycle before liveness fails.

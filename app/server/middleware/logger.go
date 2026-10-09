@@ -3,10 +3,11 @@
 package middleware
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
 )
 
 // NewLoggingMiddleware sets up logging middleware in application

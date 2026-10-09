@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/domain/identity"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -92,13 +92,13 @@ func (suite *IdentityServiceTestSuite) TestLogin_RecordsASpanAndMarksAWrongPassw
 	user := suite.registeredUser("the-right-password")
 	suite.mockUsers.EXPECT().FetchByEmail(gomock.Any(), gomock.Any()).Return(*user, nil)
 
-	_, _, err := suite.service.Login(ctx, "john.doe@curtz.com", "the-wrong-password")
+	_, _, err := suite.service.Login(ctx, "john.doe@fupi.com", "the-wrong-password")
 	suite.Require().Error(err)
 
 	span := suite.useCaseSpan(exporter, "identity.Login")
 	suite.Equal(codes.Error, span.Status.Code)
 	suite.Equal("unauthorized", span.Status.Description)
-	suite.NotContains(spanText(span), "john.doe@curtz.com")
+	suite.NotContains(spanText(span), "john.doe@fupi.com")
 	suite.NotContains(spanText(span), "the-wrong-password")
 }
 
@@ -111,7 +111,7 @@ func (suite *IdentityServiceTestSuite) TestLogin_ASuccessLeavesTheSpanUnset() {
 	suite.mockTokens.EXPECT().GenerateAccessToken(userID).Return("access-token", nil)
 	suite.mockTokens.EXPECT().GenerateRefreshToken(userID).Return("refresh-token", nil)
 
-	_, _, err := suite.service.Login(ctx, "john.doe@curtz.com", password)
+	_, _, err := suite.service.Login(ctx, "john.doe@fupi.com", password)
 	suite.Require().NoError(err)
 
 	span := suite.useCaseSpan(exporter, "identity.Login")

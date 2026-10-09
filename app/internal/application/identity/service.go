@@ -3,8 +3,8 @@
 package identityapp
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/domain/identity"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )

@@ -13,16 +13,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
 )
 
 // leaseKey is the advisory lock key of the relay lease, derived from a fixed name so every instance computes the same one.
 var leaseKey = func() int64 {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte("curtz.outbox.relay"))
+	_, _ = h.Write([]byte("fupi.outbox.relay"))
 	return int64(h.Sum64())
 }()
 
@@ -43,7 +43,7 @@ type Adapter struct {
 const defaultLeaseIdleTimeout = 60 * time.Second
 
 // leaseApplicationName tells the lease connection apart from the others in pg_stat_activity.
-const leaseApplicationName = "curtz-outbox-lease"
+const leaseApplicationName = "fupi-outbox-lease"
 
 // Option configures an Adapter.
 type Option func(*Adapter)

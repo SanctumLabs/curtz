@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/logger"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/middleware"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/logger"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/middleware"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
 
 	"github.com/bytedance/sonic"
 	"github.com/gofiber/contrib/swagger"

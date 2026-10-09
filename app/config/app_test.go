@@ -33,8 +33,8 @@ func TestLoad_DefaultsMatchTheLocalStack(t *testing.T) {
 	assert.Equal(t, "localhost", pg.Host)
 	assert.Equal(t, "5432", pg.Port, "writes go to the primary on 5432; 5433 is the HA read port")
 	assert.Equal(t, "curtzdb", pg.Name)
-	assert.Equal(t, "curtz-user", pg.Username)
-	assert.Equal(t, "curtz-pass", pg.Password)
+	assert.Equal(t, "fupi-user", pg.Username)
+	assert.Equal(t, "fupi-pass", pg.Password)
 	assert.Equal(t, "disable", pg.SslMode)
 	assert.Empty(t, pg.Url)
 	assert.Equal(t, int32(30), pg.MaxConns)
@@ -46,12 +46,12 @@ func TestLoad_DefaultsMatchTheLocalStack(t *testing.T) {
 	assert.Equal(t, 30*time.Second, app.Database.OperationTimeout)
 
 	assert.Equal(t, []string{"localhost:7001"}, app.Redis.Address)
-	assert.Equal(t, "curtz-svc", app.Redis.Username)
-	assert.Equal(t, "curtz-svc", app.Redis.Password)
+	assert.Equal(t, "fupi-svc", app.Redis.Username)
+	assert.Equal(t, "fupi-svc", app.Redis.Password)
 	assert.Equal(t, 0, app.Redis.Database)
 
-	assert.Equal(t, "curtz-secret", app.Auth.Secret)
-	assert.Equal(t, "curtz", app.Auth.Issuer)
+	assert.Equal(t, "fupi-secret", app.Auth.Secret)
+	assert.Equal(t, "fupi", app.Auth.Issuer)
 	assert.Equal(t, 15, app.Auth.ExpireDelta)
 	assert.Equal(t, 24, app.Auth.RefreshExpireDelta)
 }
@@ -75,7 +75,7 @@ func TestLoad_EnvExampleDocumentsTheDefaults(t *testing.T) {
 func TestLoad_Overrides(t *testing.T) {
 	app, err := Load(lookupOf(map[string]string{
 		"ENVIRONMENT": "test", "HTTP_PORT": "9000", "SERVER_HOST": "127.0.0.1", "SERVER_HEADER": "H", "SERVER_NAME": "N",
-		"SERVER_VERSION": "2.0.0", "APP_BASE_URL": "https://curtz.test", "SHUTDOWN_TIMEOUT": "30",
+		"SERVER_VERSION": "2.0.0", "APP_BASE_URL": "https://fupi.test", "SHUTDOWN_TIMEOUT": "30",
 		"DATABASE_HOST": "db", "DATABASE_PORT": "6432", "DATABASE_NAME": "x", "DATABASE_USERNAME": "u",
 		"DATABASE_PASSWORD": "p", "DATABASE_SSL_MODE": "require", "DATABASE_URL": "postgres://u:p@h:1/d",
 		"DATABASE_MAX_CONNS": "10", "DATABASE_MIN_CONNS": "2", "DATABASE_MAX_CONN_LIFETIME": "2",
@@ -87,7 +87,7 @@ func TestLoad_Overrides(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "test", app.Environment)
-	assert.Equal(t, ServerSettings{Host: "127.0.0.1", Port: 9000, Header: "H", Name: "N", Version: "2.0.0", BaseURL: "https://curtz.test"}, app.Server)
+	assert.Equal(t, ServerSettings{Host: "127.0.0.1", Port: 9000, Header: "H", Name: "N", Version: "2.0.0", BaseURL: "https://fupi.test"}, app.Server)
 	assert.Equal(t, 30*time.Second, app.ShutdownTimeout)
 	pg := app.Database.Postgres
 	assert.Equal(t, "db", pg.Host)
@@ -169,7 +169,7 @@ func TestLoad_RefusesDevelopmentSecretsOutsideDevelopmentAndTest(t *testing.T) {
 			for _, variable := range []string{"AUTH_SECRET", "DATABASE_PASSWORD", "REDIS_PASSWORD"} {
 				assert.ErrorContains(t, err, variable)
 			}
-			for _, secret := range []string{"curtz-secret", "curtz-pass", "curtz-svc"} {
+			for _, secret := range []string{"fupi-secret", "fupi-pass", "fupi-svc"} {
 				assert.NotContains(t, err.Error(), secret, "an error must name the variable, never print a value")
 			}
 		})
@@ -194,14 +194,14 @@ func TestLoad_AcceptsOverriddenSecretsInProduction(t *testing.T) {
 // When DATABASE_URL is set the password lives in the URL, so that is where the development default is rejected.
 func TestLoadDatabase_ChecksThePasswordInsideDatabaseURL(t *testing.T) {
 	_, err := LoadDatabase(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://curtz-user:curtz-pass@db:5432/curtzdb",
+		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:fupi-pass@db:5432/curtzdb",
 	}))
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "DATABASE_URL")
-	assert.NotContains(t, err.Error(), "curtz-pass")
+	assert.NotContains(t, err.Error(), "fupi-pass")
 
 	_, err = LoadDatabase(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://curtz-user:a-real-password@db:5432/curtzdb",
+		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:a-real-password@db:5432/curtzdb",
 	}))
 	assert.NoError(t, err)
 }

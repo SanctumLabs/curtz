@@ -18,7 +18,7 @@ func TestConnectionString_EscapesCredentialsSoTheyRoundTrip(t *testing.T) {
 	password := "p@ss/w:rd?#%x y"
 	cfg := PostgresDatabaseConfig{
 		Host: "db.internal", Port: "5432", Name: "curtzdb",
-		Username: "curtz user", Password: password,
+		Username: "fupi user", Password: password,
 		SslMode: "disable", MaxConns: 30, MinConns: 5,
 	}
 
@@ -26,7 +26,7 @@ func TestConnectionString_EscapesCredentialsSoTheyRoundTrip(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, password, parsed.ConnConfig.Password)
-	assert.Equal(t, "curtz user", parsed.ConnConfig.User)
+	assert.Equal(t, "fupi user", parsed.ConnConfig.User)
 	assert.Equal(t, "db.internal", parsed.ConnConfig.Host)
 	assert.Equal(t, uint16(5432), parsed.ConnConfig.Port)
 	assert.Equal(t, "curtzdb", parsed.ConnConfig.Database)

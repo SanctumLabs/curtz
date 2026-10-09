@@ -16,7 +16,7 @@ func TestLoadWorker_DefaultsMatchTheLocalStack(t *testing.T) {
 	assert.Equal(t, "development", worker.Environment)
 	assert.Equal(t, HealthSettings{Host: "0.0.0.0", Port: 8086}, worker.Health)
 	assert.Equal(t, 15*time.Second, worker.ShutdownTimeout)
-	assert.Equal(t, KafkaSettings{Brokers: []string{"localhost:19092"}, ClientID: "curtz-worker", PublishTimeout: 10 * time.Second}, worker.Kafka)
+	assert.Equal(t, KafkaSettings{Brokers: []string{"localhost:19092"}, ClientID: "fupi-worker", PublishTimeout: 10 * time.Second}, worker.Kafka)
 	assert.Equal(t, OutboxSettings{
 		PollInterval: 100 * time.Millisecond, BatchSize: 100, MaxAttempts: 3, StandbyInterval: 5 * time.Second, Retention: 7 * 24 * time.Hour,
 	}, worker.Outbox)

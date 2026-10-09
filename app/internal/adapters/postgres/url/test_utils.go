@@ -3,7 +3,7 @@ package urldatastore
 import (
 	"context"
 
-	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
+	postgresrepo "github.com/sanctumlabs/fupi/app/internal/adapters/postgres"
 )
 
 // injectMockUrlWriteTx wires a mockUrlWriteQuerier into the adapter, replacing the real DB

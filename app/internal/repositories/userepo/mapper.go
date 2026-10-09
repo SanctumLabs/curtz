@@ -3,9 +3,9 @@
 package userepo
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/internal/repositories/models"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
 )
 
 func mapEntityToModel(user entities.User) models.User {

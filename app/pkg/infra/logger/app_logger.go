@@ -8,7 +8,7 @@ import (
 	"runtime/debug"
 
 	"github.com/google/wire"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/tracing"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/tracing"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"

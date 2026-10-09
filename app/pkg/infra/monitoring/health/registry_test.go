@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -135,7 +135,7 @@ func TestRegistry_ChecksRunUnderAnUnsampledParentSoTheirPingsAreNotTraced(t *tes
 func TestRegistry_ALogLineFromAFailedCheckCarriesTheCallersTrace(t *testing.T) {
 	var buf bytes.Buffer
 	previous := slog.Default()
-	slog.SetDefault(telemetry.NewLogger(&buf, "json", slog.LevelInfo, "curtz-test"))
+	slog.SetDefault(telemetry.NewLogger(&buf, "json", slog.LevelInfo, "fupi-test"))
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
 	spanID, _ := trace.SpanIDFromHex("00f067aa0ba902b7")

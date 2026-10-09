@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 )
 
 // fakeStore is an in-memory ports.OutboxDatastore. Its behaviour is scripted by the fields a test sets.

@@ -2,9 +2,9 @@ package urldatastore
 
 import (
 	"github.com/google/wire"
-	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
-	"github.com/sanctumlabs/curtz/app/internal/domain/url"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
+	postgresrepo "github.com/sanctumlabs/fupi/app/internal/adapters/postgres"
+	"github.com/sanctumlabs/fupi/app/internal/domain/url"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
 )
 
 type (

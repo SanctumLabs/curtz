@@ -734,7 +734,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0.0",
 	Host:             "localhost:8085",
-	BasePath:         "/api/v1/curtz",
+	BasePath:         "/api/v1/fupi",
 	Schemes:          []string{"http", "https"},
 	Title:            "Curtz API",
 	Description:      "URL Shortener Service",

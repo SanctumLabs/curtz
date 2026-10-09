@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
 )
 
 type migrateFunc func(databaseURL, migrationPath string, inDocker bool) error

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/fupi/app/config"
 )
 
 func newSentry(config config.Sentry) error {

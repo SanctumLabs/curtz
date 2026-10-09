@@ -8,14 +8,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/internal/services/auth"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/internal/services/auth"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
 )
 
 var (
 	healthRegex = regexp.MustCompile("^(/health)$")
-	authRegex   = regexp.MustCompile("^/api/v[0-9]+/curtz/auth/(register|login|oauth/token)$")
+	authRegex   = regexp.MustCompile("^/api/v[0-9]+/fupi/auth/(register|login|oauth/token)$")
 	clientRegex = regexp.MustCompile(`^/[a-zA-Z0-9]+$|/auth/verify(/\?v=[a-zA-Z0-9]+)*|/docs/(/\?v=[a-zA-Z0-9]+)*`)
 )
 

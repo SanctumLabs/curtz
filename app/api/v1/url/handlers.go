@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
-	"github.com/sanctumlabs/curtz/app/pkg/validators"
+	"github.com/sanctumlabs/fupi/app/internal/core/contracts"
+	"github.com/sanctumlabs/fupi/app/pkg/validators"
 )
 
 // createShortUrl creates a new shortened url

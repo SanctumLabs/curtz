@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	cache "github.com/sanctumlabs/curtz/app/pkg/infra/cache"
+	cache "github.com/sanctumlabs/fupi/app/pkg/infra/cache"
 	gomock "go.uber.org/mock/gomock"
 )
 

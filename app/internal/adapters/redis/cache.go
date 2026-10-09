@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
-	"github.com/sanctumlabs/curtz/app/tools/monitoring"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/tools/monitoring"
 )
 
 var log = logger.NewLogger("cache")

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/cache/redis"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
 )
 
 const defaultMigrationsPath = "app/internal/adapters/postgres/migrations"
@@ -161,7 +161,7 @@ func LoadDatabase(lookup Lookup) (DatabaseSettings, error) {
 		Host:            r.str("DATABASE_HOST", "localhost"),
 		Port:            r.str("DATABASE_PORT", "5432"),
 		Name:            r.str("DATABASE_NAME", "curtzdb"),
-		Username:        r.str("DATABASE_USERNAME", "curtz-user"),
+		Username:        r.str("DATABASE_USERNAME", "fupi-user"),
 		Password:        r.str("DATABASE_PASSWORD", devDatabasePassword),
 		Url:             r.str("DATABASE_URL", ""),
 		SslMode:         r.str("DATABASE_SSL_MODE", "disable"),
@@ -218,7 +218,7 @@ func LoadRedis(lookup Lookup) (redis.RedisClientConfig, error) {
 	r := newReader(lookup)
 	cfg := redis.RedisClientConfig{
 		Address:  splitList(r.str("REDIS_ADDRESS", "localhost:7001")),
-		Username: r.str("REDIS_USERNAME", "curtz-svc"),
+		Username: r.str("REDIS_USERNAME", "fupi-svc"),
 		Password: r.str("REDIS_PASSWORD", devRedisPassword),
 		Database: r.integer("REDIS_DATABASE", 0),
 	}
@@ -247,7 +247,7 @@ func LoadAuth(lookup Lookup) (AuthConfig, error) {
 	r := newReader(lookup)
 	cfg := AuthConfig{Jwt: Jwt{
 		Secret:             r.str("AUTH_SECRET", devAuthSecret),
-		Issuer:             r.str("AUTH_ISSUER", "curtz"),
+		Issuer:             r.str("AUTH_ISSUER", "fupi"),
 		ExpireDelta:        r.integer("AUTH_EXPIRE_DELTA", 15),
 		RefreshExpireDelta: r.integer("AUTH_REFRESH_EXPIRE_DELTA", 24),
 	}}

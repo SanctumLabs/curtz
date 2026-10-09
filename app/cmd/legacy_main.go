@@ -7,27 +7,27 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
-	"github.com/sanctumlabs/curtz/app/api/client"
-	"github.com/sanctumlabs/curtz/app/api/health"
-	authApi "github.com/sanctumlabs/curtz/app/api/v1/auth"
-	"github.com/sanctumlabs/curtz/app/api/v1/url"
-	"github.com/sanctumlabs/curtz/app/config"
-	cache "github.com/sanctumlabs/curtz/app/internal/adapters/redis"
-	"github.com/sanctumlabs/curtz/app/internal/core/urlsvc"
-	urlReadSvc "github.com/sanctumlabs/curtz/app/internal/core/urlsvc/read"
-	urlWriteSvc "github.com/sanctumlabs/curtz/app/internal/core/urlsvc/write"
-	"github.com/sanctumlabs/curtz/app/internal/core/usersvc"
-	"github.com/sanctumlabs/curtz/app/internal/repositories"
-	"github.com/sanctumlabs/curtz/app/internal/services/auth"
-	"github.com/sanctumlabs/curtz/app/internal/services/notifications"
-	"github.com/sanctumlabs/curtz/app/internal/services/notifications/email"
-	"github.com/sanctumlabs/curtz/app/pkg/jwt"
-	"github.com/sanctumlabs/curtz/app/server"
-	"github.com/sanctumlabs/curtz/app/server/middleware"
-	"github.com/sanctumlabs/curtz/app/server/router"
-	"github.com/sanctumlabs/curtz/app/tools/env"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
-	"github.com/sanctumlabs/curtz/app/tools/monitoring"
+	"github.com/sanctumlabs/fupi/app/api/client"
+	"github.com/sanctumlabs/fupi/app/api/health"
+	authApi "github.com/sanctumlabs/fupi/app/api/v1/auth"
+	"github.com/sanctumlabs/fupi/app/api/v1/url"
+	"github.com/sanctumlabs/fupi/app/config"
+	cache "github.com/sanctumlabs/fupi/app/internal/adapters/redis"
+	"github.com/sanctumlabs/fupi/app/internal/core/urlsvc"
+	urlReadSvc "github.com/sanctumlabs/fupi/app/internal/core/urlsvc/read"
+	urlWriteSvc "github.com/sanctumlabs/fupi/app/internal/core/urlsvc/write"
+	"github.com/sanctumlabs/fupi/app/internal/core/usersvc"
+	"github.com/sanctumlabs/fupi/app/internal/repositories"
+	"github.com/sanctumlabs/fupi/app/internal/services/auth"
+	"github.com/sanctumlabs/fupi/app/internal/services/notifications"
+	"github.com/sanctumlabs/fupi/app/internal/services/notifications/email"
+	"github.com/sanctumlabs/fupi/app/pkg/jwt"
+	"github.com/sanctumlabs/fupi/app/server"
+	"github.com/sanctumlabs/fupi/app/server/middleware"
+	"github.com/sanctumlabs/fupi/app/server/router"
+	"github.com/sanctumlabs/fupi/app/tools/env"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/tools/monitoring"
 )
 
 const (
@@ -58,7 +58,7 @@ const (
 )
 
 func main() {
-	log := logger.NewLogger("curtz-api")
+	log := logger.NewLogger("fupi-api")
 
 	err := godotenv.Load()
 	if err != nil {
@@ -76,10 +76,10 @@ func main() {
 	databasePass := env.EnvOr(EnvDatabasePassword, "curtzPassword")
 	databasePort := env.EnvOr(EnvDatabasePort, "27017")
 	databaseUsesSRV := env.EnvOr(EnvDatabaseUsesSRV, "true")
-	authSecret := env.EnvOr(EnvAuthSecret, "curtz-secret")
+	authSecret := env.EnvOr(EnvAuthSecret, "fupi-secret")
 	authExpireDelta := env.EnvOr(EnvAuthExpireDelta, "15")
 	authRefreshExpireDelta := env.EnvOr(EnvAuthRefreshExpireDelta, "1")
-	authIssuer := env.EnvOr(EnvAuthIssuer, "curtz")
+	authIssuer := env.EnvOr(EnvAuthIssuer, "fupi")
 	cacheHost := env.EnvOr(EnvCacheHost, "localhost")
 	cachePort := env.EnvOr(EnvCachePort, "6379")
 	cacheUsername := env.EnvOr(EnvCacheUsername, "curtzUser")
@@ -194,7 +194,7 @@ func main() {
 	urlReadService := urlReadSvc.NewUrlReadSvc(repository.GetUrlReadRepo(), userService, cache)
 	urlWriteService := urlWriteSvc.NewUrlWriteSvc(repository.GetUrlWriteRepo(), userService)
 
-	baseUri := "/api/v1/curtz"
+	baseUri := "/api/v1/fupi"
 
 	routers := []router.Router{
 		url.NewUrlRouter(baseUri, urlService, urlReadService, urlWriteService),

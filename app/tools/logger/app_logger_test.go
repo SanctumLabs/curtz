@@ -3,13 +3,14 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/sanctumlabs/curtz/app/pkg"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/sanctumlabs/fupi/app/pkg"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 const fakeLoggerName = "fakeLogger"

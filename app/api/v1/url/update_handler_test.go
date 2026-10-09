@@ -13,12 +13,12 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/pkg/encoding"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/app/server/router"
-	"github.com/sanctumlabs/curtz/app/test/mocks"
-	"github.com/sanctumlabs/curtz/app/test/utils"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/pkg/encoding"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/server/router"
+	"github.com/sanctumlabs/fupi/app/test/mocks"
+	"github.com/sanctumlabs/fupi/app/test/utils"
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/onsi/ginkgo/v2"

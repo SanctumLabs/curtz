@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
-	cacheredis "github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/cache"
+	cacheredis "github.com/sanctumlabs/fupi/app/pkg/infra/cache/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	redisContainer "github.com/testcontainers/testcontainers-go/modules/redis"

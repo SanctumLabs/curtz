@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
 )
 
 // NewHTTPHandler serves the same two probes as NewRouter over net/http, for processes that have no Fiber app (the outbox

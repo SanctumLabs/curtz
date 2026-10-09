@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	pgtype "github.com/jackc/pgx/v5/pgtype"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
 	gomock "go.uber.org/mock/gomock"
 )
 

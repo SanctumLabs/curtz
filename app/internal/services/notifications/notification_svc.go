@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
+	"github.com/sanctumlabs/fupi/app/internal/core/contracts"
 )
 
 const (

@@ -5,11 +5,11 @@ package userepo
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/internal/repositories/models"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/app/tools/logger"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/internal/repositories/models"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/tools/logger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

@@ -13,18 +13,18 @@ import (
 
 	gin "github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/server/router"
-	"github.com/sanctumlabs/curtz/app/test/data"
-	"github.com/sanctumlabs/curtz/app/test/mocks"
-	"github.com/sanctumlabs/curtz/app/test/utils"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/server/router"
+	"github.com/sanctumlabs/fupi/app/test/data"
+	"github.com/sanctumlabs/fupi/app/test/mocks"
+	"github.com/sanctumlabs/fupi/app/test/utils"
 	"github.com/stretchr/testify/assert"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var baseURI = "/api/v1/curtz"
+var baseURI = "/api/v1/fupi"
 
 func TestAuthHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -423,7 +423,7 @@ var _ = Describe("Auth Handler", func() {
 		Context("and both grant_type & refresh_token are in the query params", func() {
 			refreshToken := "header.payload.signature"
 			userID := "userId"
-			mockUser, err := data.MockUser("johndoe@curtz.com", "password")
+			mockUser, err := data.MockUser("johndoe@fupi.com", "password")
 			assert.NoError(GinkgoT(), err)
 
 			httpRequest := httptest.NewRequest(http.MethodPost,

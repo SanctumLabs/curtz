@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/api/probes"
-	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/fupi/app/api/probes"
+	"github.com/sanctumlabs/fupi/app/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

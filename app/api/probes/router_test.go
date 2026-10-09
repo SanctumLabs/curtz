@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,13 +83,13 @@ func TestReadiness_ReturnsServiceUnavailableWhileDraining(t *testing.T) {
 
 // The endpoint is public, so a failing dependency's error text (addresses, user names) must stay in the log.
 func TestReadiness_NeverLeaksErrorText(t *testing.T) {
-	leak := errors.New("dial tcp 10.0.0.5:5432: password authentication failed for user curtz-user")
+	leak := errors.New("dial tcp 10.0.0.5:5432: password authentication failed for user fupi-user")
 
 	_, body := get(t, appWith(registryWith(leak, leak)), ReadyPath)
 
 	assert.NotContains(t, body, "10.0.0.5")
 	assert.NotContains(t, body, "password")
-	assert.NotContains(t, body, "curtz-user")
+	assert.NotContains(t, body, "fupi-user")
 	var decoded map[string]any
 	require.NoError(t, json.Unmarshal([]byte(body), &decoded))
 }

@@ -3,8 +3,8 @@ package probes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
 )
 
 const (

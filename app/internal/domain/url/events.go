@@ -3,7 +3,7 @@ package url
 import (
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
 )
 
 // SuspensionReason is why a URL was suspended by the Security context

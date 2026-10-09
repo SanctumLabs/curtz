@@ -6,8 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/pkg/jwt"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/pkg/jwt"
 )
 
 // AuthService represents underlying authentication implementation

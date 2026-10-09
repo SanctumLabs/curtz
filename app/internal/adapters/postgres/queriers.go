@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
 )
 
 type (

@@ -11,7 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/propagation"
@@ -24,7 +24,7 @@ func logTo(t *testing.T, level slog.Level) *bytes.Buffer {
 	t.Helper()
 	var buf bytes.Buffer
 	previous := slog.Default()
-	slog.SetDefault(telemetry.NewLogger(&buf, "json", level, "curtz-test"))
+	slog.SetDefault(telemetry.NewLogger(&buf, "json", level, "fupi-test"))
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	return &buf
 }
@@ -82,7 +82,7 @@ func TestAccessLog_WritesOneLineWithTheRequestsFacts(t *testing.T) {
 	assert.EqualValues(t, 5, line["bytes"])
 	assert.Equal(t, "req-123", line["request_id"])
 	assert.GreaterOrEqual(t, line["duration_ms"], float64(0))
-	assert.Equal(t, "curtz-test", line["service"])
+	assert.Equal(t, "fupi-test", line["service"])
 	assert.NotContains(t, buf.String(), "secret")
 }
 
