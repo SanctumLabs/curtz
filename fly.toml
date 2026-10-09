@@ -1,7 +1,7 @@
-# fly.toml file generated for curtz on 2022-07-11T07:26:01+03:00
+# fly.toml file generated for fupi on 2022-07-11T07:26:01+03:00
 # Ref: https://fly.io/docs/reference/configuration/
 
-app = "curtz"
+app = "fupi"
 
 [deploy]
   strategy = "bluegreen"

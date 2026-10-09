@@ -5,20 +5,20 @@ The application ships as one container image that holds the API and the database
 ## Build
 
 ```bash
-make build.docker DOCKER_IMAGE_TAG=curtz-service    # stamps the image with its version, commit and build time
+make build.docker DOCKER_IMAGE_TAG=fupi-service    # stamps the image with its version, commit and build time
 # or
 docker build -t <IMAGE_NAME>:<IMAGE_TAG> --build-arg VERSION=<VERSION> --build-arg GIT_COMMIT=<SHA> --build-arg BUILD_TIME=<RFC3339> .
 ```
 
 The image is built in two stages. The final stage is `gcr.io/distroless/static-debian13:nonroot`, pinned by digest: no shell, no package manager, uid 65532. It contains:
 
-- `/app/curtz`, the API (the default entrypoint, port 8085);
+- `/app/fupi`, the API (the default entrypoint, port 8085);
 - `/app/migrator`, which applies the database migrations (ADR-0014);
 - `/app/migrations`, the SQL files the migrator reads (`MIGRATIONS_PATH` is preset to it).
 
 `make lint.docker` runs hadolint with the rules in `hadolint.yaml`, and `make scan.docker` scans the image for fixable HIGH and CRITICAL vulnerabilities. CI does both before it publishes (`.github/workflows/docker.yml`).
 
-Without Docker: `make build` writes the binary to `bin/curtz`.
+Without Docker: `make build` writes the binary to `bin/fupi`.
 
 ## Configuration
 
@@ -29,7 +29,7 @@ The image sets `ENVIRONMENT=production`. In that mode the API, the migrator and 
 | `AUTH_SECRET` | the JWT signing secret |
 | `DATABASE_HOST`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Postgres (the primary, port 5432); or `DATABASE_URL` instead, which wins over those |
 | `DATABASE_SSL_MODE` | defaults to `disable`; use `require` or stronger outside a private network (the API logs a warning otherwise) |
-| `REDIS_ADDRESS`, `REDIS_PASSWORD` | a comma-separated `host:port` list (one address gives a plain client, several a cluster client) and the password; `REDIS_USERNAME` defaults to `curtz-svc` |
+| `REDIS_ADDRESS`, `REDIS_PASSWORD` | a comma-separated `host:port` list (one address gives a plain client, several a cluster client) and the password; `REDIS_USERNAME` defaults to `fupi-svc` |
 
 Every variable, its default and its unit is listed in the app-connectivity spec (`docs/superpowers/specs/2026-10-04-app-connectivity-design.md`, section 4); the local defaults are in `.env.example`.
 
@@ -38,7 +38,7 @@ Optional telemetry and logging variables (the defaults suit the local stack; non
 | Variable | Meaning |
 |---|---|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | the OpenTelemetry Collector's OTLP/gRPC address, for example `http://otel-collector:4317` (default `http://localhost:4317`); an `https://` address uses TLS |
-| `OTEL_SERVICE_NAME` | the service name on traces, metrics and log lines (default `curtz`) |
+| `OTEL_SERVICE_NAME` | the service name on traces, metrics and log lines (default `fupi`) |
 | `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | default `parentbased_always_on`, which is too much for production traffic: set for example `parentbased_traceidratio` with `0.05`. Keep a parent-based sampler: the readiness checks run under an unsampled parent so they leave no spans |
 | `OTEL_METRIC_EXPORT_INTERVAL` | milliseconds between metric exports (default 15000) |
 | `OTEL_SDK_DISABLED` | `true` turns tracing and metrics off |
@@ -62,11 +62,11 @@ It exits 0 when it applied the migrations or found nothing to do. If it reports 
 
 ```bash
 docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... -e REDIS_ADDRESS=... -e REDIS_PASSWORD=... \
-  --name curtz-api <IMAGE_NAME>:<IMAGE_TAG>
+  --name fupi-api <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
 - `GET /health` is liveness (always 200 while the process runs); `GET /health/ready` is readiness (503 when Postgres is down or the process is draining).
-- The image's `HEALTHCHECK` runs `/app/curtz healthcheck`, which calls `/health`.
+- The image's `HEALTHCHECK` runs `/app/fupi healthcheck`, which calls `/health`.
 - On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that plus the five seconds the API may spend exporting its last telemetry (the local compose stack uses 25 seconds).
 - For hardening, also run it with a read-only root filesystem, `--cap-drop ALL` and `--security-opt no-new-privileges`, as `deploy/app/compose.yml` does.
 
@@ -76,13 +76,13 @@ The image also contains `/app/worker`, which delivers the transactional outbox t
 
 ```bash
 docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... -e KAFKA_BROKERS=... \
-  --no-healthcheck --entrypoint /app/worker --name curtz-worker <IMAGE_NAME>:<IMAGE_TAG>
+  --no-healthcheck --entrypoint /app/worker --name fupi-worker <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `KAFKA_BROKERS` | `localhost:19092` | comma-separated `host:port` list; set it |
-| `KAFKA_CLIENT_ID` | `curtz-worker` | |
+| `KAFKA_CLIENT_ID` | `fupi-worker` | |
 | `KAFKA_PUBLISH_TIMEOUT` | `10` | seconds a record may take to be acknowledged before it counts as a transient failure |
 | `OUTBOX_POLL_INTERVAL_MS` | `100` | milliseconds between cycles when nothing was claimed (at least 10) |
 | `OUTBOX_BATCH_SIZE` | `100` | rows claimed per destination per cycle (1 to 1000) |
@@ -91,11 +91,11 @@ docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_US
 | `OUTBOX_RETENTION_DAYS` | `7` | days sent rows are kept; `0` keeps them forever |
 | `WORKER_HTTP_PORT` | `8086` | the health listener |
 
-The database, logging and telemetry variables are the API's; the worker's service name defaults to `curtz-worker`.
+The database, logging and telemetry variables are the API's; the worker's service name defaults to `fupi-worker`.
 
 - Run more than one for failover: one is active (it holds a Postgres advisory lock on a connection of its own), the others stand by. A second worker is not extra capacity. The lock connection sets `idle_session_timeout` (60 seconds, kept busy by the active relay's checks), so a leader that vanishes without closing its connection loses the lock within a minute; this needs PostgreSQL 14 or newer.
 - The topics must exist (the relay does not create them); an event for a missing topic waits and shows in the backlog alert.
-- `GET /health` is liveness: 503 when the relay loop has not completed a cycle or a standby attempt for 30 seconds, so a wedged worker is restarted. `GET /health/ready` is 503 when Postgres or Kafka is down or the worker is draining; neither is a reason to restart. The image's built-in `HEALTHCHECK` is the API's (`/app/curtz healthcheck`, port 8085), which is why the command above passes `--no-healthcheck`: give the worker its own, either `GET :8086/health` or `/app/worker healthcheck` (the binary has no shell, so use the exec form, as `deploy/worker/compose.yml` does).
+- `GET /health` is liveness: 503 when the relay loop has not completed a cycle or a standby attempt for 30 seconds, so a wedged worker is restarted. `GET /health/ready` is 503 when Postgres or Kafka is down or the worker is draining; neither is a reason to restart. The image's built-in `HEALTHCHECK` is the API's (`/app/fupi healthcheck`, port 8085), which is why the command above passes `--no-healthcheck`: give the worker its own, either `GET :8086/health` or `/app/worker healthcheck` (the binary has no shell, so use the exec form, as `deploy/worker/compose.yml` does).
 - On SIGTERM the worker finishes the batch it has in flight (bounded by `KAFKA_PUBLISH_TIMEOUT` and `SHUTDOWN_TIMEOUT`), releases the lock, exports its last telemetry and exits 0. Give it the same stop grace period as the API (25 seconds locally).
 - Delivery is at least once: consumers must de-duplicate on the `event_id` header. See ADR-0018 and the operations notes in `docs/LocalInfrastructure.md` (parked events, purge, failure behaviour).
 

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a hardened, reproducible image of the API and the migrator, run it on the `curtz` network through a new `app` compose stack, repair the Docker lint and scan tooling, and modernize CI.
+**Goal:** Ship a hardened, reproducible image of the API and the migrator, run it on the `fupi` network through a new `app` compose stack, repair the Docker lint and scan tooling, and modernize CI.
 
-**Architecture:** A multi-stage `Dockerfile` (pinned Go toolchain image, distroless `static` `:nonroot` runtime) built from an allowlisted context; a `curtz healthcheck` subcommand for the image's `HEALTHCHECK`; `deploy/app/compose.yml` with `app-ha` and `app-single`, started by `scripts/infra.sh` after Postgres and Redis; two guard scripts (`scripts/image_test.sh`, `scripts/workflows_check.sh`) that make the hardening rules testable; and rewritten GitHub workflows with SHA-pinned actions.
+**Architecture:** A multi-stage `Dockerfile` (pinned Go toolchain image, distroless `static` `:nonroot` runtime) built from an allowlisted context; a `fupi healthcheck` subcommand for the image's `HEALTHCHECK`; `deploy/app/compose.yml` with `app-ha` and `app-single`, started by `scripts/infra.sh` after Postgres and Redis; two guard scripts (`scripts/image_test.sh`, `scripts/workflows_check.sh`) that make the hardening rules testable; and rewritten GitHub workflows with SHA-pinned actions.
 
 **Tech Stack:** Docker (BuildKit cache mounts), Docker Compose 5.x, distroless, hadolint, Trivy, actionlint, GitHub Actions, Go 1.26 (stdlib only for the subcommand), bash.
 
@@ -12,10 +12,10 @@
 
 ## Global Constraints
 
-- All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/curtz`.
+- All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/fupi`.
 - No new Go module dependencies (`go.mod` and `go.sum` must not change).
 - Commits end with the `Co-Authored-By` trailer given in the session's attribution instructions (spec D10). The `git commit` snippets below omit the trailer text; add it when you commit.
-- The image: Go builder `golang:1.26-alpine`, runtime `gcr.io/distroless/static-debian13:nonroot` (use `debian12` only if `debian13` cannot be pulled), both pinned by digest; `USER 65532:65532`; `ENV ENVIRONMENT=production` and `ENV MIGRATIONS_PATH=/app/migrations`; `EXPOSE 8085`; `HEALTHCHECK` is `/app/curtz healthcheck`; no `# syntax=` directive; no `-mod=mod`.
+- The image: Go builder `golang:1.26-alpine`, runtime `gcr.io/distroless/static-debian13:nonroot` (use `debian12` only if `debian13` cannot be pulled), both pinned by digest; `USER 65532:65532`; `ENV ENVIRONMENT=production` and `ENV MIGRATIONS_PATH=/app/migrations`; `EXPOSE 8085`; `HEALTHCHECK` is `/app/fupi healthcheck`; no `# syntax=` directive; no `-mod=mod`.
 - Build context is an allowlist: `go.mod`, `go.sum`, `app/`, minus `**/*_test.go` and `app/test`.
 - The compose `app` services have **no `depends_on`**, an explicit `environment:` list (never `env_file`), `read_only: true`, `tmpfs: [/tmp]`, `cap_drop: [ALL]`, `security_opt: ["no-new-privileges:true"]`, `stop_grace_period: 20s`, port `127.0.0.1:8085:8085`.
 - Every `${VAR:-default}` in a compose file must equal the default in `.env.example` (`scripts/infra_env_check.sh` enforces it).
@@ -67,7 +67,7 @@ Failure modes the spec implies but no obvious test covers, most likely first. Ea
 
 **Interfaces:**
 - Consumes: `config.LoadServer(lookup config.Lookup) (config.ServerSettings, error)` and `config.Lookup` (slice 3); `probes.LivePath` (`/health`).
-- Produces: `curtz healthcheck` (exit 0 when `GET /health` answers 200, else 1) and `healthcheck(lookup config.Lookup, out io.Writer) int`, `probeHost(host string) string`, `var healthcheckTimeout`. Task 2's image `HEALTHCHECK` and Task 4's compose health status rely on the subcommand.
+- Produces: `fupi healthcheck` (exit 0 when `GET /health` answers 200, else 1) and `healthcheck(lookup config.Lookup, out io.Writer) int`, `probeHost(host string) string`, `var healthcheckTimeout`. Task 2's image `HEALTHCHECK` and Task 4's compose health status rely on the subcommand.
 
 **Task test command:** `go test -race -count=1 ./app/cmd/ && go build -o /dev/null app/cmd/main.go`
 
@@ -87,8 +87,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/api/probes"
-	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/fupi/app/api/probes"
+	"github.com/sanctumlabs/fupi/app/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -280,7 +280,7 @@ func probeHost(host string) string {
 - [ ] **Step 4: Run the tests and the single-file build**
 
 Run: `gofmt -w app/cmd && go vet ./app/cmd/ && go test -race -count=1 ./app/cmd/ && go build -o /dev/null app/cmd/main.go && echo single-file build ok`
-Expected: `ok  github.com/sanctumlabs/curtz/app/cmd`, then `single-file build ok`.
+Expected: `ok  github.com/sanctumlabs/fupi/app/cmd`, then `single-file build ok`.
 
 - [ ] **Step 5: Run the whole suite and commit**
 
@@ -303,10 +303,10 @@ git commit -m "feat(cmd): add the healthcheck subcommand for the container HEALT
 - Rewrite: `hadolint.yaml`
 
 **Interfaces:**
-- Consumes (Task 1): the `/app/curtz healthcheck` subcommand; slice 3's `/app/migrator` binary and `MIGRATIONS_PATH`.
+- Consumes (Task 1): the `/app/fupi healthcheck` subcommand; slice 3's `/app/migrator` binary and `MIGRATIONS_PATH`.
 - Produces: an image buildable with `docker build` (build args `VERSION`, `GIT_COMMIT`, `BUILD_TIME`); `scripts/image_test.sh context` and `scripts/image_test.sh image <tag>`. Task 3's `make build.docker`/`scan.docker`, Task 4's compose build, Task 5's `docker.yml` and Task 7 use them.
 
-**Task test command:** `scripts/image_test.sh context && docker build -t curtz-service:test . && scripts/image_test.sh image curtz-service:test && docker run --rm -i -v "$PWD/hadolint.yaml:/.config/hadolint.yaml:ro" hadolint/hadolint < Dockerfile`
+**Task test command:** `scripts/image_test.sh context && docker build -t fupi-service:test . && scripts/image_test.sh image fupi-service:test && docker run --rm -i -v "$PWD/hadolint.yaml:/.config/hadolint.yaml:ro" hadolint/hadolint < Dockerfile`
 
 - [ ] **Step 1: Pull the base images** (only after the pull gate was granted)
 
@@ -373,17 +373,17 @@ check_image() {
   if [ "$value" = "65532:65532" ]; then pass "runs as the nonroot uid 65532"; else fail "runs as the nonroot uid 65532 (User is '$value')"; fi
 
   value="$(docker image inspect --format '{{json .Config.Healthcheck.Test}}' "$image")"
-  if [ "$value" = '["CMD","/app/curtz","healthcheck"]' ]; then pass "HEALTHCHECK runs /app/curtz healthcheck"; else fail "HEALTHCHECK runs /app/curtz healthcheck (is $value)"; fi
+  if [ "$value" = '["CMD","/app/fupi","healthcheck"]' ]; then pass "HEALTHCHECK runs /app/fupi healthcheck"; else fail "HEALTHCHECK runs /app/fupi healthcheck (is $value)"; fi
 
   value="$(docker image inspect --format '{{json .Config.Entrypoint}}' "$image")"
-  if [ "$value" = '["/app/curtz"]' ]; then pass "entrypoint is /app/curtz"; else fail "entrypoint is /app/curtz (is $value)"; fi
+  if [ "$value" = '["/app/fupi"]' ]; then pass "entrypoint is /app/fupi"; else fail "entrypoint is /app/fupi (is $value)"; fi
 
   value="$(docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image")"
   if grep -qx 'ENVIRONMENT=production' <<<"$value"; then pass "ENVIRONMENT defaults to production"; else fail "ENVIRONMENT defaults to production"; fi
   if grep -qx 'MIGRATIONS_PATH=/app/migrations' <<<"$value"; then pass "MIGRATIONS_PATH is /app/migrations"; else fail "MIGRATIONS_PATH is /app/migrations"; fi
 
   value="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$image")"
-  if [ "$value" = "https://github.com/SanctumLabs/curtz" ]; then pass "carries the OCI source label"; else fail "carries the OCI source label (is '$value')"; fi
+  if [ "$value" = "https://github.com/SanctumLabs/fupi" ]; then pass "carries the OCI source label"; else fail "carries the OCI source label (is '$value')"; fi
 
   docker run --rm --entrypoint /bin/sh "$image" -c true >/dev/null 2>&1
   code=$?
@@ -398,7 +398,7 @@ check_image() {
   else
     fail "refuses to start without secrets (exit $code: $out)"
   fi
-  if grep -qE 'curtz-secret|curtz-pass|curtz-svc' <<<"$out"; then fail "the refusal must not print a secret value"; else pass "the refusal prints no secret value"; fi
+  if grep -qE 'fupi-secret|fupi-pass|fupi-svc' <<<"$out"; then fail "the refusal must not print a secret value"; else pass "the refusal prints no secret value"; fi
 
   out="$(docker run --rm --entrypoint /app/migrator "$image" 2>&1)"
   code=$?
@@ -498,10 +498,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eu; \
     ldflags="-s -w \
-      -X github.com/sanctumlabs/curtz/app/pkg.Version=${VERSION} \
-      -X github.com/sanctumlabs/curtz/app/pkg.GitCommit=${GIT_COMMIT} \
-      -X github.com/sanctumlabs/curtz/app/pkg.BuildTime=${BUILD_TIME}"; \
-    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/curtz ./app/cmd; \
+      -X github.com/sanctumlabs/fupi/app/pkg.Version=${VERSION} \
+      -X github.com/sanctumlabs/fupi/app/pkg.GitCommit=${GIT_COMMIT} \
+      -X github.com/sanctumlabs/fupi/app/pkg.BuildTime=${BUILD_TIME}"; \
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/fupi ./app/cmd; \
     CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/migrator ./app/cmd/migrator
 
 # Distribution: distroless static, no shell and no package manager, running as uid 65532.
@@ -511,9 +511,9 @@ ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
 
-LABEL org.opencontainers.image.title="curtz" \
-      org.opencontainers.image.description="Curtz URL shortener API and database migrator" \
-      org.opencontainers.image.source="https://github.com/SanctumLabs/curtz" \
+LABEL org.opencontainers.image.title="fupi" \
+      org.opencontainers.image.description="Fupi URL shortener API and database migrator" \
+      org.opencontainers.image.source="https://github.com/SanctumLabs/fupi" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${GIT_COMMIT}" \
@@ -521,7 +521,7 @@ LABEL org.opencontainers.image.title="curtz" \
 
 WORKDIR /app
 
-COPY --from=build /out/curtz /out/migrator /app/
+COPY --from=build /out/fupi /out/migrator /app/
 COPY app/internal/adapters/postgres/migrations /app/migrations
 
 # A container started without ENVIRONMENT refuses the development secrets; compose overrides it for local use.
@@ -532,9 +532,9 @@ USER 65532:65532
 
 EXPOSE 8085
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/app/curtz", "healthcheck"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/app/fupi", "healthcheck"]
 
-ENTRYPOINT ["/app/curtz"]
+ENTRYPOINT ["/app/fupi"]
 ```
 
 Overwrite `hadolint.yaml`:
@@ -552,13 +552,13 @@ trustedRegistries:
 Run: `scripts/image_test.sh context`
 Expected: every line `ok:`, ending `all checks passed` (`.env`, `.git/`, `.superpowers/`, docs, deploy, scripts and test files are all absent; the sources and the first migration are present).
 
-Run: `scripts/image_test.sh image curtz-service:test; echo "exit $?"`
-Expected: `image curtz-service:test not found: build it first ...` and `exit 2`. (Red: there is no image yet.)
+Run: `scripts/image_test.sh image fupi-service:test; echo "exit $?"`
+Expected: `image fupi-service:test not found: build it first ...` and `exit 2`. (Red: there is no image yet.)
 
 Build it:
 
 ```bash
-docker build -t curtz-service:test \
+docker build -t fupi-service:test \
   --build-arg VERSION=test \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)" \
   --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
@@ -582,9 +582,9 @@ Expected: two `sha256:` values and two `FROM` lines carrying `@sha256:...`. (Use
 - [ ] **Step 8: Run every check on the pinned build**
 
 ```bash
-docker build -t curtz-service:test \
+docker build -t fupi-service:test \
   --build-arg VERSION=test --build-arg GIT_COMMIT="$(git rev-parse HEAD)" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" . \
-  && scripts/image_test.sh context && scripts/image_test.sh image curtz-service:test \
+  && scripts/image_test.sh context && scripts/image_test.sh image fupi-service:test \
   && docker run --rm -i -v "$PWD/hadolint.yaml:/.config/hadolint.yaml:ro" hadolint/hadolint < Dockerfile && echo "hadolint clean"
 ```
 Expected: `all checks passed` twice, a `size:` line (record it), and `hadolint clean`. If hadolint reports a finding, fix the Dockerfile (do not add an ignore without a reason recorded in the ledger).
@@ -646,12 +646,12 @@ esac
 
 # `docker save <repository>` with no tag exports every tag of the repository, and Trivy rejects a tar with more than one image.
 case "$scan_plan" in
-  *'image.tar" curtz-service:latest'*) pass "scan.docker saves one explicit image reference" ;;
+  *'image.tar" fupi-service:latest'*) pass "scan.docker saves one explicit image reference" ;;
   *) fail "scan.docker saves one explicit image reference" ;;
 esac
-scan_tagged_plan="$(make -n scan.docker DOCKER_IMAGE_TAG=curtz-service:1.2.3 2>/dev/null)"
+scan_tagged_plan="$(make -n scan.docker DOCKER_IMAGE_TAG=fupi-service:1.2.3 2>/dev/null)"
 case "$scan_tagged_plan" in
-  *'image.tar" curtz-service:1.2.3'*) pass "scan.docker keeps a tag that was given" ;;
+  *'image.tar" fupi-service:1.2.3'*) pass "scan.docker keeps a tag that was given" ;;
   *) fail "scan.docker keeps a tag that was given" ;;
 esac
 case "$scan_plan" in *"--no-progress"*) pass "scan.docker keeps the scanner's progress bar out of the log" ;; *) fail "scan.docker keeps the scanner's progress bar out of the log" ;; esac
@@ -701,11 +701,11 @@ lint.docker: ## lints the Dockerfile with the rules in hadolint.yaml
 scan.docker: ## scans the image for fixable HIGH and CRITICAL vulnerabilities, building it first if it is missing
 	@if ! docker image inspect $(DOCKER_IMAGE_REF) >/dev/null 2>&1; then $(MAKE) build.docker; fi
 	@dir=$$(mktemp -d) && docker save -o "$$dir/image.tar" $(DOCKER_IMAGE_REF) && \
-		docker run --rm -v "$$dir":/scan:ro -v curtz-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
+		docker run --rm -v "$$dir":/scan:ro -v fupi-trivy-cache:/root/.cache $(TRIVY_IMAGE) image --quiet --no-progress --input /scan/image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1; \
 		status=$$?; rm -rf "$$dir"; exit $$status
 
 .PHONY: build.docker
-build.docker: ## Build the Docker image with its version metadata, usage: make build.docker DOCKER_IMAGE_TAG=curtz-service
+build.docker: ## Build the Docker image with its version metadata, usage: make build.docker DOCKER_IMAGE_TAG=fupi-service
 	@echo "Building Docker image"
 	docker build -f $(DOCKER_FILE) -t $(DOCKER_IMAGE_TAG) \
 		--build-arg VERSION=$(DOCKER_VERSION) \
@@ -743,7 +743,7 @@ git commit -m "fix(make): lint with hadolint.yaml, scan a saved image with Trivy
 - Modify: `.make/docker.mk` (`INFRA_PROFILES`, `infra.app.up`/`infra.app.down`)
 
 **Interfaces:**
-- Consumes (Task 2): the `Dockerfile` (compose builds it, tag `curtz-app:local`) and its HEALTHCHECK; slice 1's stacks (service `postgres` alias, `migrate`, `redis-1`..) and `infra.sh up postgres|redis <mode>`.
+- Consumes (Task 2): the `Dockerfile` (compose builds it, tag `fupi-app:local`) and its HEALTHCHECK; slice 1's stacks (service `postgres` alias, `migrate`, `redis-1`..) and `infra.sh up postgres|redis <mode>`.
 - Produces: services `app-ha`/`app-single` (profiles `app-ha`/`app-single`), `infra.sh up|down|wait app [ha|single]`, `make infra.app.up|down MODE=…`. Task 7 exercises them.
 
 **Task test command:** `bash scripts/infra_test.sh && make infra.config`
@@ -830,7 +830,7 @@ x-app: &app
   build:
     context: ../..
     dockerfile: Dockerfile
-  image: curtz-app:local
+  image: fupi-app:local
   restart: unless-stopped
   # longer than SHUTDOWN_TIMEOUT (15s), so a stop never kills a drain in progress
   stop_grace_period: 20s
@@ -840,20 +840,20 @@ x-app: &app
   security_opt: ["no-new-privileges:true"]
   ports: ["127.0.0.1:8085:8085"]
   networks:
-    curtz:
-      aliases: [curtz-app]
+    fupi:
+      aliases: [fupi-app]
 
 x-app-env: &app-env
   ENVIRONMENT: development
   HTTP_PORT: "8085"
   DATABASE_HOST: postgres
   DATABASE_PORT: "5432"
-  DATABASE_NAME: ${PG_DATABASE:-curtzdb}
-  DATABASE_USERNAME: ${PG_APP_USER:-curtz-user}
-  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
-  REDIS_USERNAME: ${REDIS_USERNAME:-curtz-svc}
-  REDIS_PASSWORD: ${REDIS_PASSWORD:-curtz-svc}
-  AUTH_SECRET: ${AUTH_SECRET:-curtz-secret}
+  DATABASE_NAME: ${PG_DATABASE:-fupidb}
+  DATABASE_USERNAME: ${PG_APP_USER:-fupi-user}
+  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-fupi-pass}
+  REDIS_USERNAME: ${REDIS_USERNAME:-fupi-svc}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-fupi-svc}
+  AUTH_SECRET: ${AUTH_SECRET:-fupi-secret}
 
 services:
   app-ha:
@@ -871,8 +871,8 @@ services:
       REDIS_ADDRESS: redis-1:7001
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 In `docker-compose.yml`, add this entry to `include:` after the `deploy/legacy/compose.yml` entry:
@@ -911,7 +911,7 @@ Run: `bash scripts/infra_test.sh 2>&1 | tail -2; go test ./... 2>&1 | grep -v "n
 
 ```bash
 git add deploy/app docker-compose.yml scripts/infra.sh scripts/infra_test.sh .make/docker.mk
-git commit -m "feat(infra): add the app stack that runs the API image on the curtz network"
+git commit -m "feat(infra): add the app stack that runs the API image on the fupi network"
 ```
 
 ---
@@ -1100,7 +1100,7 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
-            ${{ secrets.DOCKER_REGISTRY }}/curtz
+            ${{ secrets.DOCKER_REGISTRY }}/fupi
             ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=${{ github.event.workflow_run.head_branch }}
@@ -1113,7 +1113,7 @@ jobs:
           context: .
           load: true
           push: false
-          tags: curtz-scan:ci
+          tags: fupi-scan:ci
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             GIT_COMMIT=${{ github.event.workflow_run.head_sha }}
@@ -1122,12 +1122,12 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Check the image is hardened
-        run: scripts/image_test.sh image curtz-scan:ci
+        run: scripts/image_test.sh image fupi-scan:ci
 
       - name: Scan the image for vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: curtz-scan:ci
+          image-ref: fupi-scan:ci
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'
@@ -1209,8 +1209,8 @@ jobs:
         # due to possible limitations of artifact upload size limits, we can allow this failure
         continue-on-error: true
         with:
-          name: curtz-${{ matrix.platform }}
-          path: bin/curtz*
+          name: fupi-${{ matrix.platform }}
+          path: bin/fupi*
 ```
 
 Overwrite `.github/workflows/deploy.yml` (secret names unchanged; one `flyctl secrets set` call, values passed through `env:`):
@@ -1727,9 +1727,9 @@ status: accepted
 
 # The runtime image is distroless static, carries the migrator, and defaults to production
 
-The API ships as one image built from `Dockerfile`: a pinned Go toolchain stage, then `gcr.io/distroless/static:nonroot` pinned by digest. The final stage has no shell and no package manager and runs as uid 65532. It holds `/app/curtz`, `/app/migrator` and `/app/migrations`, so one artifact can serve and migrate (ADR-0014).
+The API ships as one image built from `Dockerfile`: a pinned Go toolchain stage, then `gcr.io/distroless/static:nonroot` pinned by digest. The final stage has no shell and no package manager and runs as uid 65532. It holds `/app/fupi`, `/app/migrator` and `/app/migrations`, so one artifact can serve and migrate (ADR-0014).
 
-Because the image has no `curl`, `wget` or shell, its `HEALTHCHECK` is a subcommand of the binary: `/app/curtz healthcheck` calls `GET /health` on the configured port. It probes liveness, not readiness, so a Postgres outage does not mark the container unhealthy and invite a restart that cannot help (ADR-0015).
+Because the image has no `curl`, `wget` or shell, its `HEALTHCHECK` is a subcommand of the binary: `/app/fupi healthcheck` calls `GET /health` on the configured port. It probes liveness, not readiness, so a Postgres outage does not mark the container unhealthy and invite a restart that cannot help (ADR-0015).
 
 The image sets `ENVIRONMENT=production`. A container started without `ENVIRONMENT` therefore refuses the development secrets instead of silently accepting them (the guard from the app-connectivity slice is off only when `ENVIRONMENT` is unset). The local compose stack overrides it with `development`.
 
@@ -1755,7 +1755,7 @@ Insert immediately before the line `## The stacks`:
 ````markdown
 ## The app in a container
 
-The API also runs as a container built from the repository `Dockerfile`, on the same `curtz` network as the stacks, the way it will run in production.
+The API also runs as a container built from the repository `Dockerfile`, on the same `fupi` network as the stacks, the way it will run in production.
 
 ```bash
 make infra.app.up MODE=single      # or HA; brings up Postgres and Redis for that mode first, then builds and starts the API
@@ -1765,9 +1765,9 @@ make infra.app.down                # stops only the API; Postgres and Redis keep
 
 - It listens on `127.0.0.1:8085`, so stop an API running on your host first.
 - Inside the network it reaches Postgres at `postgres:5432` and Redis at `redis-1:7001` (single) or `redis-1:7001` to `redis-6:7006` (HA), so `make infra.hosts` is not needed. Its environment is an explicit list in `deploy/app/compose.yml` (not your `.env`) and it runs with `ENVIRONMENT=development`.
-- It runs with a read-only filesystem, no Linux capabilities and `no-new-privileges`. Its health check is `/app/curtz healthcheck`; `docker compose ps` shows `healthy` once it serves.
+- It runs with a read-only filesystem, no Linux capabilities and `no-new-privileges`. Its health check is `/app/fupi healthcheck`; `docker compose ps` shows `healthy` once it serves.
 - `make infra.app.up` rebuilds the image each time (cached layers make it quick). `make build.docker`, `make lint.docker` and `make scan.docker` build, lint and scan the image on its own.
-- The image has no shell. To look inside it use `docker cp curtz-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network curtz --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
+- The image has no shell. To look inside it use `docker cp fupi-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network fupi --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
 
 ````
 
@@ -1785,20 +1785,20 @@ The application ships as one container image that holds the API and the database
 ## Build
 
 ```bash
-make build.docker DOCKER_IMAGE_TAG=curtz-service    # stamps the image with its version, commit and build time
+make build.docker DOCKER_IMAGE_TAG=fupi-service    # stamps the image with its version, commit and build time
 # or
 docker build -t <IMAGE_NAME>:<IMAGE_TAG> --build-arg VERSION=<VERSION> --build-arg GIT_COMMIT=<SHA> --build-arg BUILD_TIME=<RFC3339> .
 ```
 
 The image is built in two stages. The final stage is `gcr.io/distroless/static:nonroot`, pinned by digest: no shell, no package manager, uid 65532. It contains:
 
-- `/app/curtz`, the API (the default entrypoint, port 8085);
+- `/app/fupi`, the API (the default entrypoint, port 8085);
 - `/app/migrator`, which applies the database migrations (ADR-0014);
 - `/app/migrations`, the SQL files the migrator reads (`MIGRATIONS_PATH` is preset to it).
 
 `make lint.docker` runs hadolint with the rules in `hadolint.yaml`, and `make scan.docker` scans the image for fixable HIGH and CRITICAL vulnerabilities. CI does both before it publishes (`.github/workflows/docker.yml`).
 
-Without Docker: `make build` writes the binary to `bin/curtz`.
+Without Docker: `make build` writes the binary to `bin/fupi`.
 
 ## Configuration
 
@@ -1809,7 +1809,7 @@ The image sets `ENVIRONMENT=production`. In that mode the API and the migrator r
 | `AUTH_SECRET` | the JWT signing secret |
 | `DATABASE_HOST`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Postgres (the primary, port 5432); or `DATABASE_URL` instead, which wins over those |
 | `DATABASE_SSL_MODE` | defaults to `disable`; use `require` or stronger outside a private network (the API logs a warning otherwise) |
-| `REDIS_ADDRESS`, `REDIS_PASSWORD` | a comma-separated `host:port` list (one address gives a plain client, several a cluster client) and the password; `REDIS_USERNAME` defaults to `curtz-svc` |
+| `REDIS_ADDRESS`, `REDIS_PASSWORD` | a comma-separated `host:port` list (one address gives a plain client, several a cluster client) and the password; `REDIS_USERNAME` defaults to `fupi-svc` |
 
 Every variable, its default and its unit is listed in the app-connectivity spec (`docs/superpowers/specs/2026-10-04-app-connectivity-design.md`, section 4); the local defaults are in `.env.example`.
 
@@ -1828,11 +1828,11 @@ It exits 0 when it applied the migrations or found nothing to do. If it reports 
 
 ```bash
 docker run -p 8085:8085 -e AUTH_SECRET=... -e DATABASE_HOST=... -e DATABASE_PASSWORD=... -e REDIS_ADDRESS=... -e REDIS_PASSWORD=... \
-  --name curtz-api <IMAGE_NAME>:<IMAGE_TAG>
+  --name fupi-api <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
 - `GET /health` is liveness (always 200 while the process runs); `GET /health/ready` is readiness (503 when Postgres is down or the process is draining).
-- The image's `HEALTHCHECK` runs `/app/curtz healthcheck`, which calls `/health`.
+- The image's `HEALTHCHECK` runs `/app/fupi healthcheck`, which calls `/health`.
 - On SIGTERM the API stops accepting traffic and finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15). Give the orchestrator a stop grace period longer than that (the local compose stack uses 20 seconds).
 - For hardening, also run it with a read-only root filesystem, `--cap-drop ALL` and `--security-opt no-new-privileges`, as `deploy/app/compose.yml` does.
 
@@ -1871,14 +1871,14 @@ git commit -m "docs: document the image, the app stack and production deployment
 
 **Task test command:** `go test ./... && bash scripts/infra_test.sh && scripts/workflows_check.sh`
 
-Preconditions: Docker is running; `docker ps --format '{{.Names}}'` shows no `curtz` containers (if the user's own containers are up, ask before `make infra.app.up`, which starts and may replace Postgres and Redis); port 8085 is free (`lsof -nP -iTCP:8085 -sTCP:LISTEN` prints nothing).
+Preconditions: Docker is running; `docker ps --format '{{.Names}}'` shows no `fupi` containers (if the user's own containers are up, ask before `make infra.app.up`, which starts and may replace Postgres and Redis); port 8085 is free (`lsof -nP -iTCP:8085 -sTCP:LISTEN` prints nothing).
 
 - [ ] **Step 1: The static checks and the image checks**
 
 ```bash
 make lint.docker && make lint.workflows && make infra.config 2>&1 | tail -3
-make build.docker DOCKER_IMAGE_TAG=curtz-service
-scripts/image_test.sh context && scripts/image_test.sh image curtz-service
+make build.docker DOCKER_IMAGE_TAG=fupi-service
+scripts/image_test.sh context && scripts/image_test.sh image fupi-service
 make scan.docker
 ```
 Expected: no hadolint or actionlint findings; `ok: all profiles`; every `image_test.sh` check `ok:` with a `size:` line (record it); Trivy exits 0. Record the Trivy summary (counts per severity, including unfixed ones) for the notes.
@@ -1893,9 +1893,9 @@ Expected: `ready: postgres-single`, `ready: redis-single`, then the app build an
 - [ ] **Step 3: The running container**
 
 ```bash
-docker inspect --format 'user={{.Config.User}} health={{.State.Health.Status}} readonly={{.HostConfig.ReadonlyRootfs}} caps={{.HostConfig.CapDrop}} sec={{.HostConfig.SecurityOpt}}' curtz-app-single-1
+docker inspect --format 'user={{.Config.User}} health={{.State.Health.Status}} readonly={{.HostConfig.ReadonlyRootfs}} caps={{.HostConfig.CapDrop}} sec={{.HostConfig.SecurityOpt}}' fupi-app-single-1
 curl -s localhost:8085/health/ready; echo
-docker logs curtz-app-single-1 2>&1 | grep -E "connected to DB|redis is|listening" | cut -c1-160
+docker logs fupi-app-single-1 2>&1 | grep -E "connected to DB|redis is|listening" | cut -c1-160
 ```
 Expected: `user=65532:65532 health=healthy readonly=true caps=[ALL] sec=[no-new-privileges:true]`; `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`; the three log lines.
 
@@ -1903,7 +1903,7 @@ Expected: `user=65532:65532 health=healthy readonly=true caps=[ALL] sec=[no-new-
 
 ```bash
 U=img-check-$(date +%s)
-curl -s -o /dev/null -w 'register: [%{http_code}]\n' -X POST localhost:8085/api/v1/curtz/auth/register -H 'Content-Type: application/json' \
+curl -s -o /dev/null -w 'register: [%{http_code}]\n' -X POST localhost:8085/api/v1/fupi/auth/register -H 'Content-Type: application/json' \
   -d "{\"username\":\"$U\",\"first_name\":\"Img\",\"email\":\"$U@example.com\",\"password\":\"Sup3r-secret-pw!\"}"
 docker compose --profile '*' stop redis-single >/dev/null 2>&1; sleep 1; curl -s -w ' [%{http_code}]\n' localhost:8085/health/ready
 docker compose --profile '*' start redis-single >/dev/null 2>&1; sleep 8; curl -s -w ' [%{http_code}]\n' localhost:8085/health/ready
@@ -1913,7 +1913,7 @@ Expected: `register: [201]`; with Redis stopped `{"status":"degraded",...,"redis
 - [ ] **Step 5: Migrator from the image**
 
 ```bash
-docker run --rm --network curtz -e ENVIRONMENT=development -e DATABASE_HOST=postgres --entrypoint /app/migrator curtz-app:local 2>&1 | tail -3
+docker run --rm --network fupi -e ENVIRONMENT=development -e DATABASE_HOST=postgres --entrypoint /app/migrator fupi-app:local 2>&1 | tail -3
 ```
 Expected: `migrate: no change` (the compose job already migrated) and exit 0.
 
@@ -1921,8 +1921,8 @@ Expected: `migrate: no change` (the compose job already migrated) and exit 0.
 
 ```bash
 start=$(date +%s); docker compose --profile '*' stop app-single 2>&1 | tail -1; echo "stopped in $(( $(date +%s) - start ))s"
-docker inspect --format 'exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' curtz-app-single-1
-docker logs curtz-app-single-1 2>&1 | grep -E "draining|shutting down" | cut -c1-120
+docker inspect --format 'exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' fupi-app-single-1
+docker logs fupi-app-single-1 2>&1 | grep -E "draining|shutting down" | cut -c1-120
 ```
 Expected: it stops in well under 20 seconds, `exit=0 oom=false`, and the log shows `readiness: draining` then `shutting down server`. An exit code 137 means the grace period killed it: investigate (the drain, `stop_grace_period`) before going on.
 
@@ -1932,16 +1932,16 @@ Expected: it stops in well under 20 seconds, `exit=0 oom=false`, and the log sho
 make infra.app.up MODE=single 2>&1 | tail -1
 make infra.app.down; docker ps --format '{{.Names}}' | sort | tr '\n' ' '
 ```
-Expected: `ready: app-single`; after `infra.app.down` the list contains the Postgres and Redis containers (and their exporters) but no `curtz-app-*`.
+Expected: `ready: app-single`; after `infra.app.down` the list contains the Postgres and Redis containers (and their exporters) but no `fupi-app-*`.
 
 - [ ] **Step 8: HA mode**
 
 ```bash
 make infra.app.up MODE=ha 2>&1 | tail -6
-docker inspect --format 'health={{.State.Health.Status}}' curtz-app-ha-1
+docker inspect --format 'health={{.State.Health.Status}}' fupi-app-ha-1
 curl -s localhost:8085/health/ready; echo
-docker logs curtz-app-ha-1 2>&1 | grep -E "redis is|connected to DB" | cut -c1-200
-docker compose --profile '*' stop app-ha 2>&1 | tail -1; docker inspect --format 'exit={{.State.ExitCode}}' curtz-app-ha-1
+docker logs fupi-app-ha-1 2>&1 | grep -E "redis is|connected to DB" | cut -c1-200
+docker compose --profile '*' stop app-ha 2>&1 | tail -1; docker inspect --format 'exit={{.State.ExitCode}}' fupi-app-ha-1
 ```
 Expected: `ready: postgres-ha`, `ready: redis-ha`, `ready: app-ha`; `health=healthy`; ready with both up; the log lists the six Redis addresses; the stop exits 0. (`make infra.app.up MODE=ha` first removes the single-mode Postgres and Redis containers, which is how `infra.sh` switches modes.)
 
@@ -2087,7 +2087,7 @@ stages:
 variables:
   GOPATH: $CI_PROJECT_DIR/.go
   GOFLAGS: -buildvcs=false
-  IMAGE_TAG: curtz-service:ci
+  IMAGE_TAG: fupi-service:ci
 
 .go-cache: &go-cache
   cache:
@@ -2149,7 +2149,7 @@ build:
     - make build
   artifacts:
     paths:
-      - bin/curtz
+      - bin/fupi
     expire_in: 1 week
 
 docker-lint:
@@ -2169,10 +2169,10 @@ docker-build:
   script:
     - docker build -t "$IMAGE_TAG" --build-arg VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}" --build-arg GIT_COMMIT="$CI_COMMIT_SHA" --build-arg BUILD_TIME="$CI_COMMIT_TIMESTAMP" .
     - scripts/image_test.sh image "$IMAGE_TAG"
-    - docker save -o curtz-image.tar "$IMAGE_TAG"
+    - docker save -o fupi-image.tar "$IMAGE_TAG"
   artifacts:
     paths:
-      - curtz-image.tar
+      - fupi-image.tar
     expire_in: 1 day
 
 # The image is scanned from the saved tar, so the scanner needs no Docker daemon and no shared paths.
@@ -2190,7 +2190,7 @@ docker-scan:
     paths:
       - .trivycache/
   script:
-    - trivy image --quiet --no-progress --input curtz-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+    - trivy image --quiet --no-progress --input fupi-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
 ```
 
 In `.gitlab/.gitlab-webide.yml` change `  image: go:1.18` to `  image: golang:1.26`.
@@ -2262,7 +2262,7 @@ definitions:
         script:
           - make build
         artifacts:
-          - bin/curtz
+          - bin/fupi
 
     - step: &docker-lint
         name: Lint the Dockerfile
@@ -2276,19 +2276,19 @@ definitions:
         services:
           - docker
         script:
-          - export IMAGE_TAG=curtz-service:ci
+          - export IMAGE_TAG=fupi-service:ci
           - docker build -t "$IMAGE_TAG" --build-arg VERSION="$(echo "$BITBUCKET_COMMIT" | cut -c1-7)" --build-arg GIT_COMMIT="$BITBUCKET_COMMIT" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
           - scripts/image_test.sh image "$IMAGE_TAG"
-          - docker save -o curtz-image.tar "$IMAGE_TAG"
+          - docker save -o fupi-image.tar "$IMAGE_TAG"
         artifacts:
-          - curtz-image.tar
+          - fupi-image.tar
 
     # The image is scanned from the saved tar, so the scanner needs no Docker daemon and no shared paths.
     - step: &docker-scan
         name: Scan the image
         image: aquasec/trivy:0.75.0
         script:
-          - trivy image --quiet --no-progress --input curtz-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          - trivy image --quiet --no-progress --input fupi-image.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
 
 pipelines:
   default: &verify
@@ -2330,7 +2330,7 @@ Break each file in turn, run the guard, and restore it: the Go image (`golang:1.
 ```bash
 make test.coverage && go tool cover -func=coverage.out | tail -1 && rm -f coverage.out
 make test.integration
-IMAGE_TAG=curtz-service:ci
+IMAGE_TAG=fupi-service:ci
 docker build -t "$IMAGE_TAG" --build-arg VERSION="$(git rev-parse --short=7 HEAD)" --build-arg GIT_COMMIT="$(git rev-parse HEAD)" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
 scripts/image_test.sh image "$IMAGE_TAG" && make scan.docker DOCKER_IMAGE_TAG="$IMAGE_TAG"
 docker rmi "$IMAGE_TAG"

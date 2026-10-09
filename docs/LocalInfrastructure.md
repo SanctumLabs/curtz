@@ -1,6 +1,6 @@
 # Local infrastructure
 
-Curtz depends on Postgres, Redis and Kafka, and is observed with ELK (logs), Prometheus (metrics), Tempo (traces) and
+Fupi depends on Postgres, Redis and Kafka, and is observed with ELK (logs), Prometheus (metrics), Tempo (traces) and
 Grafana. This repository runs all of them locally with Docker Compose. Each stack runs in one of two modes:
 
 - **HA**: the clustered topology used in production (3 Kafka brokers, a 6-node Redis Cluster, Postgres with Patroni and
@@ -79,7 +79,7 @@ The `MODE` variable also selects which node the helper commands talk to (for exa
 ## Connecting the application
 
 The same names work in both modes; the lists just get shorter. Use the "host" column when the app runs on your machine
-(for example `make run.dev`) and the "network" column when it runs in a container on the `curtz` network.
+(for example `make run.dev`) and the "network" column when it runs in a container on the `fupi` network.
 
 | Concern | App on the host | App in the compose network |
 |---|---|---|
@@ -121,7 +121,7 @@ Readiness never includes error text; look in the API's log for the reason (ADR-0
 
 On SIGTERM or Ctrl-C the API turns readiness to 503, finishes in-flight requests for up to `SHUTDOWN_TIMEOUT` seconds (default 15), closes Redis and Postgres and exits 0. A second Ctrl-C during the drain ends it at once.
 
-The variables you are likely to change are in `.env.example`; the full list with defaults and units (server, pool sizes, timeouts, `MIGRATIONS_PATH`) is in the spec, `docs/superpowers/specs/2026-10-04-app-connectivity-design.md` section 4. An empty value counts as unset, so `REDIS_USERNAME=` still sends `curtz-svc`; a Redis that only has a password needs `REDIS_USERNAME=default`. If `ENVIRONMENT` is not set and a development secret is in use, the API logs a warning at startup. A value that does not parse stops startup with a message naming the variable, and any `ENVIRONMENT` other than `development` or `test` refuses the development secrets (`AUTH_SECRET`, `DATABASE_PASSWORD`, `REDIS_PASSWORD`).
+The variables you are likely to change are in `.env.example`; the full list with defaults and units (server, pool sizes, timeouts, `MIGRATIONS_PATH`) is in the spec, `docs/superpowers/specs/2026-10-04-app-connectivity-design.md` section 4. An empty value counts as unset, so `REDIS_USERNAME=` still sends `fupi-svc`; a Redis that only has a password needs `REDIS_USERNAME=default`. If `ENVIRONMENT` is not set and a development secret is in use, the API logs a warning at startup. A value that does not parse stops startup with a message naming the variable, and any `ENVIRONMENT` other than `development` or `test` refuses the development secrets (`AUTH_SECRET`, `DATABASE_PASSWORD`, `REDIS_PASSWORD`).
 
 Debugging:
 
@@ -134,7 +134,7 @@ Debugging:
 
 ## The app in a container
 
-The API also runs as a container built from the repository `Dockerfile`, on the same `curtz` network as the stacks, the way it will run in production.
+The API also runs as a container built from the repository `Dockerfile`, on the same `fupi` network as the stacks, the way it will run in production.
 
 ```bash
 make infra.app.up MODE=single      # or HA; brings up Postgres and Redis for that mode first, then builds and starts the API
@@ -144,9 +144,9 @@ make infra.app.down                # stops only the API; Postgres and Redis keep
 
 - It listens on `127.0.0.1:8085`, so stop an API running on your host first.
 - Inside the network it reaches Postgres at `postgres:5432` and Redis at `redis-1:7001` (single) or `redis-1:7001` to `redis-6:7006` (HA), so `make infra.hosts` is not needed. Its environment is an explicit list in `deploy/app/compose.yml` (not your `.env`) and it runs with `ENVIRONMENT=development`.
-- It runs with a read-only filesystem, no Linux capabilities and `no-new-privileges`. Its health check is `/app/curtz healthcheck`; `docker compose ps` shows `healthy` once it serves.
+- It runs with a read-only filesystem, no Linux capabilities and `no-new-privileges`. Its health check is `/app/fupi healthcheck`; `docker compose ps` shows `healthy` once it serves.
 - `make infra.app.up` rebuilds the image each time (cached layers make it quick). `make build.docker`, `make lint.docker` and `make scan.docker` build, lint and scan the image on its own.
-- The image has no shell. To look inside it use `docker cp curtz-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network curtz --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
+- The image has no shell. To look inside it use `docker cp fupi-app-single-1:/app/migrations -`, or test connectivity from a distroless debug container on the network: `docker run --rm -it --network fupi --entrypoint sh gcr.io/distroless/static-debian13:debug-nonroot` (pulls that image).
 
 ## Relaying events to Kafka
 
@@ -159,7 +159,7 @@ make infra.worker.down             # stops only the worker; Postgres and Kafka k
 ```
 
 - It listens on `127.0.0.1:8086` (`GET /health`, `GET /health/ready`). Its environment is an explicit list in `deploy/worker/compose.yml` (not your `.env`), it runs with `ENVIRONMENT=development`, a read-only filesystem and no capabilities, and its health check is `/app/worker healthcheck`.
-- One worker is active at a time: they compete for a Postgres advisory lock and the others stand by, taking over within `OUTBOX_STANDBY_INTERVAL` seconds (default 5) after the active one stops. To try a failover, run a second worker on your host with `OTEL_SERVICE_NAME=curtz-worker WORKER_HTTP_PORT=8087 go run ./app/cmd/worker` (`OTEL_SERVICE_NAME` is there because `.env.example` sets it to the API's name, which would make the worker report as the API; the defaults reach `localhost:19092` and `localhost:5432`; in HA mode also set `KAFKA_BROKERS=localhost:19092,localhost:29092,localhost:39092`).
+- One worker is active at a time: they compete for a Postgres advisory lock and the others stand by, taking over within `OUTBOX_STANDBY_INTERVAL` seconds (default 5) after the active one stops. To try a failover, run a second worker on your host with `OTEL_SERVICE_NAME=fupi-worker WORKER_HTTP_PORT=8087 go run ./app/cmd/worker` (`OTEL_SERVICE_NAME` is there because `.env.example` sets it to the API's name, which would make the worker report as the API; the defaults reach `localhost:19092` and `localhost:5432`; in HA mode also set `KAFKA_BROKERS=localhost:19092,localhost:29092,localhost:39092`).
 - Read what it published, headers included (`event_id`, `event_type`, `aggregate_id`, `occurred_at`, and `traceparent` when the request had a trace), or look at the topic in Kafka UI (<http://localhost:8080>):
 
 ```bash
@@ -183,7 +183,7 @@ UPDATE outbox_events SET parked_at = NULL, attempts = 0, error_message = NULL WH
 ```
 
 - **Purge:** the active worker deletes rows sent more than `OUTBOX_RETENTION_DAYS` ago (default 7; `0` keeps them) when it starts and every ten minutes. Unsent and parked rows are never deleted.
-- **Observing it:** the "Curtz worker" dashboard (folder Curtz) and the traces: each published event is a span `<destination> publish` of the service `curtz-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader); only the active relay reports the backlog, oldest age and parked rows, a standby reports just `leader = 0`. Three alerts watch it: `OutboxBacklogOld` (the oldest event has waited more than five minutes), `OutboxEventsParked` (anything is parked) and `OutboxNoActiveRelay` (workers are running but none is the active relay, so nothing is delivered). The collector keeps a stopped container's series for about five minutes, so after a worker restarts "Active relays" can briefly read 2.
+- **Observing it:** the "Fupi worker" dashboard (folder Fupi) and the traces: each published event is a span `<destination> publish` of the service `fupi-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader); only the active relay reports the backlog, oldest age and parked rows, a standby reports just `leader = 0`. Three alerts watch it: `OutboxBacklogOld` (the oldest event has waited more than five minutes), `OutboxEventsParked` (anything is parked) and `OutboxNoActiveRelay` (workers are running but none is the active relay, so nothing is delivered). The collector keeps a stopped container's series for about five minutes, so after a worker restarts "Active relays" can briefly read 2.
 - Settings (all in `.env.example`): `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_PUBLISH_TIMEOUT`, `OUTBOX_POLL_INTERVAL_MS`, `OUTBOX_BATCH_SIZE`, `OUTBOX_MAX_ATTEMPTS`, `OUTBOX_STANDBY_INTERVAL`, `OUTBOX_RETENTION_DAYS` and `WORKER_HTTP_PORT`.
 
 ## Observing the app
@@ -202,12 +202,12 @@ Follow one request. Send it with a `traceparent` of your own, so you know the tr
 
 ```bash
 curl -s -H 'traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' -H 'content-type: application/json' \
-  -d '{"email":"you@example.com","password":"your-password"}' localhost:8085/api/v1/curtz/auth/login
+  -d '{"email":"you@example.com","password":"your-password"}' localhost:8085/api/v1/fupi/auth/login
 ```
 
-- **Traces:** Grafana (<http://localhost:3000>), Explore, Tempo, "TraceQL" with `{ resource.service.name = "curtz" }`, or "Trace ID" with `4bf92f3577b34da6a3ce929d0e0e4736`. The trace is the HTTP server span `POST /api/v1/curtz/auth/login`, the `identity.Login` use-case span and the Postgres query spans. "Logs for this span" jumps to the Elasticsearch lines with that `trace.id`.
-- **Metrics:** the "Curtz service" dashboard (folder Curtz): requests per second and latency by route, the 5xx ratio, application logs and recent traces, and a Dependencies row with the Postgres pool and Redis commands. In Prometheus the request metric is `http_server_request_duration_seconds_*` with `service_name`, `http_route` and `http_response_status_code`.
-- **Logs:** Kibana (<http://localhost:5601>), data view `logs-curtz-*`, filter `trace.id : "4bf92f3577b34da6a3ce929d0e0e4736"`. The access log line is the message `request` with the method, route, status, duration and request ID.
+- **Traces:** Grafana (<http://localhost:3000>), Explore, Tempo, "TraceQL" with `{ resource.service.name = "fupi" }`, or "Trace ID" with `4bf92f3577b34da6a3ce929d0e0e4736`. The trace is the HTTP server span `POST /api/v1/fupi/auth/login`, the `identity.Login` use-case span and the Postgres query spans. "Logs for this span" jumps to the Elasticsearch lines with that `trace.id`.
+- **Metrics:** the "Fupi service" dashboard (folder Fupi): requests per second and latency by route, the 5xx ratio, application logs and recent traces, and a Dependencies row with the Postgres pool and Redis commands. In Prometheus the request metric is `http_server_request_duration_seconds_*` with `service_name`, `http_route` and `http_response_status_code`.
+- **Logs:** Kibana (<http://localhost:5601>), data view `logs-fupi-*`, filter `trace.id : "4bf92f3577b34da6a3ce929d0e0e4736"`. The access log line is the message `request` with the method, route, status, duration and request ID.
 
 What to know:
 
@@ -215,7 +215,7 @@ What to know:
 - Telemetry is best effort: spans produced while the collector is away, and for a few seconds after it comes back, are dropped (they are never queued without limit). Metrics are cumulative, so the counters catch up once exporting resumes, which it does by itself without restarting the API.
 - Never recorded as span attributes: SQL arguments, Redis keys and values, query strings, client addresses, request headers (apart from `User-Agent` and `Host`, which become `user_agent.original` and `server.address`), email addresses, usernames and tokens. A failed query or command records the driver's error message as the library reports it, and PostgreSQL's own messages can echo a value it rejected (for example `invalid input syntax for type uuid`), so treat error events as diagnostic data.
 - An API run on your host (`make run`) still exports to the collector on `localhost:4317`. Its logs go to your terminal only (Filebeat reads container logs, not your terminal); `LOG_FORMAT=text` makes them readable, `LOG_LEVEL=debug` shows the probes.
-- Settings are the standard OpenTelemetry variables, listed in `.env.example`: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`), `OTEL_SERVICE_NAME` (default `curtz`), `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`; keep a parent-based sampler, the readiness checks rely on it), `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds, default 15000) and `OTEL_SDK_DISABLED=true` to turn it all off.
+- Settings are the standard OpenTelemetry variables, listed in `.env.example`: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`), `OTEL_SERVICE_NAME` (default `fupi`), `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`; keep a parent-based sampler, the readiness checks rely on it), `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds, default 15000) and `OTEL_SDK_DISABLED=true` to turn it all off.
 
 ## The stacks
 
@@ -231,7 +231,7 @@ What to know:
 ### Redis
 
 - HA: `redis-1..6` (3 masters, 3 replicas). Single: `redis-single`, one node owning all slots. Both run in cluster mode.
-- Eviction `allkeys-lru`, 128 MB per node, AOF persistence. Application user `curtz-svc` cannot run dangerous commands
+- Eviction `allkeys-lru`, 128 MB per node, AOF persistence. Application user `fupi-svc` cannot run dangerous commands
   (`FLUSHALL`, `KEYS`, `CONFIG`...).
 - `make infra.redis.cli` opens a cluster-aware shell.
 
@@ -248,12 +248,12 @@ What to know:
 ### ELK
 
 - Path: your app logs JSON to stdout, Filebeat reads every container's logs of this compose project, Logstash parses
-  them, Elasticsearch stores them in the data stream `logs-curtz-default` (rolled over daily, deleted after 7 days),
+  them, Elasticsearch stores them in the data stream `logs-fupi-default` (rolled over daily, deleted after 7 days),
   Kibana shows them.
 - JSON log lines are mapped to `message`, `log.level`, `service.name`, `trace.id`, `span.id`; any other line keeps its text
   and takes the compose service as `service.name`.
 - HA: 3 Elasticsearch nodes (transport TLS between them), 2 Logstash, 2 Kibana behind nginx. Single: one of each.
-- Kibana: <http://localhost:5601>, log in as `elastic`. First time: Stack Management, Data Views, create `logs-curtz-*`
+- Kibana: <http://localhost:5601>, log in as `elastic`. First time: Stack Management, Data Views, create `logs-fupi-*`
   with timestamp `@timestamp`.
 - Filebeat runs as root and mounts the Docker socket read-only to read container logs. This is the one least-privilege
   exception, acceptable for local development only.
@@ -263,7 +263,7 @@ What to know:
 - The app sends OTLP to the OpenTelemetry Collector (`localhost:4317`). Traces go to Tempo, metrics are re-exposed to
   Prometheus. Logs do not pass through the Collector.
 - Grafana: <http://localhost:3000>. Datasources Prometheus, Tempo and Elasticsearch are provisioned; Tempo links spans to
-  logs by `trace.id`. Dashboards "Stack overview" and "Curtz service" are in the folder "Curtz". The service dashboard
+  logs by `trace.id`. Dashboards "Stack overview" and "Fupi service" are in the folder "Fupi". The service dashboard
   fills in once the API runs (see "Observing the app").
 - Prometheus: <http://localhost:9090>; Alertmanager: <http://localhost:9093>; Tempo: <http://localhost:3200>.
 - Prometheus finds exporters by DNS, so only running components appear as targets. To get notifications, replace the
@@ -292,14 +292,14 @@ All credentials are development defaults from `.env.example`. You can override t
 | Kafka (host) | `localhost:19092` (HA also `29092`, `39092`) | none |
 | Kafka UI | <http://localhost:8080> | none |
 | Worker health | `localhost:8086` (`/health`, `/health/ready`) | none |
-| Redis | `localhost:7001`..`7006` | user `curtz-svc`, password `curtz-svc`; admin (default user) `curtz-redis-admin` |
-| Postgres | `localhost:5432` write, `5433` read | `curtz-user` / `curtz-pass`, database `curtzdb`; superuser `postgres` / `curtz-postgres-admin` |
-| Elasticsearch | `localhost:9200` | `elastic` / `curtz-elastic-dev` |
-| Kibana | <http://localhost:5601> | `elastic` / `curtz-elastic-dev` |
-| Grafana | <http://localhost:3000> | `admin` / `curtz-grafana-dev` |
+| Redis | `localhost:7001`..`7006` | user `fupi-svc`, password `fupi-svc`; admin (default user) `fupi-redis-admin` |
+| Postgres | `localhost:5432` write, `5433` read | `fupi-user` / `fupi-pass`, database `fupidb`; superuser `postgres` / `fupi-postgres-admin` |
+| Elasticsearch | `localhost:9200` | `elastic` / `fupi-elastic-dev` |
+| Kibana | <http://localhost:5601> | `elastic` / `fupi-elastic-dev` |
+| Grafana | <http://localhost:3000> | `admin` / `fupi-grafana-dev` |
 | Prometheus, Alertmanager, Tempo | `9090`, `9093`, `3200` | none |
 | OTLP | `4317` gRPC, `4318` HTTP | none |
-| Legacy MongoDB / Redis | `27017` / `6379` | `curtzUser` / `curtzPassword` / none |
+| Legacy MongoDB / Redis | `27017` / `6379` | `fupiUser` / `fupiPassword` / none |
 
 Every published port is bound to `127.0.0.1`. Do not reuse these values anywhere else.
 
@@ -354,11 +354,11 @@ First look: `make infra.ps` (health), `make infra.logs SERVICE=<name>`, `make in
 | Redis `CROSSSLOT` | a multi-key command spans slots; use hash tags (`{user42}:a`). This is the same in production |
 | Postgres connection refused right after start (HA) | no primary elected yet: `make infra.patroni.list`, wait for a Leader |
 | Postgres `cannot execute ... in a read-only transaction` | writing to port 5433; use 5432 |
-| Patroni member stuck, wrong timeline | `docker compose --profile '*' exec patroni-1 /opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml reinit curtz patroni-2` |
-| Migration says dirty | fix the SQL, then `docker run --rm --network curtz -v "$PWD/app/internal/adapters/postgres/migrations:/m" migrate/migrate -path=/m -database "postgres://curtz-user:curtz-pass@postgres:5432/curtzdb?sslmode=disable&x-migrations-table=schema_migrations" force <version>` |
+| Patroni member stuck, wrong timeline | `docker compose --profile '*' exec patroni-1 /opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml reinit fupi patroni-2` |
+| Migration says dirty | fix the SQL, then `docker run --rm --network fupi -v "$PWD/app/internal/adapters/postgres/migrations:/m" migrate/migrate -path=/m -database "postgres://fupi-user:fupi-pass@postgres:5432/fupidb?sslmode=disable&x-migrations-table=schema_migrations" force <version>` |
 | Elasticsearch `max virtual memory areas vm.max_map_count` (Linux) | `sudo sysctl -w vm.max_map_count=262144` |
 | Kibana "server is not ready" | it needs 1 to 2 minutes after Elasticsearch is healthy |
-| Kibana shows no logs | create the `logs-curtz-*` data view; check `make infra.logs SERVICE=filebeat-single` (or `filebeat-ha`); only containers of the `curtz` compose project are collected |
+| Kibana shows no logs | create the `logs-fupi-*` data view; check `make infra.logs SERVICE=filebeat-single` (or `filebeat-ha`); only containers of the `fupi` compose project are collected |
 | Grafana Elasticsearch datasource error | ELK is not running |
 | An exporter target is missing in Prometheus | its stack is not running; targets are discovered by DNS |
 

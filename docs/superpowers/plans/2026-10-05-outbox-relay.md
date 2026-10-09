@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Go `1.26.0` (`go.mod`). All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/curtz`, on branch `feat/outbox-relay`.
+- Go `1.26.0` (`go.mod`). All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/fupi`, on branch `feat/outbox-relay`.
 - **Commit trailer (D14):** every commit made while executing this plan ends with the `Co-Authored-By` trailer given in the session's attribution instructions. The `git commit` snippets below omit the trailer text on purpose; add it to each commit.
 - **Download gate:** nothing is downloaded without the user's explicit go-ahead naming source and size. franz-go v1.22.1, `pkg/kmsg` v1.14.0, `github.com/pierrec/lz4/v4` v4.1.30 and `github.com/klauspost/compress` v1.20.0 are all in the local module cache: Task 6 adds them with `GOPROXY=off`, which fails instead of downloading. Adding franz-go raises the existing indirect requirement `klauspost/compress` from v1.18.6 to v1.20.0: that is a version bump of a library in the production binary, so Task 6 asks for it. Two things do need the network and the go-ahead: `go mod tidy` (Task 6) and the Docker image build (Tasks 13 and 16: the builder runs `go mod download`).
 - **No Docker pulls:** every image the plan uses is already local: `apache/kafka:4.3.1`, `postgres:16.2-alpine`, `testcontainers/ryuk`, the pinned `hadolint/hadolint@sha256:32dac94…` (use `make lint.docker`, never `docker run hadolint/hadolint:<tag>`), `prom/prometheus:v3.15.0` (for `promtool`) and the observability and ELK images. Run `docker images` before any `docker run` of an image you have not used before.
@@ -35,7 +35,7 @@ The code in this plan was written and run in a scratch copy of the repository fi
 4. **A client-side "record too large" needs a broker.** franz-go checks the size once it knows the topic's partitions, so the oversized-record test is an integration test.
 5. **The relay waits one standby interval after losing its lease** before asking for it again, so a connection that keeps dying right after it opens cannot become a hot loop (found by a failing test).
 6. **The test broker is a generic testcontainers container** with the local `apache/kafka:4.3.1` image, configured like the stack's `kafka-single` and binding a fixed host port (`app/test/test_kafka.go`). The testcontainers Kafka module is therefore not needed and not added (spec section 11 expected it).
-7. **`telemetry.Start` moves out of the API's `main`.** The slice 4 helper `startTelemetry` (and its tests) becomes `telemetry.Start`, shared by the API and the worker; `telemetry.ServiceName` takes a fallback and `Options` gains `ServiceName` so the worker is `curtz-worker`. The API's behaviour is unchanged.
+7. **`telemetry.Start` moves out of the API's `main`.** The slice 4 helper `startTelemetry` (and its tests) becomes `telemetry.Start`, shared by the API and the worker; `telemetry.ServiceName` takes a fallback and `Options` gains `ServiceName` so the worker is `fupi-worker`. The API's behaviour is unchanged.
 8. **The lease connection is parsed through `pgxpool.ParseConfig`**: `postgres.ConnectionString` carries `pool_max_conns` and `pool_min_conns`, which a plain `pgx.Connect` would send to the server as unknown settings.
 9. **A permanently rejected event is retried on the next cycle**, so its attempts are used up within a few cycles (milliseconds apart), not minutes apart. Transient failures never count.
 10. **Prometheus names of the relay metrics are predicted** (`outbox_relay_published_total`, `..._failures_total`, `..._publish_duration_seconds_*`, `..._oldest_unsent_age_seconds`, `..._backlog`, `..._parked_rows`, `..._leader`) from OpenTelemetry's naming; Task 16 confirms them on the running stack and fixes the alert and dashboard queries if they differ.
@@ -365,8 +365,8 @@ import (
 	"testing"
 	"time"
 
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/baggage"
@@ -460,7 +460,7 @@ Expected: FAIL `TestWriteOutboxEvents_StoresTheTraceContextOfTheRequestThatWrote
 
 - [ ] **Step 3: Implement**
 
-In `app/internal/adapters/postgres/outbox.go` add `"go.opentelemetry.io/otel/propagation"` to the imports (third-party group, after the curtz imports), replace the `outboxHeaders` type with
+In `app/internal/adapters/postgres/outbox.go` add `"go.opentelemetry.io/otel/propagation"` to the imports (third-party group, after the fupi imports), replace the `outboxHeaders` type with
 
 ```go
 // outboxHeaders are the message headers a relay forwards alongside the payload. TraceParent and TraceState are the W3C
@@ -527,7 +527,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
@@ -772,7 +772,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -872,7 +872,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 )
 
 // fakeStore is an in-memory ports.OutboxDatastore. Its behaviour is scripted by the fields a test sets.
@@ -1026,7 +1026,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
@@ -1293,7 +1293,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -1457,7 +1457,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-const instrumentationName = "github.com/sanctumlabs/curtz/app/internal/application/outbox"
+const instrumentationName = "github.com/sanctumlabs/fupi/app/internal/application/outbox"
 
 // metrics are the relay's instruments. The backlog numbers are sampled by the leader every few seconds and read by the
 // gauges' callbacks; the oldest event's age is computed when it is read, so it keeps growing between samples.
@@ -1542,8 +1542,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -1890,7 +1890,7 @@ git commit -m "feat(outbox): add the relay with leadership, parking, purge, span
 
 **Interfaces:**
 - Consumes: the sqlc functions of Task 1, `ports.OutboxDatastore` and `ports.Lease` (Task 3), `postgres.StringToUUID`/`UUIDToString`/`ConnectionString`.
-- Produces: `outboxdatastore.NewAdapter(client database.PostgresDatabaseClient, connString string, timeout time.Duration) (*Adapter, error)` implementing `ports.OutboxDatastore`. `Acquire` opens a dedicated connection (parsed through `pgxpool.ParseConfig`, tracer off) and takes `pg_try_advisory_lock` on a key derived from `"curtz.outbox.relay"`; the lease's `Alive` runs `SELECT 1` on it and `Release` closes it. Every statement is bounded by `timeout`. Tasks 11 and 12 construct it.
+- Produces: `outboxdatastore.NewAdapter(client database.PostgresDatabaseClient, connString string, timeout time.Duration) (*Adapter, error)` implementing `ports.OutboxDatastore`. `Acquire` opens a dedicated connection (parsed through `pgxpool.ParseConfig`, tracer off) and takes `pg_try_advisory_lock` on a key derived from `"fupi.outbox.relay"`; the lease's `Alive` runs `SELECT 1` on it and `Release` closes it. Every statement is bounded by `timeout`. Tasks 11 and 12 construct it.
 
 - [ ] **Step 1: Write the failing integration tests**
 
@@ -1908,10 +1908,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	outboxdatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/outbox"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/test"
+	outboxdatastore "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/outbox"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -2250,16 +2250,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
 )
 
 // leaseKey is the advisory lock key of the relay lease, derived from a fixed name so every instance computes the same one.
 var leaseKey = func() int64 {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte("curtz.outbox.relay"))
+	_, _ = h.Write([]byte("fupi.outbox.relay"))
 	return int64(h.Sum64())
 }()
 
@@ -2938,8 +2938,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
-	"github.com/sanctumlabs/curtz/app/test"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -3142,8 +3142,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kerr"
@@ -3249,8 +3249,8 @@ package kafkaadapter
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
 )
 
 // producer is the part of kafka.Producer the adapter uses.
@@ -3326,7 +3326,7 @@ git commit -m "feat(kafka): add the EventPublisher adapter"
 
 **Interfaces:**
 - Consumes: `telemetry.Setup` (slice 4).
-- Produces: `telemetry.DefaultServiceName = "curtz"`; `telemetry.ServiceName(fallback string) string`; `telemetry.Options.ServiceName`; `telemetry.Start(ctx, opts Options) (flush func())` (idempotent flush with its own 5 s deadline). Task 11's worker and the API's `main` use them.
+- Produces: `telemetry.DefaultServiceName = "fupi"`; `telemetry.ServiceName(fallback string) string`; `telemetry.Options.ServiceName`; `telemetry.Start(ctx, opts Options) (flush func())` (idempotent flush with its own 5 s deadline). Task 11's worker and the API's `main` use them.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3335,25 +3335,25 @@ In `app/pkg/infra/telemetry/log_test.go` replace the whole of `TestServiceName` 
 ```go
 func TestServiceName(t *testing.T) {
 	t.Setenv("OTEL_SERVICE_NAME", "")
-	assert.Equal(t, "curtz", ServiceName(DefaultServiceName), "an empty value counts as unset")
-	assert.Equal(t, "curtz-worker", ServiceName("curtz-worker"))
+	assert.Equal(t, "fupi", ServiceName(DefaultServiceName), "an empty value counts as unset")
+	assert.Equal(t, "fupi-worker", ServiceName("fupi-worker"))
 
-	t.Setenv("OTEL_SERVICE_NAME", "  curtz-api ")
-	assert.Equal(t, "curtz-api", ServiceName("curtz-worker"), "the variable wins over the fallback")
+	t.Setenv("OTEL_SERVICE_NAME", "  fupi-api ")
+	assert.Equal(t, "fupi-api", ServiceName("fupi-worker"), "the variable wins over the fallback")
 }
 ```
 
 In `app/pkg/infra/telemetry/setup_test.go` insert, directly above `func TestSetup_DisabledInstallsNothing`:
 
 ```go
-// The worker passes its own service name; the API passes none and keeps "curtz". The variable still wins over both.
+// The worker passes its own service name; the API passes none and keeps "fupi". The variable still wins over both.
 func TestSetup_TheApplicationsServiceNameIsTheDefaultAndTheEnvironmentStillWins(t *testing.T) {
 	for name, tc := range map[string]struct {
 		env, option, want string
 	}{
-		"no option, no variable": {"", "", "curtz"},
-		"option only":            {"", "curtz-worker", "curtz-worker"},
-		"variable beats option":  {"billing", "curtz-worker", "billing"},
+		"no option, no variable": {"", "", "fupi"},
+		"option only":            {"", "fupi-worker", "fupi-worker"},
+		"variable beats option":  {"billing", "fupi-worker", "billing"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			c, endpoint := startCollector(t)
@@ -3407,9 +3407,9 @@ func TestStart_PassesTheOptionsOn(t *testing.T) {
 		return func(context.Context) error { return nil }, nil
 	})
 
-	Start(context.Background(), Options{ServiceName: "curtz-worker", ServiceVersion: "1.2.3", Environment: "staging"})()
+	Start(context.Background(), Options{ServiceName: "fupi-worker", ServiceVersion: "1.2.3", Environment: "staging"})()
 
-	assert.Equal(t, Options{ServiceName: "curtz-worker", ServiceVersion: "1.2.3", Environment: "staging"}, got)
+	assert.Equal(t, Options{ServiceName: "fupi-worker", ServiceVersion: "1.2.3", Environment: "staging"}, got)
 }
 
 // The run context is cancelled by the SIGTERM that starts the shutdown, so a flush that reused it would give up at once.
@@ -3489,7 +3489,7 @@ In `app/pkg/infra/telemetry/log.go` replace the `defaultServiceName` constant an
 
 ```go
 // DefaultServiceName is the service name of the API when OTEL_SERVICE_NAME is not set.
-const DefaultServiceName = "curtz"
+const DefaultServiceName = "fupi"
 
 // ServiceName is the name this process reports: OTEL_SERVICE_NAME, or fallback when it is not set. The log lines and the
 // telemetry resource both use it, so a log line and the trace it belongs to name the same service.
@@ -3609,7 +3609,7 @@ func TestLoadWorker_DefaultsMatchTheLocalStack(t *testing.T) {
 	assert.Equal(t, "development", worker.Environment)
 	assert.Equal(t, HealthSettings{Host: "0.0.0.0", Port: 8086}, worker.Health)
 	assert.Equal(t, 15*time.Second, worker.ShutdownTimeout)
-	assert.Equal(t, KafkaSettings{Brokers: []string{"localhost:19092"}, ClientID: "curtz-worker", PublishTimeout: 10 * time.Second}, worker.Kafka)
+	assert.Equal(t, KafkaSettings{Brokers: []string{"localhost:19092"}, ClientID: "fupi-worker", PublishTimeout: 10 * time.Second}, worker.Kafka)
 	assert.Equal(t, OutboxSettings{
 		PollInterval: 100 * time.Millisecond, BatchSize: 100, MaxAttempts: 3, StandbyInterval: 5 * time.Second, Retention: 7 * 24 * time.Hour,
 	}, worker.Outbox)
@@ -3847,7 +3847,7 @@ func LoadKafka(lookup Lookup) (KafkaSettings, error) {
 	r := newReader(lookup)
 	settings := KafkaSettings{
 		Brokers:        splitList(r.str("KAFKA_BROKERS", "localhost:19092")),
-		ClientID:       r.str("KAFKA_CLIENT_ID", "curtz-worker"),
+		ClientID:       r.str("KAFKA_CLIENT_ID", "fupi-worker"),
 		PublishTimeout: r.units("KAFKA_PUBLISH_TIMEOUT", 10, time.Second),
 	}
 	if len(settings.Brokers) == 0 {
@@ -3902,7 +3902,7 @@ In `.env.example` insert this block, followed by one blank line, directly above 
 # broker is localhost:19092; HA also has localhost:29092 and localhost:39092. Times are in the unit the name or the
 # comment gives; OUTBOX_RETENTION_DAYS=0 turns the purge of sent events off.
 KAFKA_BROKERS=localhost:19092
-KAFKA_CLIENT_ID=curtz-worker
+KAFKA_CLIENT_ID=fupi-worker
 KAFKA_PUBLISH_TIMEOUT=10
 OUTBOX_POLL_INTERVAL_MS=100
 OUTBOX_BATCH_SIZE=100
@@ -3952,7 +3952,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -4042,7 +4042,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
 )
 
 // NewHTTPHandler serves the same two probes as NewRouter over net/http, for processes that have no Fiber app (the outbox
@@ -4116,8 +4116,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/api/probes"
-	"github.com/sanctumlabs/curtz/app/config"
+	"github.com/sanctumlabs/fupi/app/api/probes"
+	"github.com/sanctumlabs/fupi/app/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -4279,9 +4279,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/test"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -4394,7 +4394,7 @@ Expected: build failure `undefined: run`, `undefined: relayConfig`, `undefined: 
 Create `app/cmd/worker/main.go`:
 
 ```go
-// Command worker runs the Curtz background worker. Today that is the outbox relay: one leader-elected process that delivers
+// Command worker runs the Fupi background worker. Today that is the outbox relay: one leader-elected process that delivers
 // the transactional outbox (ADR-0011) to Kafka with at-least-once delivery. The API never talks to Kafka (ADR-0015).
 package main
 
@@ -4413,21 +4413,21 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/sanctumlabs/curtz/app/api/probes"
-	"github.com/sanctumlabs/curtz/app/config"
-	kafkaadapter "github.com/sanctumlabs/curtz/app/internal/adapters/kafka"
-	outboxdatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/outbox"
-	"github.com/sanctumlabs/curtz/app/internal/application/outbox"
-	"github.com/sanctumlabs/curtz/app/pkg"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/api/probes"
+	"github.com/sanctumlabs/fupi/app/config"
+	kafkaadapter "github.com/sanctumlabs/fupi/app/internal/adapters/kafka"
+	outboxdatastore "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/outbox"
+	"github.com/sanctumlabs/fupi/app/internal/application/outbox"
+	"github.com/sanctumlabs/fupi/app/pkg"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 )
 
 const (
-	// serviceName is the worker's service name unless OTEL_SERVICE_NAME says otherwise; the API's is "curtz".
-	serviceName = "curtz-worker"
+	// serviceName is the worker's service name unless OTEL_SERVICE_NAME says otherwise; the API's is "fupi".
+	serviceName = "fupi-worker"
 
 	// livenessMaxAge is how long the relay loop may go without completing a cycle before liveness fails.
 	livenessMaxAge = 30 * time.Second
@@ -4641,9 +4641,9 @@ Expected: `--- PASS: TestRun_RelaysAWaitingEventAnswersItsProbesAndStopsCleanly`
 
 - [ ] **Step 5: Smoke the binary's refusal**
 
-Run: `go build -o /tmp/curtz-worker-smoke ./app/cmd/worker && ENVIRONMENT=production /tmp/curtz-worker-smoke; echo "exit=$?"`
+Run: `go build -o /tmp/fupi-worker-smoke ./app/cmd/worker && ENVIRONMENT=production /tmp/fupi-worker-smoke; echo "exit=$?"`
 
-Expected: one JSON log line `"msg":"invalid configuration"` whose error names `DATABASE_PASSWORD` (the development password is refused in production) and `exit=1`. No Kafka or Postgres is contacted. Then remove the binary by its literal path: `rm /tmp/curtz-worker-smoke`.
+Expected: one JSON log line `"msg":"invalid configuration"` whose error names `DATABASE_PASSWORD` (the development password is refused in production) and `exit=1`. No Kafka or Postgres is contacted. Then remove the binary by its literal path: `rm /tmp/fupi-worker-smoke`.
 
 - [ ] **Step 6: Commit**
 
@@ -4682,16 +4682,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	kafkaadapter "github.com/sanctumlabs/curtz/app/internal/adapters/kafka"
-	postgresrepo "github.com/sanctumlabs/curtz/app/internal/adapters/postgres"
-	outboxdatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/outbox"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/internal/application/outbox"
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/ports"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/queue/kafka"
-	"github.com/sanctumlabs/curtz/app/test"
+	kafkaadapter "github.com/sanctumlabs/fupi/app/internal/adapters/kafka"
+	postgresrepo "github.com/sanctumlabs/fupi/app/internal/adapters/postgres"
+	outboxdatastore "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/outbox"
+	postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
+	"github.com/sanctumlabs/fupi/app/internal/application/outbox"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/ports"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/queue/kafka"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -5012,7 +5012,7 @@ git commit -m "test(outbox): pin the relay's delivery, outage, parking, failover
 
 **Interfaces:**
 - Consumes: the `app/cmd/worker` binary (Task 11).
-- Produces: `/app/worker` in the image (same `curtz` image as the API, `curtz-app:local` in compose); the compose services `worker-ha` and `worker-single` (host port `127.0.0.1:8086`, health check `/app/worker healthcheck`); `scripts/infra.sh up|down|wait worker [ha|single]`; `make infra.worker.up|down [MODE=ha|single]`. Tasks 15 and 16 document and run them.
+- Produces: `/app/worker` in the image (same `fupi` image as the API, `fupi-app:local` in compose); the compose services `worker-ha` and `worker-single` (host port `127.0.0.1:8086`, health check `/app/worker healthcheck`); `scripts/infra.sh up|down|wait worker [ha|single]`; `make infra.worker.up|down [MODE=ha|single]`. Tasks 15 and 16 document and run them.
 
 `make infra.*` targets run `create.envfile`, which only creates `.env` when it does not exist and never changes an existing one.
 
@@ -5187,7 +5187,7 @@ x-worker: &worker
   build:
     context: ../..
     dockerfile: Dockerfile
-  image: curtz-app:local
+  image: fupi-app:local
   # the image's own entrypoint is the API; the worker is another binary of the same image
   entrypoint: ["/app/worker"]
   restart: unless-stopped
@@ -5206,19 +5206,19 @@ x-worker: &worker
     retries: 5
     start_period: 20s
   networks:
-    curtz:
-      aliases: [curtz-worker]
+    fupi:
+      aliases: [fupi-worker]
 
 x-worker-env: &worker-env
   ENVIRONMENT: development
   WORKER_HTTP_PORT: "8086"
   DATABASE_HOST: postgres
   DATABASE_PORT: "5432"
-  DATABASE_NAME: ${PG_DATABASE:-curtzdb}
-  DATABASE_USERNAME: ${PG_APP_USER:-curtz-user}
-  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
+  DATABASE_NAME: ${PG_DATABASE:-fupidb}
+  DATABASE_USERNAME: ${PG_APP_USER:-fupi-user}
+  DATABASE_PASSWORD: ${PG_APP_PASSWORD:-fupi-pass}
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-  OTEL_SERVICE_NAME: curtz-worker
+  OTEL_SERVICE_NAME: fupi-worker
 
 services:
   worker-ha:
@@ -5236,8 +5236,8 @@ services:
       KAFKA_BROKERS: kafka-1:9092
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 Include it from `docker-compose.yml`:
@@ -5253,7 +5253,7 @@ Include it from `docker-compose.yml`:
 +    env_file: .env
  
  networks:
-   curtz:
+   fupi:
 ```
 
 Run: `make infra.config 2>&1 | tail -4`
@@ -5267,9 +5267,9 @@ Edit `Dockerfile` (build the third binary, copy it, say so in the label):
 --- a/Dockerfile
 +++ b/Dockerfile
 @@ -27,7 +27,8 @@
-       -X github.com/sanctumlabs/curtz/app/pkg.GitCommit=${GIT_COMMIT} \
-       -X github.com/sanctumlabs/curtz/app/pkg.BuildTime=${BUILD_TIME}"; \
-     CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/curtz ./app/cmd; \
+       -X github.com/sanctumlabs/fupi/app/pkg.GitCommit=${GIT_COMMIT} \
+       -X github.com/sanctumlabs/fupi/app/pkg.BuildTime=${BUILD_TIME}"; \
+     CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/fupi ./app/cmd; \
 -    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/migrator ./app/cmd/migrator
 +    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/migrator ./app/cmd/migrator; \
 +    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/worker ./app/cmd/worker
@@ -5279,18 +5279,18 @@ Edit `Dockerfile` (build the third binary, copy it, say so in the label):
 @@ -37,7 +38,7 @@
  ARG BUILD_TIME=unknown
  
- LABEL org.opencontainers.image.title="curtz" \
--      org.opencontainers.image.description="Curtz URL shortener API and database migrator" \
-+      org.opencontainers.image.description="Curtz URL shortener API, database migrator and outbox relay worker" \
-       org.opencontainers.image.source="https://github.com/SanctumLabs/curtz" \
+ LABEL org.opencontainers.image.title="fupi" \
+-      org.opencontainers.image.description="Fupi URL shortener API and database migrator" \
++      org.opencontainers.image.description="Fupi URL shortener API, database migrator and outbox relay worker" \
+       org.opencontainers.image.source="https://github.com/SanctumLabs/fupi" \
        org.opencontainers.image.licenses="MIT" \
        org.opencontainers.image.version="${VERSION}" \
 @@ -46,7 +47,7 @@
  
  WORKDIR /app
  
--COPY --from=build /out/curtz /out/migrator /app/
-+COPY --from=build /out/curtz /out/migrator /out/worker /app/
+-COPY --from=build /out/fupi /out/migrator /app/
++COPY --from=build /out/fupi /out/migrator /out/worker /app/
  COPY app/internal/adapters/postgres/migrations /app/migrations
  
  # A container started without ENVIRONMENT refuses the development secrets; compose overrides it for local use.
@@ -5303,13 +5303,13 @@ Expected: ends with `Done linting Dockerfile` and prints no rule violation (it u
 
 This builds with the network (the go-ahead of Task 6 covers it: `go mod download` of the modules in `go.mod`, verified against the checksum database).
 
-Run: `make build.docker DOCKER_IMAGE_TAG=curtz-worker-check:local 2>&1 | tail -3 && scripts/image_test.sh image curtz-worker-check:local 2>&1 | tail -20`
+Run: `make build.docker DOCKER_IMAGE_TAG=fupi-worker-check:local 2>&1 | tail -3 && scripts/image_test.sh image fupi-worker-check:local 2>&1 | tail -20`
 Expected: the build ends `Done building Docker image`; every line is `ok:` including `the worker is present and refuses the development password in production` and `the worker's healthcheck runs read-only without capabilities and fails when nothing listens`, and there is no `FAIL`.
 
 Run: `scripts/image_test.sh context 2>&1 | tail -8`
 Expected: `ok:   context has app/cmd/worker/main.go` and no `FAIL` (it needs the Go base image of the Dockerfile locally, which it is).
 
-Remove the check image, by its literal name: `docker rmi curtz-worker-check:local`.
+Remove the check image, by its literal name: `docker rmi fupi-worker-check:local`.
 
 - [ ] **Step 8: Commit**
 
@@ -5324,11 +5324,11 @@ git commit -m "feat(worker): ship the worker in the image and add its compose st
 
 **Files:**
 - Modify: `deploy/observability/prometheus/rules/stack.yml`, `deploy/observability/prometheus/tests/stack_test.yml`
-- Create: `deploy/observability/grafana/dashboards/curtz-worker.json`
+- Create: `deploy/observability/grafana/dashboards/fupi-worker.json`
 
 **Interfaces:**
-- Consumes: the relay's metrics (Task 4), predicted in Prometheus form: `outbox_relay_oldest_unsent_age_seconds`, `outbox_relay_parked_rows`, `outbox_relay_backlog`, `outbox_relay_leader`, `outbox_relay_published_total`, `outbox_relay_failures_total`, `outbox_relay_publish_duration_seconds_*`, labelled `service_name="curtz-worker"`.
-- Produces: the alerts `OutboxBacklogOld` and `OutboxEventsParked`, and the dashboard `curtz-worker` (folder Curtz). Task 16 confirms the metric names on the running stack and corrects the queries here if they differ.
+- Consumes: the relay's metrics (Task 4), predicted in Prometheus form: `outbox_relay_oldest_unsent_age_seconds`, `outbox_relay_parked_rows`, `outbox_relay_backlog`, `outbox_relay_leader`, `outbox_relay_published_total`, `outbox_relay_failures_total`, `outbox_relay_publish_duration_seconds_*`, labelled `service_name="fupi-worker"`.
+- Produces: the alerts `OutboxBacklogOld` and `OutboxEventsParked`, and the dashboard `fupi-worker` (folder Fupi). Task 16 confirms the metric names on the running stack and corrects the queries here if they differ.
 
 - [ ] **Step 1: Write the failing unit tests of the rules**
 
@@ -5338,7 +5338,7 @@ Append to `deploy/observability/prometheus/tests/stack_test.yml` (a backlog olde
   - name: The oldest outbox event has been waiting for more than five minutes
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}', values: "301 400 500 600 700"}
+      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}', values: "301 400 500 600 700"}
     alert_rule_test:
       - eval_time: 4m
         alertname: OutboxBacklogOld
@@ -5349,7 +5349,7 @@ Append to `deploy/observability/prometheus/tests/stack_test.yml` (a backlog olde
   - name: A backlog that is only a minute old is not an alert
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}', values: "60 60 60 60 60"}
+      - {series: 'outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}', values: "60 60 60 60 60"}
     alert_rule_test:
       - eval_time: 4m
         alertname: OutboxBacklogOld
@@ -5370,7 +5370,7 @@ Append to `deploy/observability/prometheus/tests/stack_test.yml` (a backlog olde
   - name: Parked outbox events
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_parked_rows{service_name="curtz-worker"}', values: "1 1 1 1 1 1 1"}
+      - {series: 'outbox_relay_parked_rows{service_name="fupi-worker"}', values: "1 1 1 1 1 1 1"}
     alert_rule_test:
       - eval_time: 6m
         alertname: OutboxEventsParked
@@ -5381,7 +5381,7 @@ Append to `deploy/observability/prometheus/tests/stack_test.yml` (a backlog olde
   - name: Nothing parked, so no alert
     interval: 1m
     input_series:
-      - {series: 'outbox_relay_parked_rows{service_name="curtz-worker"}', values: "0 0 0 0 0 0 0"}
+      - {series: 'outbox_relay_parked_rows{service_name="fupi-worker"}', values: "0 0 0 0 0 0 0"}
     alert_rule_test:
       - eval_time: 6m
         alertname: OutboxEventsParked
@@ -5408,7 +5408,7 @@ Append to the `rules:` list of `deploy/observability/prometheus/rules/stack.yml`
 +      # Fed by the outbox relay worker's metrics (OpenTelemetry, via the collector). Both are silent when no worker runs:
 +      # the series are absent, so a stack without the worker never raises them.
 +      - alert: OutboxBacklogOld
-+        expr: max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}) > 300
++        expr: max(outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}) > 300
 +        for: 2m
 +        labels:
 +          severity: warning
@@ -5416,7 +5416,7 @@ Append to the `rules:` list of `deploy/observability/prometheus/rules/stack.yml`
 +          summary: The oldest outbox event has been waiting for delivery for more than 5 minutes
 +
 +      - alert: OutboxEventsParked
-+        expr: max(outbox_relay_parked_rows{service_name="curtz-worker"}) > 0
++        expr: max(outbox_relay_parked_rows{service_name="fupi-worker"}) > 0
 +        for: 5m
 +        labels:
 +          severity: warning
@@ -5435,14 +5435,14 @@ Temporarily change `> 300` to `> 3000` in the `OutboxBacklogOld` expression and 
 
 - [ ] **Step 6: Add the dashboard**
 
-Create `deploy/observability/grafana/dashboards/curtz-worker.json` (nine panels: active relays, waiting events, oldest waiting event, parked events, events published per second by destination, failures per second by kind, publish duration p50 and p99, backlog and its oldest age over time, and the leader per instance). Grafana's file provisioning picks it up from this folder, like the two existing dashboards:
+Create `deploy/observability/grafana/dashboards/fupi-worker.json` (nine panels: active relays, waiting events, oldest waiting event, parked events, events published per second by destination, failures per second by kind, publish duration p50 and p99, backlog and its oldest age over time, and the leader per instance). Grafana's file provisioning picks it up from this folder, like the two existing dashboards:
 
 ```json
 {
-  "uid": "curtz-worker",
-  "title": "Curtz worker",
+  "uid": "fupi-worker",
+  "title": "Fupi worker",
   "tags": [
-    "curtz"
+    "fupi"
   ],
   "schemaVersion": 39,
   "version": 1,
@@ -5459,21 +5459,21 @@ Create `deploy/observability/grafana/dashboards/curtz-worker.json` (nine panels:
     "list": []
   },
   "panels": [
-    {"id":1,"type":"stat","title":"Active relays","gridPos":{"x":0,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(outbox_relay_leader{service_name=\"curtz-worker\"})","legendFormat":""}]},
-    {"id":2,"type":"stat","title":"Waiting for delivery","gridPos":{"x":6,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max(outbox_relay_backlog{service_name=\"curtz-worker\"})","legendFormat":""}]},
-    {"id":3,"type":"stat","title":"Oldest waiting event","gridPos":{"x":12,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max(outbox_relay_oldest_unsent_age_seconds{service_name=\"curtz-worker\"})","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
-    {"id":4,"type":"stat","title":"Parked events","gridPos":{"x":18,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max(outbox_relay_parked_rows{service_name=\"curtz-worker\"})","legendFormat":""}]},
-    {"id":5,"type":"timeseries","title":"Events published per second","gridPos":{"x":0,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (destination) (rate(outbox_relay_published_total{service_name=\"curtz-worker\"}[5m]))","legendFormat":"{{destination}}"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
-    {"id":6,"type":"timeseries","title":"Failed records per second","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (kind) (rate(outbox_relay_failures_total{service_name=\"curtz-worker\"}[5m]))","legendFormat":"{{kind}}"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
-    {"id":7,"type":"timeseries","title":"Batch publish time p99","gridPos":{"x":0,"y":12,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.99, sum by (le) (rate(outbox_relay_publish_duration_seconds_bucket{service_name=\"curtz-worker\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
-    {"id":8,"type":"logs","title":"Worker logs (Elasticsearch)","gridPos":{"x":0,"y":20,"w":24,"h":9},"datasource":{"type":"elasticsearch","uid":"elasticsearch"},"targets":[{"refId":"A","query":"service.name:curtz-worker","timeField":"@timestamp","metrics":[{"type":"logs","id":"1","settings":{"limit":"100"}}],"bucketAggs":[]}]},
-    {"id":9,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":29,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"curtz-worker\" }","limit":20}]}
+    {"id":1,"type":"stat","title":"Active relays","gridPos":{"x":0,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(outbox_relay_leader{service_name=\"fupi-worker\"})","legendFormat":""}]},
+    {"id":2,"type":"stat","title":"Waiting for delivery","gridPos":{"x":6,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max(outbox_relay_backlog{service_name=\"fupi-worker\"})","legendFormat":""}]},
+    {"id":3,"type":"stat","title":"Oldest waiting event","gridPos":{"x":12,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max(outbox_relay_oldest_unsent_age_seconds{service_name=\"fupi-worker\"})","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"id":4,"type":"stat","title":"Parked events","gridPos":{"x":18,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"max(outbox_relay_parked_rows{service_name=\"fupi-worker\"})","legendFormat":""}]},
+    {"id":5,"type":"timeseries","title":"Events published per second","gridPos":{"x":0,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (destination) (rate(outbox_relay_published_total{service_name=\"fupi-worker\"}[5m]))","legendFormat":"{{destination}}"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
+    {"id":6,"type":"timeseries","title":"Failed records per second","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (kind) (rate(outbox_relay_failures_total{service_name=\"fupi-worker\"}[5m]))","legendFormat":"{{kind}}"}],"fieldConfig":{"defaults":{"unit":"ops"},"overrides":[]}},
+    {"id":7,"type":"timeseries","title":"Batch publish time p99","gridPos":{"x":0,"y":12,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.99, sum by (le) (rate(outbox_relay_publish_duration_seconds_bucket{service_name=\"fupi-worker\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"id":8,"type":"logs","title":"Worker logs (Elasticsearch)","gridPos":{"x":0,"y":20,"w":24,"h":9},"datasource":{"type":"elasticsearch","uid":"elasticsearch"},"targets":[{"refId":"A","query":"service.name:fupi-worker","timeField":"@timestamp","metrics":[{"type":"logs","id":"1","settings":{"limit":"100"}}],"bucketAggs":[]}]},
+    {"id":9,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":29,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"fupi-worker\" }","limit":20}]}
   ]
 }
 ```
 
-Run: `python3 -m json.tool deploy/observability/grafana/dashboards/curtz-worker.json > /dev/null && echo json-ok && python3 -c "import json;d=json.load(open('deploy/observability/grafana/dashboards/curtz-worker.json'));print(d['uid'],len(d['panels']),'panels')"`
-Expected: `json-ok` then `curtz-worker 9 panels`.
+Run: `python3 -m json.tool deploy/observability/grafana/dashboards/fupi-worker.json > /dev/null && echo json-ok && python3 -c "import json;d=json.load(open('deploy/observability/grafana/dashboards/fupi-worker.json'));print(d['uid'],len(d['panels']),'panels')"`
+Expected: `json-ok` then `fupi-worker 9 panels`.
 
 - [ ] **Step 7: Commit**
 
@@ -5521,7 +5521,7 @@ Domain events reach Kafka through a separate process, `worker` (`app/cmd/worker`
 
 **Layering.** The franz-go wrapper is infrastructure (`pkg/infra/queue/kafka`), the port is `ports.EventPublisher` and its adapter `internal/adapters/kafka`; the relay is a use case (`internal/application/outbox`) behind `ports.OutboxDatastore`, whose adapter is `internal/adapters/postgres/outbox`.
 
-**Traces continue through the outbox.** The writer stores `traceparent` and `tracestate` (never baggage, which can carry user data) in `outbox_events.headers`; the relay starts an `outbox.publish` span per record as a child of that context and sends that span's `traceparent` in the Kafka record, so one trace ID runs from the HTTP request to the consumer. The relay's own queries run under `telemetry.Unsampled`, otherwise a poll every 100 ms would start ten traces a second. The worker's service name is `curtz-worker`, so the API's dashboards and alerts stay about the API.
+**Traces continue through the outbox.** The writer stores `traceparent` and `tracestate` (never baggage, which can carry user data) in `outbox_events.headers`; the relay starts an `outbox.publish` span per record as a child of that context and sends that span's `traceparent` in the Kafka record, so one trace ID runs from the HTTP request to the consumer. The relay's own queries run under `telemetry.Unsampled`, otherwise a poll every 100 ms would start ten traces a second. The worker's service name is `fupi-worker`, so the API's dashboards and alerts stay about the API.
 
 **Sent rows are purged.** The leader deletes rows sent more than `OUTBOX_RETENTION_DAYS` ago (default 7, `0` keeps them), in batches; unsent and parked rows are never deleted.
 
@@ -5609,7 +5609,7 @@ UPDATE outbox_events SET parked_at = NULL, attempts = 0, error_message = NULL WH
 ```
 
 - **Purge:** the active worker deletes rows sent more than `OUTBOX_RETENTION_DAYS` ago (default 7; `0` keeps them) when it starts and every ten minutes. Unsent and parked rows are never deleted.
-- **Observing it:** the "Curtz worker" dashboard (folder Curtz) and the traces: each published event is a span `<destination> publish` of the service `curtz-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader).
+- **Observing it:** the "Fupi worker" dashboard (folder Fupi) and the traces: each published event is a span `<destination> publish` of the service `fupi-worker`, a child of the request that wrote the event, so a registration's trace ends in the Kafka record's `traceparent`. Metrics are `outbox_relay_*` (published, failures, publish duration, backlog, oldest unsent age, parked rows, leader).
 - Settings (all in `.env.example`): `KAFKA_BROKERS`, `KAFKA_CLIENT_ID`, `KAFKA_PUBLISH_TIMEOUT`, `OUTBOX_POLL_INTERVAL_MS`, `OUTBOX_BATCH_SIZE`, `OUTBOX_MAX_ATTEMPTS`, `OUTBOX_STANDBY_INTERVAL`, `OUTBOX_RETENTION_DAYS` and `WORKER_HTTP_PORT`.
 ````
 
@@ -5638,13 +5638,13 @@ The image also contains `/app/worker`, which delivers the transactional outbox t
 
 ```bash
 docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_USERNAME=... -e DATABASE_PASSWORD=... -e KAFKA_BROKERS=... \
-  --entrypoint /app/worker --name curtz-worker <IMAGE_NAME>:<IMAGE_TAG>
+  --entrypoint /app/worker --name fupi-worker <IMAGE_NAME>:<IMAGE_TAG>
 ```
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `KAFKA_BROKERS` | `localhost:19092` | comma-separated `host:port` list; set it |
-| `KAFKA_CLIENT_ID` | `curtz-worker` | |
+| `KAFKA_CLIENT_ID` | `fupi-worker` | |
 | `KAFKA_PUBLISH_TIMEOUT` | `10` | seconds a record may take to be acknowledged before it counts as a transient failure |
 | `OUTBOX_POLL_INTERVAL_MS` | `100` | milliseconds between cycles when nothing was claimed (at least 10) |
 | `OUTBOX_BATCH_SIZE` | `100` | rows claimed per destination per cycle (1 to 1000) |
@@ -5653,7 +5653,7 @@ docker run -p 8086:8086 -e DATABASE_HOST=... -e DATABASE_NAME=... -e DATABASE_US
 | `OUTBOX_RETENTION_DAYS` | `7` | days sent rows are kept; `0` keeps them forever |
 | `WORKER_HTTP_PORT` | `8086` | the health listener |
 
-The database, logging and telemetry variables are the API's; the worker's service name defaults to `curtz-worker`.
+The database, logging and telemetry variables are the API's; the worker's service name defaults to `fupi-worker`.
 
 - Run more than one for failover: one is active (it holds a Postgres advisory lock), the others stand by. A second worker is not extra capacity.
 - The topics must exist (the relay does not create them); an event for a missing topic waits and shows in the backlog alert.
@@ -5710,14 +5710,14 @@ Expected: the worker container is `healthy`; both ready calls answer `{"status":
 ```bash
 curl -s -H 'traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' -H 'content-type: application/json' \
   -d '{"username":"drill-one","first_name":"Drill","email":"drill-one@example.com","password":"Drill-Passw0rd-1"}' \
-  localhost:8085/api/v1/curtz/auth/register
+  localhost:8085/api/v1/fupi/auth/register
 docker compose --profile kafka-single exec kafka-single /opt/kafka/bin/kafka-console-consumer.sh \
   --bootstrap-server kafka-1:9092 --topic identity.events --from-beginning --timeout-ms 5000 \
   --property print.key=true --property print.headers=true 2>/dev/null | grep drill-one
 make infra.psql MODE=single   # then: SELECT id, sent_time, attempts, parked_at FROM outbox_events ORDER BY created_at DESC LIMIT 3;
 ```
 
-Expected: the registration answers 2xx; exactly one record with the user's ID as key, headers `event_id`, `event_type=user.registered`, `aggregate_id`, `occurred_at` and a `traceparent` whose trace ID is `4bf92f3577b34da6a3ce929d0e0e4736` (the publish span is a child in that trace); the row has a `sent_time`. In Grafana (<http://localhost:3000>), Explore, Tempo, trace ID `4bf92f3577b34da6a3ce929d0e0e4736`: the HTTP span, the `identity.Register` span, the Postgres spans and a `identity.events publish` span of `curtz-worker`. If `docker compose exec` cannot find the service by that name, `docker compose --profile '*' ps` shows the name to use; correct the command in Task 15's section too.
+Expected: the registration answers 2xx; exactly one record with the user's ID as key, headers `event_id`, `event_type=user.registered`, `aggregate_id`, `occurred_at` and a `traceparent` whose trace ID is `4bf92f3577b34da6a3ce929d0e0e4736` (the publish span is a child in that trace); the row has a `sent_time`. In Grafana (<http://localhost:3000>), Explore, Tempo, trace ID `4bf92f3577b34da6a3ce929d0e0e4736`: the HTTP span, the `identity.Register` span, the Postgres spans and a `identity.events publish` span of `fupi-worker`. If `docker compose exec` cannot find the service by that name, `docker compose --profile '*' ps` shows the name to use; correct the command in Task 15's section too.
 
 - [ ] **Step 3: Confirm the Prometheus names of the relay metrics**
 
@@ -5725,7 +5725,7 @@ Expected: the registration answers 2xx; exactly one record with the user's ID as
 curl -s 'localhost:9090/api/v1/label/__name__/values' | python3 -c "import json,sys;print('\n'.join(n for n in json.load(sys.stdin)['data'] if n.startswith('outbox')))"
 ```
 
-Expected: `outbox_relay_published_total`, `outbox_relay_backlog`, `outbox_relay_oldest_unsent_age_seconds`, `outbox_relay_parked_rows`, `outbox_relay_leader` and `outbox_relay_publish_duration_seconds_bucket`/`_count`/`_sum` (`outbox_relay_failures_total` appears after the first failure, in step 4). The metric export interval is 15 s, so wait a little after step 2. If any name differs from the one the alert rules, the dashboard JSON and Task 15's text use, correct all three together (rules and dashboard first, the rules' unit tests in `stack_test.yml` use the same names), re-run Task 14's promtool commands, and commit `fix(observability): use the metric names the stack really exposes`. Check the dashboard "Curtz worker" renders data in all nine panels.
+Expected: `outbox_relay_published_total`, `outbox_relay_backlog`, `outbox_relay_oldest_unsent_age_seconds`, `outbox_relay_parked_rows`, `outbox_relay_leader` and `outbox_relay_publish_duration_seconds_bucket`/`_count`/`_sum` (`outbox_relay_failures_total` appears after the first failure, in step 4). The metric export interval is 15 s, so wait a little after step 2. If any name differs from the one the alert rules, the dashboard JSON and Task 15's text use, correct all three together (rules and dashboard first, the rules' unit tests in `stack_test.yml` use the same names), re-run Task 14's promtool commands, and commit `fix(observability): use the metric names the stack really exposes`. Check the dashboard "Fupi worker" renders data in all nine panels.
 
 - [ ] **Step 4: (b) Kafka stopped and started again**
 
@@ -5733,7 +5733,7 @@ Expected: `outbox_relay_published_total`, `outbox_relay_backlog`, `outbox_relay_
 docker compose --profile kafka-single stop kafka-single
 for i in 1 2 3 4 5; do curl -s -o /dev/null -w '%{http_code} ' -H 'content-type: application/json' \
   -d "{\"username\":\"drill-out-$i\",\"first_name\":\"Drill\",\"email\":\"drill-out-$i@example.com\",\"password\":\"Drill-Passw0rd-1\"}" \
-  localhost:8085/api/v1/curtz/auth/register; done; echo
+  localhost:8085/api/v1/fupi/auth/register; done; echo
 curl -s localhost:8086/health; echo; curl -s localhost:8086/health/ready; echo
 ```
 
@@ -5748,7 +5748,7 @@ docker compose --profile kafka-single exec kafka-single /opt/kafka/bin/kafka-con
 curl -s 'localhost:9090/api/v1/query?query=max(outbox_relay_backlog)' | python3 -m json.tool | grep -A1 '"value"'
 ```
 
-Expected: `5` records (one per registration, in registration order: check the order of the `drill-out-N` users in the output), the backlog gauge back to 0, and every row sent. While Kafka was down the expression `max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"})` was above zero in Prometheus (the alert itself needs five minutes above 300 seconds: evaluating the expression is enough here).
+Expected: `5` records (one per registration, in registration order: check the order of the `drill-out-N` users in the output), the backlog gauge back to 0, and every row sent. While Kafka was down the expression `max(outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"})` was above zero in Prometheus (the alert itself needs five minutes above 300 seconds: evaluating the expression is enough here).
 
 - [ ] **Step 5: (c) The worker killed in the middle of a batch**
 
@@ -5767,7 +5767,7 @@ SELECT id, 'drill-' || (g % 10), 'identity.events', 'drill.event', json_build_ob
 Then, from another terminal, straight away:
 
 ```bash
-docker kill curtz-worker-single-1 && docker compose --profile worker-single up -d worker-single
+docker kill fupi-worker-single-1 && docker compose --profile worker-single up -d worker-single
 sleep 30
 make infra.psql MODE=single   # SELECT count(*) FILTER (WHERE sent_time IS NULL) AS unsent, count(*) AS total FROM outbox_events WHERE event_type = 'drill.event';
 docker compose --profile kafka-single exec kafka-single /opt/kafka/bin/kafka-console-consumer.sh \
@@ -5902,7 +5902,7 @@ Per the executing-plans skill: build the review package (`review-package PLAN ME
 | D8 polling | Tasks 4, 11 (`relayConfig`) |
 | D9 `traceparent`/`tracestate` stored, publish span, no baggage | Tasks 2, 3, 4 |
 | D10 layering | Tasks 3, 5, 6, 7 |
-| D11 service name `curtz-worker` | Tasks 8, 11, 13 |
+| D11 service name `fupi-worker` | Tasks 8, 11, 13 |
 | D12 housekeeping under `telemetry.Unsampled` | Task 4 |
 | D13 the worker never migrates | Tasks 1 (migration 000003 through the migrator), 11, 15 |
 | D14 commit trailer | Global Constraints |

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the Curtz API start against the local infrastructure stack in either mode, report readiness, drain and exit cleanly on SIGTERM, and give database migrations a real entry point (`cmd/migrator`).
+**Goal:** Make the Fupi API start against the local infrastructure stack in either mode, report readiness, drain and exit cleanly on SIGTERM, and give database migrations a real entry point (`cmd/migrator`).
 
 **Architecture:** A strict typed config loader (`config.Load`) replaces the scattered `EnvOr` calls; a Redis client that builds without I/O and exposes `Ping`/`Close`; a small health registry (Postgres required, Redis optional) served at `/health` and `/health/ready`; `Server.Serve` drains in-flight requests on context cancel; `main()` becomes `run(ctx, cfg)`; and `app/cmd/migrator` is the production caller of `postgres.Migrate()`.
 
@@ -13,9 +13,9 @@
 ## Global Constraints
 
 - Go `1.26.0` (`go.mod`). **No new module dependencies**; if `go.mod`/`go.sum` change, something is wrong (testcontainers Redis/Postgres, testify, godotenv, go-redis v9, Fiber v2.52 and golang-migrate are already required).
-- All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/curtz`.
+- All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/fupi`.
 - Environment variable names, defaults and integer unit conventions are exactly the spec §4 table (`DATABASE_MAX_CONN_LIFETIME` in hours, `DATABASE_MAX_CONN_IDLE_TIME` in minutes, the other durations in seconds).
-- Development defaults equal the stack: Postgres `localhost:5432` `curtz-user`/`curtz-pass` `curtzdb`; Redis `localhost:7001` `curtz-svc`/`curtz-svc`; `AUTH_SECRET=curtz-secret`.
+- Development defaults equal the stack: Postgres `localhost:5432` `fupi-user`/`fupi-pass` `fupidb`; Redis `localhost:7001` `fupi-svc`/`fupi-svc`; `AUTH_SECRET=fupi-secret`.
 - Any `ENVIRONMENT` other than `development` or `test` rejects the three development defaults (spec D6). Error text names variables, **never values**.
 - Public health responses carry `up`/`down` only, never error text (D7).
 - Unit tests are untagged; Docker-backed tests carry `//go:build integration` (ADR-0006). Use testify `require`/`assert`. `go test ./...` must be green at the end of every task.
@@ -46,6 +46,7 @@ Failure modes the spec implies but no obvious test covers, most likely first. Ea
 ### Task 1: Postgres DSN builder and `Migrate()` fixes
 
 **Files:**
+
 - Modify: `app/pkg/infra/database/postgres/utils.go` (replace `buildConnectionString`)
 - Modify: `app/pkg/infra/database/postgres/postgres_client.go:44`
 - Modify: `app/pkg/infra/database/postgres/migrator.go`
@@ -56,6 +57,7 @@ Failure modes the spec implies but no obvious test covers, most likely first. Ea
 - Create: `app/pkg/infra/database/postgres/migrator_integration_test.go`
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks.
 - Produces: `postgres.ConnectionString(config PostgresDatabaseConfig) string` (exported; returns `config.Url` when set); `PostgresDatabaseConfig` **without** a `Schema` field; `postgres.Migrate(databaseURL, migrationPath string, inDocker bool) error` keeps its signature but uses table `schema_migrations`, keeps a `sslmode` already in the URL and drops `pool_*` query parameters before handing the URL to golang-migrate. Task 2 reads `PostgresDatabaseConfig`; Task 5 and Task 6 call `ConnectionString` / `Migrate`.
 
@@ -69,53 +71,53 @@ Create `app/pkg/infra/database/postgres/utils_test.go`:
 package postgres
 
 import (
-	"testing"
+ "testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/jackc/pgx/v5/pgxpool"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func TestConnectionString_UrlWinsWhenSet(t *testing.T) {
-	cfg := PostgresDatabaseConfig{Url: "postgres://u:p@h:1/d?sslmode=require", Host: "ignored", Port: "5432"}
+ cfg := PostgresDatabaseConfig{Url: "postgres://u:p@h:1/d?sslmode=require", Host: "ignored", Port: "5432"}
 
-	assert.Equal(t, "postgres://u:p@h:1/d?sslmode=require", ConnectionString(cfg))
+ assert.Equal(t, "postgres://u:p@h:1/d?sslmode=require", ConnectionString(cfg))
 }
 
 func TestConnectionString_EscapesCredentialsSoTheyRoundTrip(t *testing.T) {
-	password := "p@ss/w:rd?#%x y"
-	cfg := PostgresDatabaseConfig{
-		Host: "db.internal", Port: "5432", Name: "curtzdb",
-		Username: "curtz user", Password: password,
-		SslMode: "disable", MaxConns: 30, MinConns: 5,
-	}
+ password := "p@ss/w:rd?#%x y"
+ cfg := PostgresDatabaseConfig{
+  Host: "db.internal", Port: "5432", Name: "fupidb",
+  Username: "fupi user", Password: password,
+  SslMode: "disable", MaxConns: 30, MinConns: 5,
+ }
 
-	parsed, err := pgxpool.ParseConfig(ConnectionString(cfg))
+ parsed, err := pgxpool.ParseConfig(ConnectionString(cfg))
 
-	require.NoError(t, err)
-	assert.Equal(t, password, parsed.ConnConfig.Password)
-	assert.Equal(t, "curtz user", parsed.ConnConfig.User)
-	assert.Equal(t, "db.internal", parsed.ConnConfig.Host)
-	assert.Equal(t, uint16(5432), parsed.ConnConfig.Port)
-	assert.Equal(t, "curtzdb", parsed.ConnConfig.Database)
-	assert.Equal(t, int32(30), parsed.MaxConns)
-	assert.Equal(t, int32(5), parsed.MinConns)
+ require.NoError(t, err)
+ assert.Equal(t, password, parsed.ConnConfig.Password)
+ assert.Equal(t, "fupi user", parsed.ConnConfig.User)
+ assert.Equal(t, "db.internal", parsed.ConnConfig.Host)
+ assert.Equal(t, uint16(5432), parsed.ConnConfig.Port)
+ assert.Equal(t, "fupidb", parsed.ConnConfig.Database)
+ assert.Equal(t, int32(30), parsed.MaxConns)
+ assert.Equal(t, int32(5), parsed.MinConns)
 }
 
 func TestConnectionString_HonoursSslMode(t *testing.T) {
-	base := PostgresDatabaseConfig{Host: "h", Port: "5432", Name: "d", Username: "u", Password: "p", MaxConns: 2, MinConns: 1}
+ base := PostgresDatabaseConfig{Host: "h", Port: "5432", Name: "d", Username: "u", Password: "p", MaxConns: 2, MinConns: 1}
 
-	disabled := base
-	disabled.SslMode = "disable"
-	parsed, err := pgxpool.ParseConfig(ConnectionString(disabled))
-	require.NoError(t, err)
-	assert.Nil(t, parsed.ConnConfig.TLSConfig, "sslmode=disable must not negotiate TLS")
+ disabled := base
+ disabled.SslMode = "disable"
+ parsed, err := pgxpool.ParseConfig(ConnectionString(disabled))
+ require.NoError(t, err)
+ assert.Nil(t, parsed.ConnConfig.TLSConfig, "sslmode=disable must not negotiate TLS")
 
-	required := base
-	required.SslMode = "require"
-	parsed, err = pgxpool.ParseConfig(ConnectionString(required))
-	require.NoError(t, err)
-	assert.NotNil(t, parsed.ConnConfig.TLSConfig, "sslmode=require must negotiate TLS")
+ required := base
+ required.SslMode = "require"
+ parsed, err = pgxpool.ParseConfig(ConnectionString(required))
+ require.NoError(t, err)
+ assert.NotNil(t, parsed.ConnConfig.TLSConfig, "sslmode=require must negotiate TLS")
 }
 ```
 
@@ -125,50 +127,50 @@ Create `app/pkg/infra/database/postgres/migrator_test.go`:
 package postgres
 
 import (
-	"net/url"
-	"testing"
+ "net/url"
+ "testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func TestMigrationURL_UsesTheSharedTableAndDefaultsSslModeOff(t *testing.T) {
-	got, err := migrationURL("postgres://u:p@h:5432/d")
-	require.NoError(t, err)
+ got, err := migrationURL("postgres://u:p@h:5432/d")
+ require.NoError(t, err)
 
-	query := mustQuery(t, got)
-	assert.Equal(t, "schema_migrations", query.Get("x-migrations-table"))
-	assert.Equal(t, "disable", query.Get("sslmode"))
+ query := mustQuery(t, got)
+ assert.Equal(t, "schema_migrations", query.Get("x-migrations-table"))
+ assert.Equal(t, "disable", query.Get("sslmode"))
 }
 
 func TestMigrationURL_KeepsAnSslModeThatIsAlreadySet(t *testing.T) {
-	got, err := migrationURL("postgres://u:p@h:5432/d?sslmode=require")
-	require.NoError(t, err)
+ got, err := migrationURL("postgres://u:p@h:5432/d?sslmode=require")
+ require.NoError(t, err)
 
-	assert.Equal(t, "require", mustQuery(t, got).Get("sslmode"))
+ assert.Equal(t, "require", mustQuery(t, got).Get("sslmode"))
 }
 
 func TestMigrationURL_DropsPoolParametersTheMigrationDriverDoesNotKnow(t *testing.T) {
-	got, err := migrationURL("postgres://u:p@h:5432/d?pool_max_conns=30&pool_min_conns=5&sslmode=require")
-	require.NoError(t, err)
+ got, err := migrationURL("postgres://u:p@h:5432/d?pool_max_conns=30&pool_min_conns=5&sslmode=require")
+ require.NoError(t, err)
 
-	query := mustQuery(t, got)
-	assert.False(t, query.Has("pool_max_conns"))
-	assert.False(t, query.Has("pool_min_conns"))
-	assert.Equal(t, "require", query.Get("sslmode"))
+ query := mustQuery(t, got)
+ assert.False(t, query.Has("pool_max_conns"))
+ assert.False(t, query.Has("pool_min_conns"))
+ assert.Equal(t, "require", query.Get("sslmode"))
 }
 
 func TestMigrationURL_RejectsAMalformedURL(t *testing.T) {
-	_, err := migrationURL("://bad")
+ _, err := migrationURL("://bad")
 
-	assert.Error(t, err)
+ assert.Error(t, err)
 }
 
 func mustQuery(t *testing.T, rawURL string) url.Values {
-	t.Helper()
-	parsed, err := url.Parse(rawURL)
-	require.NoError(t, err)
-	return parsed.Query()
+ t.Helper()
+ parsed, err := url.Parse(rawURL)
+ require.NoError(t, err)
+ return parsed.Query()
 }
 ```
 
@@ -187,43 +189,43 @@ Create `app/pkg/infra/database/postgres/migrator_integration_test.go`:
 package postgres_test
 
 import (
-	"context"
-	"testing"
+ "context"
+ "testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sanctumlabs/curtz/app/test"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/jackc/pgx/v5/pgxpool"
+ "github.com/sanctumlabs/fupi/app/test"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 // Migrations are applied through Migrate, record their state in schema_migrations (the table `make migrate` and the
 // compose migrate job use) and a second run changes nothing.
 func TestMigrate_AppliesTheMigrationsOnceInSchemaMigrations(t *testing.T) {
-	ctx := context.Background()
-	container, err := test.TestPostgresDatabaseContainer(ctx, test.DefaultTestDatabaseConfig())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
-	connectionString, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
+ ctx := context.Background()
+ container, err := test.TestPostgresDatabaseContainer(ctx, test.DefaultTestDatabaseConfig())
+ require.NoError(t, err)
+ t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+ connectionString, err := container.ConnectionString(ctx, "sslmode=disable")
+ require.NoError(t, err)
 
-	require.NoError(t, test.RunDatabaseMigration(ctx, connectionString))
-	require.NoError(t, test.RunDatabaseMigration(ctx, connectionString), "a second run must be a no-op")
+ require.NoError(t, test.RunDatabaseMigration(ctx, connectionString))
+ require.NoError(t, test.RunDatabaseMigration(ctx, connectionString), "a second run must be a no-op")
 
-	pool, err := pgxpool.New(ctx, connectionString)
-	require.NoError(t, err)
-	t.Cleanup(pool.Close)
+ pool, err := pgxpool.New(ctx, connectionString)
+ require.NoError(t, err)
+ t.Cleanup(pool.Close)
 
-	var version int64
-	var dirty bool
-	require.NoError(t, pool.QueryRow(ctx, "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty))
-	assert.GreaterOrEqual(t, version, int64(1))
-	assert.False(t, dirty)
+ var version int64
+ var dirty bool
+ require.NoError(t, pool.QueryRow(ctx, "SELECT version, dirty FROM schema_migrations").Scan(&version, &dirty))
+ assert.GreaterOrEqual(t, version, int64(1))
+ assert.False(t, dirty)
 
-	var legacyTable, outboxTable *string
-	require.NoError(t, pool.QueryRow(ctx, "SELECT to_regclass('bid_schema_migrations')::text").Scan(&legacyTable))
-	require.NoError(t, pool.QueryRow(ctx, "SELECT to_regclass('outbox_events')::text").Scan(&outboxTable))
-	assert.Nil(t, legacyTable, "the old bid_schema_migrations table must not be created")
-	assert.NotNil(t, outboxTable, "the migrations must have created outbox_events")
+ var legacyTable, outboxTable *string
+ require.NoError(t, pool.QueryRow(ctx, "SELECT to_regclass('bid_schema_migrations')::text").Scan(&legacyTable))
+ require.NoError(t, pool.QueryRow(ctx, "SELECT to_regclass('outbox_events')::text").Scan(&outboxTable))
+ assert.Nil(t, legacyTable, "the old bid_schema_migrations table must not be created")
+ assert.NotNil(t, outboxTable, "the migrations must have created outbox_events")
 }
 ```
 
@@ -237,6 +239,7 @@ mv app/pkg/infra/database/postgres/utils_test.go app/pkg/infra/database/postgres
 go test -tags integration -count=1 -run TestMigrate ./app/pkg/infra/database/postgres/ 2>&1 | tail -15
 mv "$ASIDE"/utils_test.go "$ASIDE"/migrator_test.go app/pkg/infra/database/postgres/
 ```
+
 Expected: `FAIL` with `relation "schema_migrations" does not exist` (today's `Migrate` writes `bid_schema_migrations`). The two files are back in place afterwards.
 
 - [ ] **Step 5: Implement `ConnectionString`**
@@ -247,25 +250,25 @@ In `app/pkg/infra/database/postgres/utils.go`, replace the whole `buildConnectio
 // ConnectionString returns the DSN for a database config. DATABASE_URL (Url) wins when set; otherwise the DSN is
 // built from the parts with the credentials escaped, so a password containing @ / : ? # or % cannot corrupt it.
 func ConnectionString(config PostgresDatabaseConfig) string {
-	if config.Url != "" {
-		return config.Url
-	}
+ if config.Url != "" {
+  return config.Url
+ }
 
-	query := url.Values{}
-	if config.SslMode != "" {
-		query.Set("sslmode", config.SslMode)
-	}
-	query.Set("pool_max_conns", strconv.Itoa(int(config.MaxConns)))
-	query.Set("pool_min_conns", strconv.Itoa(int(config.MinConns)))
+ query := url.Values{}
+ if config.SslMode != "" {
+  query.Set("sslmode", config.SslMode)
+ }
+ query.Set("pool_max_conns", strconv.Itoa(int(config.MaxConns)))
+ query.Set("pool_min_conns", strconv.Itoa(int(config.MinConns)))
 
-	dsn := url.URL{
-		Scheme:   "postgres",
-		User:     url.UserPassword(config.Username, config.Password),
-		Host:     net.JoinHostPort(config.Host, config.Port),
-		Path:     "/" + config.Name,
-		RawQuery: query.Encode(),
-	}
-	return dsn.String()
+ dsn := url.URL{
+  Scheme:   "postgres",
+  User:     url.UserPassword(config.Username, config.Password),
+  Host:     net.JoinHostPort(config.Host, config.Port),
+  Path:     "/" + config.Name,
+  RawQuery: query.Encode(),
+ }
+ return dsn.String()
 }
 ```
 
@@ -273,19 +276,19 @@ Replace the import block of `utils.go` with (adds `net`, `net/url`, `strconv`; `
 
 ```go
 import (
-	"context"
-	"fmt"
-	"log/slog"
-	"net"
-	"net/url"
-	"strconv"
+ "context"
+ "fmt"
+ "log/slog"
+ "net"
+ "net/url"
+ "strconv"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-	postgresql "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/sql"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
+ "github.com/jackc/pgx/v5"
+ "github.com/jackc/pgx/v5/pgconn"
+ "github.com/jackc/pgx/v5/pgxpool"
+ postgresql "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/sql"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/database"
+ recoveryutils "github.com/sanctumlabs/fupi/app/pkg/utils/recover"
 )
 ```
 
@@ -304,42 +307,42 @@ const migrationsTable = "schema_migrations"
 // disable only when the URL does not say otherwise, and drops the pool_* parameters that pgxpool understands but the
 // migration driver would send to the server as unknown settings.
 func migrationURL(databaseURL string) (string, error) {
-	parsed, err := url.Parse(databaseURL)
-	if err != nil {
-		return "", err
-	}
+ parsed, err := url.Parse(databaseURL)
+ if err != nil {
+  return "", err
+ }
 
-	query := parsed.Query()
-	if query.Get("sslmode") == "" {
-		query.Set("sslmode", "disable")
-	}
-	for key := range query {
-		if strings.HasPrefix(key, "pool_") {
-			query.Del(key)
-		}
-	}
-	query.Set("x-migrations-table", migrationsTable)
+ query := parsed.Query()
+ if query.Get("sslmode") == "" {
+  query.Set("sslmode", "disable")
+ }
+ for key := range query {
+  if strings.HasPrefix(key, "pool_") {
+   query.Del(key)
+  }
+ }
+ query.Set("x-migrations-table", migrationsTable)
 
-	parsed.RawQuery = query.Encode()
-	return parsed.String(), nil
+ parsed.RawQuery = query.Encode()
+ return parsed.String(), nil
 }
 ```
 
 Replace the block in `Migrate` that starts at `// Parse the database URL and properly append sslmode parameter` and ends at `databaseURL = parsedURL.String()` with:
 
 ```go
-	databaseURL, urlErr := migrationURL(databaseURL)
-	if urlErr != nil {
-		slog.ErrorContext(ctx, "migrate: invalid DATABASE_URL", "error", urlErr)
-		return urlErr
-	}
+ databaseURL, urlErr := migrationURL(databaseURL)
+ if urlErr != nil {
+  slog.ErrorContext(ctx, "migrate: invalid DATABASE_URL", "error", urlErr)
+  return urlErr
+ }
 ```
 
 Add `"strings"` to the import block of `migrator.go` (keep `net/url`, which `migrationURL` uses).
 
 - [ ] **Step 7: Remove the unused `Schema` field**
 
-In `config.go` delete the line `Schema   string \`env-description:"Database Schema" yaml:"schema" env:"DATABASE_SCHEMA" env-default:"bid"\``. In `app/test/test_database.go` delete the line `Schema:      TEST_DATABASE_SCHEMA,` inside `DefaultPostgresDatabaseConfig` (line 67; leave the `TestDatabaseConfig.Schema` field and its other uses alone).
+In `config.go` delete the line `Schema   string \`env-description:"Database Schema" yaml:"schema" env:"DATABASE_SCHEMA" env-default:"bid"\``. In`app/test/test_database.go` delete the line `Schema:      TEST_DATABASE_SCHEMA,` inside `DefaultPostgresDatabaseConfig` (line 67; leave the `TestDatabaseConfig.Schema` field and its other uses alone).
 
 - [ ] **Step 8: Run the tests**
 
@@ -365,12 +368,14 @@ EOF
 ### Task 2: Typed config loader and the `.env.example` contract
 
 **Files:**
+
 - Create: `app/config/loader.go`
 - Create: `app/config/app.go`
 - Create: `app/config/app_test.go`
 - Modify: `.env.example` (application section)
 
 **Interfaces:**
+
 - Consumes (Task 1): `postgres.PostgresDatabaseConfig` (no `Schema`); `redis.RedisClientConfig{Address, Username, Password, Database}` (existing).
 - Produces:
   - `type Lookup func(key string) (string, bool)`
@@ -391,221 +396,221 @@ Create `app/config/app_test.go`:
 package config
 
 import (
-	"testing"
-	"time"
+ "testing"
+ "time"
 
-	"github.com/joho/godotenv"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/joho/godotenv"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func lookupOf(env map[string]string) Lookup {
-	return func(key string) (string, bool) {
-		value, ok := env[key]
-		return value, ok
-	}
+ return func(key string) (string, bool) {
+  value, ok := env[key]
+  return value, ok
+ }
 }
 
 func TestLoad_DefaultsMatchTheLocalStack(t *testing.T) {
-	app, err := Load(lookupOf(nil))
-	require.NoError(t, err)
+ app, err := Load(lookupOf(nil))
+ require.NoError(t, err)
 
-	assert.Equal(t, "development", app.Environment)
-	assert.Equal(t, ServerSettings{
-		Host: "0.0.0.0", Port: 8085, Header: "Curtz", Name: "Curtz", Version: "1.0.0", BaseURL: "http://localhost:8085",
-	}, app.Server)
-	assert.Equal(t, 15*time.Second, app.ShutdownTimeout)
+ assert.Equal(t, "development", app.Environment)
+ assert.Equal(t, ServerSettings{
+  Host: "0.0.0.0", Port: 8085, Header: "Fupi", Name: "Fupi", Version: "1.0.0", BaseURL: "http://localhost:8085",
+ }, app.Server)
+ assert.Equal(t, 15*time.Second, app.ShutdownTimeout)
 
-	pg := app.Database.Postgres
-	assert.Equal(t, "localhost", pg.Host)
-	assert.Equal(t, "5432", pg.Port, "writes go to the primary on 5432; 5433 is the HA read port")
-	assert.Equal(t, "curtzdb", pg.Name)
-	assert.Equal(t, "curtz-user", pg.Username)
-	assert.Equal(t, "curtz-pass", pg.Password)
-	assert.Equal(t, "disable", pg.SslMode)
-	assert.Empty(t, pg.Url)
-	assert.Equal(t, int32(30), pg.MaxConns)
-	assert.Equal(t, int32(5), pg.MinConns)
-	assert.Equal(t, time.Hour, pg.MaxConnLifetime)
-	assert.Equal(t, 30*time.Minute, pg.MaxConnIdleTime)
-	assert.Equal(t, 30*time.Second, pg.ConnTimeout)
-	assert.Equal(t, 10*time.Second, pg.QueryTimeout)
-	assert.Equal(t, 30*time.Second, app.Database.OperationTimeout)
+ pg := app.Database.Postgres
+ assert.Equal(t, "localhost", pg.Host)
+ assert.Equal(t, "5432", pg.Port, "writes go to the primary on 5432; 5433 is the HA read port")
+ assert.Equal(t, "fupidb", pg.Name)
+ assert.Equal(t, "fupi-user", pg.Username)
+ assert.Equal(t, "fupi-pass", pg.Password)
+ assert.Equal(t, "disable", pg.SslMode)
+ assert.Empty(t, pg.Url)
+ assert.Equal(t, int32(30), pg.MaxConns)
+ assert.Equal(t, int32(5), pg.MinConns)
+ assert.Equal(t, time.Hour, pg.MaxConnLifetime)
+ assert.Equal(t, 30*time.Minute, pg.MaxConnIdleTime)
+ assert.Equal(t, 30*time.Second, pg.ConnTimeout)
+ assert.Equal(t, 10*time.Second, pg.QueryTimeout)
+ assert.Equal(t, 30*time.Second, app.Database.OperationTimeout)
 
-	assert.Equal(t, []string{"localhost:7001"}, app.Redis.Address)
-	assert.Equal(t, "curtz-svc", app.Redis.Username)
-	assert.Equal(t, "curtz-svc", app.Redis.Password)
-	assert.Equal(t, 0, app.Redis.Database)
+ assert.Equal(t, []string{"localhost:7001"}, app.Redis.Address)
+ assert.Equal(t, "fupi-svc", app.Redis.Username)
+ assert.Equal(t, "fupi-svc", app.Redis.Password)
+ assert.Equal(t, 0, app.Redis.Database)
 
-	assert.Equal(t, "curtz-secret", app.Auth.Secret)
-	assert.Equal(t, "curtz", app.Auth.Issuer)
-	assert.Equal(t, 15, app.Auth.ExpireDelta)
-	assert.Equal(t, 24, app.Auth.RefreshExpireDelta)
+ assert.Equal(t, "fupi-secret", app.Auth.Secret)
+ assert.Equal(t, "fupi", app.Auth.Issuer)
+ assert.Equal(t, 15, app.Auth.ExpireDelta)
+ assert.Equal(t, 24, app.Auth.RefreshExpireDelta)
 }
 
 // .env.example is what a new developer copies to .env. If it drifts from the loader's defaults, the documented
 // setup stops matching the stack.
 func TestLoad_EnvExampleDocumentsTheDefaults(t *testing.T) {
-	example, err := godotenv.Read("../../.env.example")
-	require.NoError(t, err)
+ example, err := godotenv.Read("../../.env.example")
+ require.NoError(t, err)
 
-	defaults, err := Load(lookupOf(nil))
-	require.NoError(t, err)
-	fromExample, err := Load(lookupOf(example))
-	require.NoError(t, err)
+ defaults, err := Load(lookupOf(nil))
+ require.NoError(t, err)
+ fromExample, err := Load(lookupOf(example))
+ require.NoError(t, err)
 
-	assert.Equal(t, defaults, fromExample)
+ assert.Equal(t, defaults, fromExample)
 }
 
 func TestLoad_Overrides(t *testing.T) {
-	app, err := Load(lookupOf(map[string]string{
-		"ENVIRONMENT": "test", "HTTP_PORT": "9000", "SERVER_HOST": "127.0.0.1", "SERVER_HEADER": "H", "SERVER_NAME": "N",
-		"SERVER_VERSION": "2.0.0", "APP_BASE_URL": "https://curtz.test", "SHUTDOWN_TIMEOUT": "30",
-		"DATABASE_HOST": "db", "DATABASE_PORT": "6432", "DATABASE_NAME": "x", "DATABASE_USERNAME": "u",
-		"DATABASE_PASSWORD": "p", "DATABASE_SSL_MODE": "require", "DATABASE_URL": "postgres://u:p@h:1/d",
-		"DATABASE_MAX_CONNS": "10", "DATABASE_MIN_CONNS": "2", "DATABASE_MAX_CONN_LIFETIME": "2",
-		"DATABASE_MAX_CONN_IDLE_TIME": "5", "DATABASE_CONN_TIMEOUT": "7", "DATABASE_QUERY_TIMEOUT": "8",
-		"DATABASE_OPERATION_TIMEOUT": "9",
-		"REDIS_ADDRESS":              "r1:7001, r2:7002", "REDIS_USERNAME": "ru", "REDIS_PASSWORD": "rp",
-		"AUTH_SECRET": "s", "AUTH_ISSUER": "i", "AUTH_EXPIRE_DELTA": "5", "AUTH_REFRESH_EXPIRE_DELTA": "6",
-	}))
-	require.NoError(t, err)
+ app, err := Load(lookupOf(map[string]string{
+  "ENVIRONMENT": "test", "HTTP_PORT": "9000", "SERVER_HOST": "127.0.0.1", "SERVER_HEADER": "H", "SERVER_NAME": "N",
+  "SERVER_VERSION": "2.0.0", "APP_BASE_URL": "https://fupi.test", "SHUTDOWN_TIMEOUT": "30",
+  "DATABASE_HOST": "db", "DATABASE_PORT": "6432", "DATABASE_NAME": "x", "DATABASE_USERNAME": "u",
+  "DATABASE_PASSWORD": "p", "DATABASE_SSL_MODE": "require", "DATABASE_URL": "postgres://u:p@h:1/d",
+  "DATABASE_MAX_CONNS": "10", "DATABASE_MIN_CONNS": "2", "DATABASE_MAX_CONN_LIFETIME": "2",
+  "DATABASE_MAX_CONN_IDLE_TIME": "5", "DATABASE_CONN_TIMEOUT": "7", "DATABASE_QUERY_TIMEOUT": "8",
+  "DATABASE_OPERATION_TIMEOUT": "9",
+  "REDIS_ADDRESS":              "r1:7001, r2:7002", "REDIS_USERNAME": "ru", "REDIS_PASSWORD": "rp",
+  "AUTH_SECRET": "s", "AUTH_ISSUER": "i", "AUTH_EXPIRE_DELTA": "5", "AUTH_REFRESH_EXPIRE_DELTA": "6",
+ }))
+ require.NoError(t, err)
 
-	assert.Equal(t, "test", app.Environment)
-	assert.Equal(t, ServerSettings{Host: "127.0.0.1", Port: 9000, Header: "H", Name: "N", Version: "2.0.0", BaseURL: "https://curtz.test"}, app.Server)
-	assert.Equal(t, 30*time.Second, app.ShutdownTimeout)
-	pg := app.Database.Postgres
-	assert.Equal(t, "db", pg.Host)
-	assert.Equal(t, "6432", pg.Port)
-	assert.Equal(t, "postgres://u:p@h:1/d", pg.Url)
-	assert.Equal(t, int32(10), pg.MaxConns)
-	assert.Equal(t, int32(2), pg.MinConns)
-	assert.Equal(t, 2*time.Hour, pg.MaxConnLifetime)
-	assert.Equal(t, 5*time.Minute, pg.MaxConnIdleTime)
-	assert.Equal(t, 7*time.Second, pg.ConnTimeout)
-	assert.Equal(t, 8*time.Second, pg.QueryTimeout)
-	assert.Equal(t, 9*time.Second, app.Database.OperationTimeout)
-	assert.Equal(t, []string{"r1:7001", "r2:7002"}, app.Redis.Address)
-	assert.Equal(t, "ru", app.Redis.Username)
-	assert.Equal(t, 5, app.Auth.ExpireDelta)
+ assert.Equal(t, "test", app.Environment)
+ assert.Equal(t, ServerSettings{Host: "127.0.0.1", Port: 9000, Header: "H", Name: "N", Version: "2.0.0", BaseURL: "https://fupi.test"}, app.Server)
+ assert.Equal(t, 30*time.Second, app.ShutdownTimeout)
+ pg := app.Database.Postgres
+ assert.Equal(t, "db", pg.Host)
+ assert.Equal(t, "6432", pg.Port)
+ assert.Equal(t, "postgres://u:p@h:1/d", pg.Url)
+ assert.Equal(t, int32(10), pg.MaxConns)
+ assert.Equal(t, int32(2), pg.MinConns)
+ assert.Equal(t, 2*time.Hour, pg.MaxConnLifetime)
+ assert.Equal(t, 5*time.Minute, pg.MaxConnIdleTime)
+ assert.Equal(t, 7*time.Second, pg.ConnTimeout)
+ assert.Equal(t, 8*time.Second, pg.QueryTimeout)
+ assert.Equal(t, 9*time.Second, app.Database.OperationTimeout)
+ assert.Equal(t, []string{"r1:7001", "r2:7002"}, app.Redis.Address)
+ assert.Equal(t, "ru", app.Redis.Username)
+ assert.Equal(t, 5, app.Auth.ExpireDelta)
 }
 
 // A value that is set but empty means "not set": a .env line like REDIS_PASSWORD= must not become an empty secret.
 func TestLoad_AnEmptyValueCountsAsUnset(t *testing.T) {
-	defaults, err := Load(lookupOf(nil))
-	require.NoError(t, err)
+ defaults, err := Load(lookupOf(nil))
+ require.NoError(t, err)
 
-	app, err := Load(lookupOf(map[string]string{
-		"REDIS_PASSWORD": "", "HTTP_PORT": "  ", "DATABASE_PASSWORD": "", "AUTH_SECRET": "",
-	}))
+ app, err := Load(lookupOf(map[string]string{
+  "REDIS_PASSWORD": "", "HTTP_PORT": "  ", "DATABASE_PASSWORD": "", "AUTH_SECRET": "",
+ }))
 
-	require.NoError(t, err)
-	assert.Equal(t, defaults, app)
+ require.NoError(t, err)
+ assert.Equal(t, defaults, app)
 }
 
 func TestLoad_RejectsInvalidValues(t *testing.T) {
-	cases := map[string]struct {
-		env  map[string]string
-		want string
-	}{
-		"http port not a number":         {map[string]string{"HTTP_PORT": "abc"}, "HTTP_PORT"},
-		"http port zero":                 {map[string]string{"HTTP_PORT": "0"}, "HTTP_PORT"},
-		"http port too large":            {map[string]string{"HTTP_PORT": "70000"}, "HTTP_PORT"},
-		"database port not a number":     {map[string]string{"DATABASE_PORT": "x"}, "DATABASE_PORT"},
-		"database port too large":        {map[string]string{"DATABASE_PORT": "65536"}, "DATABASE_PORT"},
-		"max conns not a number":         {map[string]string{"DATABASE_MAX_CONNS": "many"}, "DATABASE_MAX_CONNS"},
-		"min conns above max conns":      {map[string]string{"DATABASE_MIN_CONNS": "9", "DATABASE_MAX_CONNS": "3"}, "DATABASE_MIN_CONNS"},
-		"max conns below one":            {map[string]string{"DATABASE_MAX_CONNS": "0", "DATABASE_MIN_CONNS": "0"}, "DATABASE_MAX_CONNS"},
-		"conn timeout not a number":      {map[string]string{"DATABASE_CONN_TIMEOUT": "30s"}, "DATABASE_CONN_TIMEOUT"},
-		"database url malformed":         {map[string]string{"DATABASE_URL": "://bad"}, "DATABASE_URL"},
-		"redis database not zero":        {map[string]string{"REDIS_DATABASE": "1"}, "REDIS_DATABASE"},
-		"redis address without a port":   {map[string]string{"REDIS_ADDRESS": "localhost"}, "REDIS_ADDRESS"},
-		"redis address second entry bad": {map[string]string{"REDIS_ADDRESS": "a:7001,b"}, "REDIS_ADDRESS"},
-		"redis port out of range":        {map[string]string{"REDIS_ADDRESS": "a:99999"}, "REDIS_ADDRESS"},
-		"shutdown timeout zero":          {map[string]string{"SHUTDOWN_TIMEOUT": "0"}, "SHUTDOWN_TIMEOUT"},
-		"auth expiry zero":               {map[string]string{"AUTH_EXPIRE_DELTA": "0"}, "AUTH_EXPIRE_DELTA"},
-	}
+ cases := map[string]struct {
+  env  map[string]string
+  want string
+ }{
+  "http port not a number":         {map[string]string{"HTTP_PORT": "abc"}, "HTTP_PORT"},
+  "http port zero":                 {map[string]string{"HTTP_PORT": "0"}, "HTTP_PORT"},
+  "http port too large":            {map[string]string{"HTTP_PORT": "70000"}, "HTTP_PORT"},
+  "database port not a number":     {map[string]string{"DATABASE_PORT": "x"}, "DATABASE_PORT"},
+  "database port too large":        {map[string]string{"DATABASE_PORT": "65536"}, "DATABASE_PORT"},
+  "max conns not a number":         {map[string]string{"DATABASE_MAX_CONNS": "many"}, "DATABASE_MAX_CONNS"},
+  "min conns above max conns":      {map[string]string{"DATABASE_MIN_CONNS": "9", "DATABASE_MAX_CONNS": "3"}, "DATABASE_MIN_CONNS"},
+  "max conns below one":            {map[string]string{"DATABASE_MAX_CONNS": "0", "DATABASE_MIN_CONNS": "0"}, "DATABASE_MAX_CONNS"},
+  "conn timeout not a number":      {map[string]string{"DATABASE_CONN_TIMEOUT": "30s"}, "DATABASE_CONN_TIMEOUT"},
+  "database url malformed":         {map[string]string{"DATABASE_URL": "://bad"}, "DATABASE_URL"},
+  "redis database not zero":        {map[string]string{"REDIS_DATABASE": "1"}, "REDIS_DATABASE"},
+  "redis address without a port":   {map[string]string{"REDIS_ADDRESS": "localhost"}, "REDIS_ADDRESS"},
+  "redis address second entry bad": {map[string]string{"REDIS_ADDRESS": "a:7001,b"}, "REDIS_ADDRESS"},
+  "redis port out of range":        {map[string]string{"REDIS_ADDRESS": "a:99999"}, "REDIS_ADDRESS"},
+  "shutdown timeout zero":          {map[string]string{"SHUTDOWN_TIMEOUT": "0"}, "SHUTDOWN_TIMEOUT"},
+  "auth expiry zero":               {map[string]string{"AUTH_EXPIRE_DELTA": "0"}, "AUTH_EXPIRE_DELTA"},
+ }
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			_, err := Load(lookupOf(tc.env))
+ for name, tc := range cases {
+  t.Run(name, func(t *testing.T) {
+   _, err := Load(lookupOf(tc.env))
 
-			require.Error(t, err)
-			assert.ErrorContains(t, err, tc.want)
-		})
-	}
+   require.Error(t, err)
+   assert.ErrorContains(t, err, tc.want)
+  })
+ }
 }
 
 func TestLoad_ReportsEveryProblemAtOnce(t *testing.T) {
-	_, err := Load(lookupOf(map[string]string{"HTTP_PORT": "abc", "REDIS_DATABASE": "3", "AUTH_EXPIRE_DELTA": "-1"}))
+ _, err := Load(lookupOf(map[string]string{"HTTP_PORT": "abc", "REDIS_DATABASE": "3", "AUTH_EXPIRE_DELTA": "-1"}))
 
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "HTTP_PORT")
-	assert.ErrorContains(t, err, "REDIS_DATABASE")
-	assert.ErrorContains(t, err, "AUTH_EXPIRE_DELTA")
+ require.Error(t, err)
+ assert.ErrorContains(t, err, "HTTP_PORT")
+ assert.ErrorContains(t, err, "REDIS_DATABASE")
+ assert.ErrorContains(t, err, "AUTH_EXPIRE_DELTA")
 }
 
 func TestLoad_RefusesDevelopmentSecretsOutsideDevelopmentAndTest(t *testing.T) {
-	for _, environment := range []string{"production", "release", "staging"} {
-		t.Run(environment, func(t *testing.T) {
-			_, err := Load(lookupOf(map[string]string{"ENVIRONMENT": environment}))
+ for _, environment := range []string{"production", "release", "staging"} {
+  t.Run(environment, func(t *testing.T) {
+   _, err := Load(lookupOf(map[string]string{"ENVIRONMENT": environment}))
 
-			require.Error(t, err)
-			for _, variable := range []string{"AUTH_SECRET", "DATABASE_PASSWORD", "REDIS_PASSWORD"} {
-				assert.ErrorContains(t, err, variable)
-			}
-			for _, secret := range []string{"curtz-secret", "curtz-pass", "curtz-svc"} {
-				assert.NotContains(t, err.Error(), secret, "an error must name the variable, never print a value")
-			}
-		})
-	}
+   require.Error(t, err)
+   for _, variable := range []string{"AUTH_SECRET", "DATABASE_PASSWORD", "REDIS_PASSWORD"} {
+    assert.ErrorContains(t, err, variable)
+   }
+   for _, secret := range []string{"fupi-secret", "fupi-pass", "fupi-svc"} {
+    assert.NotContains(t, err.Error(), secret, "an error must name the variable, never print a value")
+   }
+  })
+ }
 }
 
 func TestLoad_AllowsDevelopmentSecretsInDevelopmentAndTest(t *testing.T) {
-	for _, environment := range []string{"development", "test"} {
-		_, err := Load(lookupOf(map[string]string{"ENVIRONMENT": environment}))
-		assert.NoError(t, err, environment)
-	}
+ for _, environment := range []string{"development", "test"} {
+  _, err := Load(lookupOf(map[string]string{"ENVIRONMENT": environment}))
+  assert.NoError(t, err, environment)
+ }
 }
 
 func TestLoad_AcceptsOverriddenSecretsInProduction(t *testing.T) {
-	_, err := Load(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "AUTH_SECRET": "a-real-secret", "DATABASE_PASSWORD": "a-real-password", "REDIS_PASSWORD": "a-real-redis-password",
-	}))
+ _, err := Load(lookupOf(map[string]string{
+  "ENVIRONMENT": "production", "AUTH_SECRET": "a-real-secret", "DATABASE_PASSWORD": "a-real-password", "REDIS_PASSWORD": "a-real-redis-password",
+ }))
 
-	assert.NoError(t, err)
+ assert.NoError(t, err)
 }
 
 // When DATABASE_URL is set the password lives in the URL, so that is where the development default is rejected.
 func TestLoadDatabase_ChecksThePasswordInsideDatabaseURL(t *testing.T) {
-	_, err := LoadDatabase(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://curtz-user:curtz-pass@db:5432/curtzdb",
-	}))
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "DATABASE_URL")
-	assert.NotContains(t, err.Error(), "curtz-pass")
+ _, err := LoadDatabase(lookupOf(map[string]string{
+  "ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:fupi-pass@db:5432/fupidb",
+ }))
+ require.Error(t, err)
+ assert.ErrorContains(t, err, "DATABASE_URL")
+ assert.NotContains(t, err.Error(), "fupi-pass")
 
-	_, err = LoadDatabase(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_URL": "postgres://curtz-user:a-real-password@db:5432/curtzdb",
-	}))
-	assert.NoError(t, err)
+ _, err = LoadDatabase(lookupOf(map[string]string{
+  "ENVIRONMENT": "production", "DATABASE_URL": "postgres://fupi-user:a-real-password@db:5432/fupidb",
+ }))
+ assert.NoError(t, err)
 }
 
 // The migrator loads only the database section, so it must not demand an AUTH_SECRET.
 func TestLoadDatabase_DoesNotNeedAnAuthSecret(t *testing.T) {
-	_, err := LoadDatabase(lookupOf(map[string]string{"ENVIRONMENT": "production", "DATABASE_PASSWORD": "a-real-password"}))
+ _, err := LoadDatabase(lookupOf(map[string]string{"ENVIRONMENT": "production", "DATABASE_PASSWORD": "a-real-password"}))
 
-	assert.NoError(t, err)
+ assert.NoError(t, err)
 }
 
 func TestLoadMigrations(t *testing.T) {
-	defaults, err := LoadMigrations(lookupOf(nil))
-	require.NoError(t, err)
-	assert.Equal(t, "app/internal/adapters/postgres/migrations", defaults.Path)
+ defaults, err := LoadMigrations(lookupOf(nil))
+ require.NoError(t, err)
+ assert.Equal(t, "app/internal/adapters/postgres/migrations", defaults.Path)
 
-	custom, err := LoadMigrations(lookupOf(map[string]string{"MIGRATIONS_PATH": "/migrations"}))
-	require.NoError(t, err)
-	assert.Equal(t, "/migrations", custom.Path)
+ custom, err := LoadMigrations(lookupOf(map[string]string{"MIGRATIONS_PATH": "/migrations"}))
+ require.NoError(t, err)
+ assert.Equal(t, "/migrations", custom.Path)
 }
 ```
 
@@ -622,22 +627,22 @@ Create `app/config/loader.go`:
 package config
 
 import (
-	"errors"
-	"fmt"
-	"net"
-	"strconv"
-	"strings"
-	"time"
+ "errors"
+ "fmt"
+ "net"
+ "strconv"
+ "strings"
+ "time"
 )
 
 const (
-	environmentDevelopment = "development"
-	environmentTest        = "test"
+ environmentDevelopment = "development"
+ environmentTest        = "test"
 
-	// The development defaults. They match the local infrastructure stack and are refused outside development and test.
-	devAuthSecret       = "curtz-secret"
-	devDatabasePassword = "curtz-pass"
-	devRedisPassword    = "curtz-svc"
+ // The development defaults. They match the local infrastructure stack and are refused outside development and test.
+ devAuthSecret       = "fupi-secret"
+ devDatabasePassword = "fupi-pass"
+ devRedisPassword    = "fupi-svc"
 )
 
 // Lookup reads one environment variable. os.LookupEnv satisfies it; tests pass a map.
@@ -647,83 +652,83 @@ type Lookup func(key string) (string, bool)
 // instead of one variable at a time. A value that is set but empty counts as unset, because `FOO=` in a .env file
 // means "not set".
 type reader struct {
-	lookup Lookup
-	errs   []error
+ lookup Lookup
+ errs   []error
 }
 
 func newReader(lookup Lookup) *reader { return &reader{lookup: lookup} }
 
 func (r *reader) raw(key string) (string, bool) {
-	value, ok := r.lookup(key)
-	value = strings.TrimSpace(value)
-	return value, ok && value != ""
+ value, ok := r.lookup(key)
+ value = strings.TrimSpace(value)
+ return value, ok && value != ""
 }
 
 func (r *reader) str(key, def string) string {
-	if value, ok := r.raw(key); ok {
-		return value
-	}
-	return def
+ if value, ok := r.raw(key); ok {
+  return value
+ }
+ return def
 }
 
 func (r *reader) integer(key string, def int) int {
-	value, ok := r.raw(key)
-	if !ok {
-		return def
-	}
-	number, err := strconv.Atoi(value)
-	if err != nil {
-		r.fail("%s must be an integer", key)
-		return def
-	}
-	return number
+ value, ok := r.raw(key)
+ if !ok {
+  return def
+ }
+ number, err := strconv.Atoi(value)
+ if err != nil {
+  r.fail("%s must be an integer", key)
+  return def
+ }
+ return number
 }
 
 // units reads a whole number of unit, so DATABASE_CONN_TIMEOUT=30 with time.Second is thirty seconds.
 func (r *reader) units(key string, def int, unit time.Duration) time.Duration {
-	return time.Duration(r.integer(key, def)) * unit
+ return time.Duration(r.integer(key, def)) * unit
 }
 
 // port records a failure unless value is a TCP port number.
 func (r *reader) port(key, value string) {
-	number, err := strconv.Atoi(value)
-	if err != nil || number < 1 || number > 65535 {
-		r.fail("%s must be a port between 1 and 65535", key)
-	}
+ number, err := strconv.Atoi(value)
+ if err != nil || number < 1 || number > 65535 {
+  r.fail("%s must be a port between 1 and 65535", key)
+ }
 }
 
 // enforceSecrets is true for every environment except development and test (spec D6), so a forgotten variable in
 // a real deployment fails at boot instead of running with a development default.
 func (r *reader) enforceSecrets() bool {
-	environment := r.str("ENVIRONMENT", environmentDevelopment)
-	return environment != environmentDevelopment && environment != environmentTest
+ environment := r.str("ENVIRONMENT", environmentDevelopment)
+ return environment != environmentDevelopment && environment != environmentTest
 }
 
 func (r *reader) fail(format string, args ...any) {
-	r.errs = append(r.errs, fmt.Errorf(format, args...))
+ r.errs = append(r.errs, fmt.Errorf(format, args...))
 }
 
 func (r *reader) err() error { return errors.Join(r.errs...) }
 
 // splitList turns "a:1, b:2" into ["a:1", "b:2"], dropping empty entries.
 func splitList(value string) []string {
-	var items []string
-	for _, item := range strings.Split(value, ",") {
-		if item = strings.TrimSpace(item); item != "" {
-			items = append(items, item)
-		}
-	}
-	return items
+ var items []string
+ for _, item := range strings.Split(value, ",") {
+  if item = strings.TrimSpace(item); item != "" {
+   items = append(items, item)
+  }
+ }
+ return items
 }
 
 // validAddress reports whether entry is host:port with a usable port.
 func validAddress(entry string) bool {
-	host, port, err := net.SplitHostPort(entry)
-	if err != nil || host == "" {
-		return false
-	}
-	number, err := strconv.Atoi(port)
-	return err == nil && number >= 1 && number <= 65535
+ host, port, err := net.SplitHostPort(entry)
+ if err != nil || host == "" {
+  return false
+ }
+ number, err := strconv.Atoi(port)
+ return err == nil && number >= 1 && number <= 65535
 }
 ```
 
@@ -735,200 +740,200 @@ Create `app/config/app.go`:
 package config
 
 import (
-	"errors"
-	"net/url"
-	"time"
+ "errors"
+ "net/url"
+ "time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/cache/redis"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
 )
 
 const defaultMigrationsPath = "app/internal/adapters/postgres/migrations"
 
 // ServerSettings configures the HTTP server.
 type ServerSettings struct {
-	Host    string
-	Port    int
-	Header  string
-	Name    string
-	Version string
-	// BaseURL is the externally visible address, used to build links in emails.
-	BaseURL string
+ Host    string
+ Port    int
+ Header  string
+ Name    string
+ Version string
+ // BaseURL is the externally visible address, used to build links in emails.
+ BaseURL string
 }
 
 // DatabaseSettings configures Postgres: the client settings plus the per-operation timeout the datastores use.
 type DatabaseSettings struct {
-	Postgres         postgres.PostgresDatabaseConfig
-	OperationTimeout time.Duration
+ Postgres         postgres.PostgresDatabaseConfig
+ OperationTimeout time.Duration
 }
 
 // MigrationSettings says where the SQL migrations live. Only the migrator reads it.
 type MigrationSettings struct {
-	Path string
+ Path string
 }
 
 // App is everything the API process reads from its environment.
 type App struct {
-	Environment     string
-	Server          ServerSettings
-	Database        DatabaseSettings
-	Redis           redis.RedisClientConfig
-	Auth            AuthConfig
-	ShutdownTimeout time.Duration
+ Environment     string
+ Server          ServerSettings
+ Database        DatabaseSettings
+ Redis           redis.RedisClientConfig
+ Auth            AuthConfig
+ ShutdownTimeout time.Duration
 }
 
 // Load reads and validates the whole application configuration. Every problem is reported, not just the first.
 func Load(lookup Lookup) (App, error) {
-	r := newReader(lookup)
-	app := App{
-		Environment:     r.str("ENVIRONMENT", environmentDevelopment),
-		ShutdownTimeout: r.units("SHUTDOWN_TIMEOUT", 15, time.Second),
-	}
-	if app.ShutdownTimeout <= 0 {
-		r.fail("SHUTDOWN_TIMEOUT must be greater than zero")
-	}
+ r := newReader(lookup)
+ app := App{
+  Environment:     r.str("ENVIRONMENT", environmentDevelopment),
+  ShutdownTimeout: r.units("SHUTDOWN_TIMEOUT", 15, time.Second),
+ }
+ if app.ShutdownTimeout <= 0 {
+  r.fail("SHUTDOWN_TIMEOUT must be greater than zero")
+ }
 
-	errs := []error{r.err()}
-	var err error
-	app.Server, err = LoadServer(lookup)
-	errs = append(errs, err)
-	app.Database, err = LoadDatabase(lookup)
-	errs = append(errs, err)
-	app.Redis, err = LoadRedis(lookup)
-	errs = append(errs, err)
-	app.Auth, err = LoadAuth(lookup)
-	errs = append(errs, err)
+ errs := []error{r.err()}
+ var err error
+ app.Server, err = LoadServer(lookup)
+ errs = append(errs, err)
+ app.Database, err = LoadDatabase(lookup)
+ errs = append(errs, err)
+ app.Redis, err = LoadRedis(lookup)
+ errs = append(errs, err)
+ app.Auth, err = LoadAuth(lookup)
+ errs = append(errs, err)
 
-	return app, errors.Join(errs...)
+ return app, errors.Join(errs...)
 }
 
 // LoadServer reads the HTTP server settings.
 func LoadServer(lookup Lookup) (ServerSettings, error) {
-	r := newReader(lookup)
-	settings := ServerSettings{
-		Host:    r.str("SERVER_HOST", "0.0.0.0"),
-		Port:    r.integer("HTTP_PORT", 8085),
-		Header:  r.str("SERVER_HEADER", "Curtz"),
-		Name:    r.str("SERVER_NAME", "Curtz"),
-		Version: r.str("SERVER_VERSION", "1.0.0"),
-		BaseURL: r.str("APP_BASE_URL", "http://localhost:8085"),
-	}
-	if settings.Port < 1 || settings.Port > 65535 {
-		r.fail("HTTP_PORT must be a port between 1 and 65535")
-	}
-	return settings, r.err()
+ r := newReader(lookup)
+ settings := ServerSettings{
+  Host:    r.str("SERVER_HOST", "0.0.0.0"),
+  Port:    r.integer("HTTP_PORT", 8085),
+  Header:  r.str("SERVER_HEADER", "Fupi"),
+  Name:    r.str("SERVER_NAME", "Fupi"),
+  Version: r.str("SERVER_VERSION", "1.0.0"),
+  BaseURL: r.str("APP_BASE_URL", "http://localhost:8085"),
+ }
+ if settings.Port < 1 || settings.Port > 65535 {
+  r.fail("HTTP_PORT must be a port between 1 and 65535")
+ }
+ return settings, r.err()
 }
 
 // LoadDatabase reads the Postgres settings. The migrator uses only this loader, so it needs no AUTH_SECRET.
 func LoadDatabase(lookup Lookup) (DatabaseSettings, error) {
-	r := newReader(lookup)
-	pg := postgres.PostgresDatabaseConfig{
-		Host:            r.str("DATABASE_HOST", "localhost"),
-		Port:            r.str("DATABASE_PORT", "5432"),
-		Name:            r.str("DATABASE_NAME", "curtzdb"),
-		Username:        r.str("DATABASE_USERNAME", "curtz-user"),
-		Password:        r.str("DATABASE_PASSWORD", devDatabasePassword),
-		Url:             r.str("DATABASE_URL", ""),
-		SslMode:         r.str("DATABASE_SSL_MODE", "disable"),
-		MaxConns:        int32(r.integer("DATABASE_MAX_CONNS", 30)),
-		MinConns:        int32(r.integer("DATABASE_MIN_CONNS", 5)),
-		MaxConnLifetime: r.units("DATABASE_MAX_CONN_LIFETIME", 1, time.Hour),
-		MaxConnIdleTime: r.units("DATABASE_MAX_CONN_IDLE_TIME", 30, time.Minute),
-		ConnTimeout:     r.units("DATABASE_CONN_TIMEOUT", 30, time.Second),
-		QueryTimeout:    r.units("DATABASE_QUERY_TIMEOUT", 10, time.Second),
-	}
-	settings := DatabaseSettings{
-		Postgres:         pg,
-		OperationTimeout: r.units("DATABASE_OPERATION_TIMEOUT", 30, time.Second),
-	}
+ r := newReader(lookup)
+ pg := postgres.PostgresDatabaseConfig{
+  Host:            r.str("DATABASE_HOST", "localhost"),
+  Port:            r.str("DATABASE_PORT", "5432"),
+  Name:            r.str("DATABASE_NAME", "fupidb"),
+  Username:        r.str("DATABASE_USERNAME", "fupi-user"),
+  Password:        r.str("DATABASE_PASSWORD", devDatabasePassword),
+  Url:             r.str("DATABASE_URL", ""),
+  SslMode:         r.str("DATABASE_SSL_MODE", "disable"),
+  MaxConns:        int32(r.integer("DATABASE_MAX_CONNS", 30)),
+  MinConns:        int32(r.integer("DATABASE_MIN_CONNS", 5)),
+  MaxConnLifetime: r.units("DATABASE_MAX_CONN_LIFETIME", 1, time.Hour),
+  MaxConnIdleTime: r.units("DATABASE_MAX_CONN_IDLE_TIME", 30, time.Minute),
+  ConnTimeout:     r.units("DATABASE_CONN_TIMEOUT", 30, time.Second),
+  QueryTimeout:    r.units("DATABASE_QUERY_TIMEOUT", 10, time.Second),
+ }
+ settings := DatabaseSettings{
+  Postgres:         pg,
+  OperationTimeout: r.units("DATABASE_OPERATION_TIMEOUT", 30, time.Second),
+ }
 
-	r.port("DATABASE_PORT", pg.Port)
-	if pg.MaxConns < 1 {
-		r.fail("DATABASE_MAX_CONNS must be at least 1")
-	}
-	if pg.MinConns > pg.MaxConns {
-		r.fail("DATABASE_MIN_CONNS must not exceed DATABASE_MAX_CONNS")
-	}
+ r.port("DATABASE_PORT", pg.Port)
+ if pg.MaxConns < 1 {
+  r.fail("DATABASE_MAX_CONNS must be at least 1")
+ }
+ if pg.MinConns > pg.MaxConns {
+  r.fail("DATABASE_MIN_CONNS must not exceed DATABASE_MAX_CONNS")
+ }
 
-	password := pg.Password
-	if pg.Url != "" {
-		parsed, err := url.Parse(pg.Url)
-		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-			// The parse error text can contain the URL, and with it the password, so it is not repeated.
-			r.fail("DATABASE_URL is not a valid database URL")
-		} else if parsed.User != nil {
-			password, _ = parsed.User.Password()
-		} else {
-			password = ""
-		}
-	}
-	if r.enforceSecrets() && password == devDatabasePassword {
-		if pg.Url != "" {
-			r.fail("DATABASE_URL must not use the development password when ENVIRONMENT is not development or test")
-		} else {
-			r.fail("DATABASE_PASSWORD must be set to a non-default value when ENVIRONMENT is not development or test")
-		}
-	}
+ password := pg.Password
+ if pg.Url != "" {
+  parsed, err := url.Parse(pg.Url)
+  if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+   // The parse error text can contain the URL, and with it the password, so it is not repeated.
+   r.fail("DATABASE_URL is not a valid database URL")
+  } else if parsed.User != nil {
+   password, _ = parsed.User.Password()
+  } else {
+   password = ""
+  }
+ }
+ if r.enforceSecrets() && password == devDatabasePassword {
+  if pg.Url != "" {
+   r.fail("DATABASE_URL must not use the development password when ENVIRONMENT is not development or test")
+  } else {
+   r.fail("DATABASE_PASSWORD must be set to a non-default value when ENVIRONMENT is not development or test")
+  }
+ }
 
-	return settings, r.err()
+ return settings, r.err()
 }
 
 // LoadRedis reads the Redis settings. REDIS_ADDRESS is a comma-separated host:port list: one entry gives a plain
 // client, several give a cluster client.
 func LoadRedis(lookup Lookup) (redis.RedisClientConfig, error) {
-	r := newReader(lookup)
-	cfg := redis.RedisClientConfig{
-		Address:  splitList(r.str("REDIS_ADDRESS", "localhost:7001")),
-		Username: r.str("REDIS_USERNAME", "curtz-svc"),
-		Password: r.str("REDIS_PASSWORD", devRedisPassword),
-		Database: r.integer("REDIS_DATABASE", 0),
-	}
+ r := newReader(lookup)
+ cfg := redis.RedisClientConfig{
+  Address:  splitList(r.str("REDIS_ADDRESS", "localhost:7001")),
+  Username: r.str("REDIS_USERNAME", "fupi-svc"),
+  Password: r.str("REDIS_PASSWORD", devRedisPassword),
+  Database: r.integer("REDIS_DATABASE", 0),
+ }
 
-	if len(cfg.Address) == 0 {
-		r.fail("REDIS_ADDRESS must list at least one host:port")
-	}
-	for _, entry := range cfg.Address {
-		if !validAddress(entry) {
-			r.fail("REDIS_ADDRESS entry %q must be host:port with a port between 1 and 65535", entry)
-		}
-	}
-	if cfg.Database != 0 {
-		r.fail("REDIS_DATABASE must be 0 (the Redis Cluster serves database 0 only)")
-	}
-	if r.enforceSecrets() && cfg.Password == devRedisPassword {
-		r.fail("REDIS_PASSWORD must be set to a non-default value when ENVIRONMENT is not development or test")
-	}
+ if len(cfg.Address) == 0 {
+  r.fail("REDIS_ADDRESS must list at least one host:port")
+ }
+ for _, entry := range cfg.Address {
+  if !validAddress(entry) {
+   r.fail("REDIS_ADDRESS entry %q must be host:port with a port between 1 and 65535", entry)
+  }
+ }
+ if cfg.Database != 0 {
+  r.fail("REDIS_DATABASE must be 0 (the Redis Cluster serves database 0 only)")
+ }
+ if r.enforceSecrets() && cfg.Password == devRedisPassword {
+  r.fail("REDIS_PASSWORD must be set to a non-default value when ENVIRONMENT is not development or test")
+ }
 
-	return cfg, r.err()
+ return cfg, r.err()
 }
 
 // LoadAuth reads the JWT settings.
 func LoadAuth(lookup Lookup) (AuthConfig, error) {
-	r := newReader(lookup)
-	cfg := AuthConfig{Jwt: Jwt{
-		Secret:             r.str("AUTH_SECRET", devAuthSecret),
-		Issuer:             r.str("AUTH_ISSUER", "curtz"),
-		ExpireDelta:        r.integer("AUTH_EXPIRE_DELTA", 15),
-		RefreshExpireDelta: r.integer("AUTH_REFRESH_EXPIRE_DELTA", 24),
-	}}
+ r := newReader(lookup)
+ cfg := AuthConfig{Jwt: Jwt{
+  Secret:             r.str("AUTH_SECRET", devAuthSecret),
+  Issuer:             r.str("AUTH_ISSUER", "fupi"),
+  ExpireDelta:        r.integer("AUTH_EXPIRE_DELTA", 15),
+  RefreshExpireDelta: r.integer("AUTH_REFRESH_EXPIRE_DELTA", 24),
+ }}
 
-	if cfg.ExpireDelta < 1 {
-		r.fail("AUTH_EXPIRE_DELTA must be at least 1")
-	}
-	if cfg.RefreshExpireDelta < 1 {
-		r.fail("AUTH_REFRESH_EXPIRE_DELTA must be at least 1")
-	}
-	if r.enforceSecrets() && cfg.Secret == devAuthSecret {
-		r.fail("AUTH_SECRET must be set to a non-default value when ENVIRONMENT is not development or test")
-	}
+ if cfg.ExpireDelta < 1 {
+  r.fail("AUTH_EXPIRE_DELTA must be at least 1")
+ }
+ if cfg.RefreshExpireDelta < 1 {
+  r.fail("AUTH_REFRESH_EXPIRE_DELTA must be at least 1")
+ }
+ if r.enforceSecrets() && cfg.Secret == devAuthSecret {
+  r.fail("AUTH_SECRET must be set to a non-default value when ENVIRONMENT is not development or test")
+ }
 
-	return cfg, r.err()
+ return cfg, r.err()
 }
 
 // LoadMigrations reads where the SQL migrations live.
 func LoadMigrations(lookup Lookup) (MigrationSettings, error) {
-	r := newReader(lookup)
-	return MigrationSettings{Path: r.str("MIGRATIONS_PATH", defaultMigrationsPath)}, r.err()
+ r := newReader(lookup)
+ return MigrationSettings{Path: r.str("MIGRATIONS_PATH", defaultMigrationsPath)}, r.err()
 }
 ```
 
@@ -954,8 +959,8 @@ Replace the `# Authentication configuration` block (the comment plus the four `A
 
 ```
 # Authentication configuration. Any ENVIRONMENT other than development or test refuses these development defaults.
-AUTH_SECRET=curtz-secret
-AUTH_ISSUER=curtz
+AUTH_SECRET=fupi-secret
+AUTH_ISSUER=fupi
 AUTH_EXPIRE_DELTA=15
 AUTH_REFRESH_EXPIRE_DELTA=24
 ```
@@ -967,11 +972,11 @@ Replace the five `DATABASE_*` lines (`DATABASE_HOST` through `DATABASE_USES_SRV`
 # DATABASE_USERNAME/DATABASE_PASSWORD must match PG_APP_USER/PG_APP_PASSWORD further down.
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
-DATABASE_NAME=curtzdb
-DATABASE_USERNAME=curtz-user
-DATABASE_PASSWORD=curtz-pass
+DATABASE_NAME=fupidb
+DATABASE_USERNAME=fupi-user
+DATABASE_PASSWORD=fupi-pass
 DATABASE_SSL_MODE=disable
-# DATABASE_URL=postgres://curtz-user:curtz-pass@localhost:5432/curtzdb?sslmode=disable
+# DATABASE_URL=postgres://fupi-user:fupi-pass@localhost:5432/fupidb?sslmode=disable
 ```
 
 Replace the seven `REDIS_*` lines (`REDIS_ADDRESS` through `REDIS_MASTER_NAME`) with:
@@ -981,8 +986,8 @@ Replace the seven `REDIS_*` lines (`REDIS_ADDRESS` through `REDIS_MASTER_NAME`) 
 # /etc/hosts entries for redis-1..6 (run `make infra.hosts`):
 #   REDIS_ADDRESS=localhost:7001,localhost:7002,localhost:7003,localhost:7004,localhost:7005,localhost:7006
 REDIS_ADDRESS=localhost:7001
-REDIS_USERNAME=curtz-svc
-REDIS_PASSWORD=curtz-svc
+REDIS_USERNAME=fupi-svc
+REDIS_PASSWORD=fupi-svc
 REDIS_DATABASE=0
 ```
 
@@ -991,7 +996,7 @@ Leave `SENTRY_*`, the second `LOG_*` block, `METRICS_*` and the whole "Local inf
 - [ ] **Step 7: Run the tests and the stack's own checks**
 
 Run: `gofmt -w app/config; go test ./app/config/ && make infra.config 2>&1 | tail -3 && bash scripts/infra_test.sh 2>&1 | tail -3`
-Expected: `ok  github.com/sanctumlabs/curtz/app/config`; `ok: all profiles`; `all tests passed` (the env check and compose config must still accept the edited `.env.example`).
+Expected: `ok  github.com/sanctumlabs/fupi/app/config`; `ok: all profiles`; `all tests passed` (the env check and compose config must still accept the edited `.env.example`).
 
 - [ ] **Step 8: Run the whole suite and commit**
 
@@ -1011,6 +1016,7 @@ EOF
 ### Task 3: Redis client that builds without I/O, with `Ping` and `Close`
 
 **Files:**
+
 - Modify: `app/pkg/infra/cache/cache_client.go` (add `Ping`, `Close`)
 - Modify: `app/pkg/infra/cache/redis/client.go` (constructor rewrite)
 - Modify: `app/pkg/infra/cache/redis/config.go` (drop `Host`, `Port`)
@@ -1020,6 +1026,7 @@ EOF
 - Replace: `app/pkg/infra/cache/redis/client_integration_test.go`
 
 **Interfaces:**
+
 - Consumes (Task 2): `config.LoadRedis` produces `redis.RedisClientConfig{Address, Username, Password, Database}`.
 - Produces: `cache.CacheClient` gains `Ping(ctx context.Context) error` and `Close() error`; `redis.NewRedisClient(RedisClientConfig) (cache.CacheClient, error)` performs no I/O and errors only on an empty address list; `RedisClientConfig` loses `Host`/`Port`; the mock `mockcache.MockCacheClient` has `Ping`/`Close`. Task 5 calls `Ping`/`Close`.
 
@@ -1033,41 +1040,41 @@ Create `app/pkg/infra/cache/redis/client_test.go`:
 package redis
 
 import (
-	"context"
-	"testing"
-	"time"
+ "context"
+ "testing"
+ "time"
 
-	redisGo "github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ redisGo "github.com/redis/go-redis/v9"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func TestNewRedisClient_RejectsAnEmptyAddressList(t *testing.T) {
-	_, err := NewRedisClient(RedisClientConfig{})
+ _, err := NewRedisClient(RedisClientConfig{})
 
-	require.Error(t, err)
+ require.Error(t, err)
 }
 
 // The client dials lazily and go-redis reconnects by itself, so building it must succeed while Redis is down.
 func TestNewRedisClient_BuildsWithoutIOAndPingReportsAnUnreachableRedis(t *testing.T) {
-	client, err := NewRedisClient(RedisClientConfig{Address: []string{"127.0.0.1:1"}})
-	require.NoError(t, err)
+ client, err := NewRedisClient(RedisClientConfig{Address: []string{"127.0.0.1:1"}})
+ require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+ ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+ defer cancel()
 
-	assert.Error(t, client.Ping(ctx))
-	assert.NoError(t, client.Close())
+ assert.Error(t, client.Ping(ctx))
+ assert.NoError(t, client.Close())
 }
 
 func TestNewRedisClient_PicksTheClientTypeFromTheAddressCount(t *testing.T) {
-	single, err := NewRedisClient(RedisClientConfig{Address: []string{"localhost:7001"}})
-	require.NoError(t, err)
-	assert.IsType(t, &redisGo.Client{}, single.(*redisClient).client)
+ single, err := NewRedisClient(RedisClientConfig{Address: []string{"localhost:7001"}})
+ require.NoError(t, err)
+ assert.IsType(t, &redisGo.Client{}, single.(*redisClient).client)
 
-	cluster, err := NewRedisClient(RedisClientConfig{Address: []string{"localhost:7001", "localhost:7002"}})
-	require.NoError(t, err)
-	assert.IsType(t, &redisGo.ClusterClient{}, cluster.(*redisClient).client)
+ cluster, err := NewRedisClient(RedisClientConfig{Address: []string{"localhost:7001", "localhost:7002"}})
+ require.NoError(t, err)
+ assert.IsType(t, &redisGo.ClusterClient{}, cluster.(*redisClient).client)
 }
 ```
 
@@ -1082,11 +1089,11 @@ In `app/pkg/infra/cache/cache_client.go` add before the closing brace of `CacheC
 
 ```go
 
-	// Ping checks that the cache is reachable
-	Ping(ctx context.Context) error
+ // Ping checks that the cache is reachable
+ Ping(ctx context.Context) error
 
-	// Close releases the connections held by the client
-	Close() error
+ // Close releases the connections held by the client
+ Close() error
 ```
 
 - [ ] **Step 4: Rewrite the client constructor**
@@ -1097,118 +1104,118 @@ Replace the whole of `app/pkg/infra/cache/redis/client.go` with:
 package redis
 
 import (
-	"context"
-	"errors"
+ "context"
+ "errors"
 
-	"github.com/google/wire"
-	redisGo "github.com/redis/go-redis/v9"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
+ "github.com/google/wire"
+ redisGo "github.com/redis/go-redis/v9"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/cache"
 )
 
 const _statsEnabled = true
 
 // redisClient is a wrapper around a go-redis universal client
 type redisClient struct {
-	// statsEnabled sets enabling stats to true
-	statsEnabled bool
+ // statsEnabled sets enabling stats to true
+ statsEnabled bool
 
-	// marshalFunc a marshaling function that marshals/serializes a value into a byte slice
-	marshalFunc func(any) ([]byte, error)
+ // marshalFunc a marshaling function that marshals/serializes a value into a byte slice
+ marshalFunc func(any) ([]byte, error)
 
-	// unmarshalFunc un-marshals a byte slice into a given payload type
-	unmarshalFunc func([]byte, any) error
+ // unmarshalFunc un-marshals a byte slice into a given payload type
+ unmarshalFunc func([]byte, any) error
 
-	// client
-	client redisGo.UniversalClient
+ // client
+ client redisGo.UniversalClient
 }
 
 var (
-	_             cache.CacheClient = (*redisClient)(nil)
-	RedisCacheSet                   = wire.NewSet(NewRedisClient)
+ _             cache.CacheClient = (*redisClient)(nil)
+ RedisCacheSet                   = wire.NewSet(NewRedisClient)
 )
 
 // NewRedisClient builds a client for the configured addresses: one address gives a plain client, several give a
 // cluster client. It performs no I/O. go-redis dials lazily and reconnects by itself, so Redis may come up after the
 // caller and the client picks it up; use Ping to check reachability.
 func NewRedisClient(config RedisClientConfig) (cache.CacheClient, error) {
-	if len(config.Address) == 0 {
-		return nil, errors.New("redis: at least one address is required")
-	}
+ if len(config.Address) == 0 {
+  return nil, errors.New("redis: at least one address is required")
+ }
 
-	return &redisClient{
-		client: redisGo.NewUniversalClient(&redisGo.UniversalOptions{
-			Addrs:      config.Address,
-			Username:   config.Username,
-			Password:   config.Password,
-			DB:         config.Database,
-			MasterName: config.MasterName,
-		}),
-	}, nil
+ return &redisClient{
+  client: redisGo.NewUniversalClient(&redisGo.UniversalOptions{
+   Addrs:      config.Address,
+   Username:   config.Username,
+   Password:   config.Password,
+   DB:         config.Database,
+   MasterName: config.MasterName,
+  }),
+ }, nil
 }
 
 func (p *redisClient) Configure(opts ...Option) cache.CacheClient {
-	for _, opt := range opts {
-		opt(p)
-	}
+ for _, opt := range opts {
+  opt(p)
+ }
 
-	return p
+ return p
 }
 
 // Ping checks that Redis answers
 func (rc *redisClient) Ping(ctx context.Context) error {
-	return rc.client.Ping(ctx).Err()
+ return rc.client.Ping(ctx).Err()
 }
 
 // Close closes the connections held by the client
 func (rc *redisClient) Close() error {
-	return rc.client.Close()
+ return rc.client.Close()
 }
 
 // Set adds an item with a given key to the cache
 func (rc *redisClient) Set(ctx context.Context, item cache.CacheItem, options ...cache.CacheItemOption) error {
-	// apply optional options for caching item
-	for _, option := range options {
-		option(&item)
-	}
+ // apply optional options for caching item
+ for _, option := range options {
+  option(&item)
+ }
 
-	// cache the item
-	statusCmd := rc.client.Set(ctx, item.Key, item.Value, item.TTL)
+ // cache the item
+ statusCmd := rc.client.Set(ctx, item.Key, item.Value, item.TTL)
 
-	if statusCmd.Err() != nil {
-		return statusCmd.Err()
-	}
+ if statusCmd.Err() != nil {
+  return statusCmd.Err()
+ }
 
-	return nil
+ return nil
 }
 
 // Get retrieves a value from the cache with a given key
 func (rc *redisClient) Get(ctx context.Context, key string) (cache.CacheItem, error) {
-	statusCmd := rc.client.Get(ctx, key)
-	err := statusCmd.Err()
-	if err != nil {
-		return cache.CacheItem{}, err
-	}
+ statusCmd := rc.client.Get(ctx, key)
+ err := statusCmd.Err()
+ if err != nil {
+  return cache.CacheItem{}, err
+ }
 
-	statusCmd.Val()
+ statusCmd.Val()
 
-	item := cache.CacheItem{
-		Key:   key,
-		Value: statusCmd.Val(),
-	}
+ item := cache.CacheItem{
+  Key:   key,
+  Value: statusCmd.Val(),
+ }
 
-	return item, nil
+ return item, nil
 }
 
 // Exists checks if a value for a given key exists in the cache
 func (rc *redisClient) Exists(ctx context.Context, key string) bool {
-	statusCmd := rc.client.Exists(ctx, key)
-	return statusCmd.Val() > 0
+ statusCmd := rc.client.Exists(ctx, key)
+ return statusCmd.Val() > 0
 }
 
 // Delete deletes a value from the cache with a given key
 func (rc *redisClient) Delete(ctx context.Context, key string) error {
-	statusCmd := rc.client.Del(ctx, key)
-	return statusCmd.Err()
+ statusCmd := rc.client.Del(ctx, key)
+ return statusCmd.Err()
 }
 ```
 
@@ -1222,6 +1229,7 @@ Run from the `app` directory, with the same command recorded in the mock's heade
 (cd app && mockgen -destination=pkg/infra/cache/mocks/cache_client_mock.go -package=mockcache -source=pkg/infra/cache/cache_client.go)
 git diff --stat app/pkg/infra/cache/mocks
 ```
+
 Expected: the diff only adds `Ping` and `Close` mock methods and recorders.
 
 - [ ] **Step 6: Run the unit tests**
@@ -1239,74 +1247,74 @@ Overwrite `app/pkg/infra/cache/redis/client_integration_test.go` (it imports ano
 package redis_test
 
 import (
-	"context"
-	"strings"
-	"testing"
-	"time"
+ "context"
+ "strings"
+ "testing"
+ "time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/cache"
-	cacheredis "github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	redisContainer "github.com/testcontainers/testcontainers-go/modules/redis"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/cache"
+ cacheredis "github.com/sanctumlabs/fupi/app/pkg/infra/cache/redis"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
+ redisContainer "github.com/testcontainers/testcontainers-go/modules/redis"
 )
 
 func startRedis(t *testing.T) (cache.CacheClient, *redisContainer.RedisContainer) {
-	t.Helper()
-	ctx := context.Background()
+ t.Helper()
+ ctx := context.Background()
 
-	container, err := redisContainer.Run(ctx, "redis:7.4-alpine")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+ container, err := redisContainer.Run(ctx, "redis:7.4-alpine")
+ require.NoError(t, err)
+ t.Cleanup(func() { _ = container.Terminate(context.Background()) })
 
-	uri, err := container.ConnectionString(ctx)
-	require.NoError(t, err)
+ uri, err := container.ConnectionString(ctx)
+ require.NoError(t, err)
 
-	client, err := cacheredis.NewRedisClient(cacheredis.RedisClientConfig{Address: []string{strings.TrimPrefix(uri, "redis://")}})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = client.Close() })
+ client, err := cacheredis.NewRedisClient(cacheredis.RedisClientConfig{Address: []string{strings.TrimPrefix(uri, "redis://")}})
+ require.NoError(t, err)
+ t.Cleanup(func() { _ = client.Close() })
 
-	return client, container
+ return client, container
 }
 
 func TestRedisClient_SetGetExistsDelete(t *testing.T) {
-	ctx := context.Background()
-	client, _ := startRedis(t)
+ ctx := context.Background()
+ client, _ := startRedis(t)
 
-	require.NoError(t, client.Ping(ctx))
-	require.NoError(t, client.Set(ctx, cache.CacheItem{Key: "short:abc", Value: "https://example.com"}))
+ require.NoError(t, client.Ping(ctx))
+ require.NoError(t, client.Set(ctx, cache.CacheItem{Key: "short:abc", Value: "https://example.com"}))
 
-	assert.True(t, client.Exists(ctx, "short:abc"))
-	item, err := client.Get(ctx, "short:abc")
-	require.NoError(t, err)
-	assert.Equal(t, "https://example.com", item.Value)
+ assert.True(t, client.Exists(ctx, "short:abc"))
+ item, err := client.Get(ctx, "short:abc")
+ require.NoError(t, err)
+ assert.Equal(t, "https://example.com", item.Value)
 
-	require.NoError(t, client.Delete(ctx, "short:abc"))
-	assert.False(t, client.Exists(ctx, "short:abc"))
-	_, err = client.Get(ctx, "short:abc")
-	assert.Error(t, err, "a missing key is an error, not an empty item")
+ require.NoError(t, client.Delete(ctx, "short:abc"))
+ assert.False(t, client.Exists(ctx, "short:abc"))
+ _, err = client.Get(ctx, "short:abc")
+ assert.Error(t, err, "a missing key is an error, not an empty item")
 }
 
 func TestRedisClient_ItemsExpireAfterTheirTTL(t *testing.T) {
-	ctx := context.Background()
-	client, _ := startRedis(t)
+ ctx := context.Background()
+ client, _ := startRedis(t)
 
-	require.NoError(t, client.Set(ctx, cache.CacheItem{Key: "k", Value: "v"}, cache.WithTTL(time.Second)))
-	require.True(t, client.Exists(ctx, "k"))
+ require.NoError(t, client.Set(ctx, cache.CacheItem{Key: "k", Value: "v"}, cache.WithTTL(time.Second)))
+ require.True(t, client.Exists(ctx, "k"))
 
-	require.Eventually(t, func() bool { return !client.Exists(ctx, "k") }, 5*time.Second, 100*time.Millisecond)
+ require.Eventually(t, func() bool { return !client.Exists(ctx, "k") }, 5*time.Second, 100*time.Millisecond)
 }
 
 func TestRedisClient_PingReportsAStoppedRedis(t *testing.T) {
-	ctx := context.Background()
-	client, container := startRedis(t)
-	require.NoError(t, client.Ping(ctx))
+ ctx := context.Background()
+ client, container := startRedis(t)
+ require.NoError(t, client.Ping(ctx))
 
-	require.NoError(t, container.Stop(ctx, nil))
+ require.NoError(t, container.Stop(ctx, nil))
 
-	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	assert.Error(t, client.Ping(pingCtx))
+ pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+ defer cancel()
+ assert.Error(t, client.Ping(pingCtx))
 }
 ```
 
@@ -1334,12 +1342,14 @@ EOF
 ### Task 4: Health registry and the probe endpoints
 
 **Files:**
+
 - Create: `app/pkg/infra/monitoring/health/registry.go`
 - Create: `app/pkg/infra/monitoring/health/registry_test.go`
 - Create: `app/api/probes/router.go`
 - Create: `app/api/probes/router_test.go`
 
 **Interfaces:**
+
 - Consumes: `router.Router`, `router.NewGetRoute` (existing, `app/pkg/infra/server/router`).
 - Produces:
   - `health.Check{Name string; Required bool; Fn func(ctx context.Context) error}`
@@ -1358,107 +1368,107 @@ Create `app/pkg/infra/monitoring/health/registry_test.go`:
 package health
 
 import (
-	"context"
-	"errors"
-	"sync/atomic"
-	"testing"
-	"time"
+ "context"
+ "errors"
+ "sync/atomic"
+ "testing"
+ "time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func up(context.Context) error   { return nil }
 func down(context.Context) error { return errors.New("connection refused") }
 
 func TestRegistry_StatusFollowsWhichChecksAreDown(t *testing.T) {
-	cases := map[string]struct {
-		checks     []Check
-		wantStatus Status
-		wantChecks map[string]string
-		wantReady  bool
-	}{
-		"no checks":              {nil, StatusOK, map[string]string{}, true},
-		"all up":                 {[]Check{{"postgres", true, up}, {"redis", false, up}}, StatusOK, map[string]string{"postgres": "up", "redis": "up"}, true},
-		"optional down":          {[]Check{{"postgres", true, up}, {"redis", false, down}}, StatusDegraded, map[string]string{"postgres": "up", "redis": "down"}, true},
-		"required down":          {[]Check{{"postgres", true, down}, {"redis", false, up}}, StatusUnavailable, map[string]string{"postgres": "down", "redis": "up"}, false},
-		"required and optional":  {[]Check{{"postgres", true, down}, {"redis", false, down}}, StatusUnavailable, map[string]string{"postgres": "down", "redis": "down"}, false},
-	}
+ cases := map[string]struct {
+  checks     []Check
+  wantStatus Status
+  wantChecks map[string]string
+  wantReady  bool
+ }{
+  "no checks":              {nil, StatusOK, map[string]string{}, true},
+  "all up":                 {[]Check{{"postgres", true, up}, {"redis", false, up}}, StatusOK, map[string]string{"postgres": "up", "redis": "up"}, true},
+  "optional down":          {[]Check{{"postgres", true, up}, {"redis", false, down}}, StatusDegraded, map[string]string{"postgres": "up", "redis": "down"}, true},
+  "required down":          {[]Check{{"postgres", true, down}, {"redis", false, up}}, StatusUnavailable, map[string]string{"postgres": "down", "redis": "up"}, false},
+  "required and optional":  {[]Check{{"postgres", true, down}, {"redis", false, down}}, StatusUnavailable, map[string]string{"postgres": "down", "redis": "down"}, false},
+ }
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			registry := NewRegistry(time.Second)
-			for _, check := range tc.checks {
-				registry.Add(check)
-			}
+ for name, tc := range cases {
+  t.Run(name, func(t *testing.T) {
+   registry := NewRegistry(time.Second)
+   for _, check := range tc.checks {
+    registry.Add(check)
+   }
 
-			report := registry.Run(context.Background())
+   report := registry.Run(context.Background())
 
-			assert.Equal(t, tc.wantStatus, report.Status)
-			assert.Equal(t, tc.wantChecks, report.Checks)
-			assert.Equal(t, tc.wantReady, report.Ready())
-		})
-	}
+   assert.Equal(t, tc.wantStatus, report.Status)
+   assert.Equal(t, tc.wantChecks, report.Checks)
+   assert.Equal(t, tc.wantReady, report.Ready())
+  })
+ }
 }
 
 // A dependency that never answers and ignores its context must not hang the readiness endpoint.
 func TestRegistry_AHangingCheckCannotHangTheReport(t *testing.T) {
-	release := make(chan struct{})
-	t.Cleanup(func() { close(release) })
-	registry := NewRegistry(50 * time.Millisecond)
-	registry.Add(Check{Name: "postgres", Required: true, Fn: func(context.Context) error { <-release; return nil }})
+ release := make(chan struct{})
+ t.Cleanup(func() { close(release) })
+ registry := NewRegistry(50 * time.Millisecond)
+ registry.Add(Check{Name: "postgres", Required: true, Fn: func(context.Context) error { <-release; return nil }})
 
-	start := time.Now()
-	report := registry.Run(context.Background())
+ start := time.Now()
+ report := registry.Run(context.Background())
 
-	assert.Less(t, time.Since(start), 2*time.Second)
-	assert.Equal(t, StatusUnavailable, report.Status)
-	assert.Equal(t, "down", report.Checks["postgres"])
+ assert.Less(t, time.Since(start), 2*time.Second)
+ assert.Equal(t, StatusUnavailable, report.Status)
+ assert.Equal(t, "down", report.Checks["postgres"])
 }
 
 // The checks run in parallel: each waits until the other has started, so a sequential runner would time out.
 func TestRegistry_RunsTheChecksInParallel(t *testing.T) {
-	started := make(chan struct{}, 2)
-	release := make(chan struct{})
-	waiting := func(ctx context.Context) error {
-		started <- struct{}{}
-		select {
-		case <-release:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-	registry := NewRegistry(5 * time.Second)
-	registry.Add(Check{Name: "a", Required: true, Fn: waiting})
-	registry.Add(Check{Name: "b", Required: false, Fn: waiting})
+ started := make(chan struct{}, 2)
+ release := make(chan struct{})
+ waiting := func(ctx context.Context) error {
+  started <- struct{}{}
+  select {
+  case <-release:
+   return nil
+  case <-ctx.Done():
+   return ctx.Err()
+  }
+ }
+ registry := NewRegistry(5 * time.Second)
+ registry.Add(Check{Name: "a", Required: true, Fn: waiting})
+ registry.Add(Check{Name: "b", Required: false, Fn: waiting})
 
-	reports := make(chan Report, 1)
-	go func() { reports <- registry.Run(context.Background()) }()
+ reports := make(chan Report, 1)
+ go func() { reports <- registry.Run(context.Background()) }()
 
-	for range 2 {
-		select {
-		case <-started:
-		case <-time.After(2 * time.Second):
-			t.Fatal("the second check did not start while the first was still running")
-		}
-	}
-	close(release)
+ for range 2 {
+  select {
+  case <-started:
+  case <-time.After(2 * time.Second):
+   t.Fatal("the second check did not start while the first was still running")
+  }
+ }
+ close(release)
 
-	assert.Equal(t, StatusOK, (<-reports).Status)
+ assert.Equal(t, StatusOK, (<-reports).Status)
 }
 
 func TestRegistry_DrainingReportsUnavailableWithoutRunningTheChecks(t *testing.T) {
-	var calls atomic.Int32
-	registry := NewRegistry(time.Second)
-	registry.Add(Check{Name: "postgres", Required: true, Fn: func(context.Context) error { calls.Add(1); return nil }})
+ var calls atomic.Int32
+ registry := NewRegistry(time.Second)
+ registry.Add(Check{Name: "postgres", Required: true, Fn: func(context.Context) error { calls.Add(1); return nil }})
 
-	registry.SetDraining()
-	report := registry.Run(context.Background())
+ registry.SetDraining()
+ report := registry.Run(context.Background())
 
-	assert.Equal(t, StatusDraining, report.Status)
-	assert.False(t, report.Ready())
-	assert.Zero(t, calls.Load(), "a draining process must not spend time probing its dependencies")
+ assert.Equal(t, StatusDraining, report.Status)
+ assert.False(t, report.Ready())
+ assert.Zero(t, calls.Load(), "a draining process must not spend time probing its dependencies")
 }
 ```
 
@@ -1475,11 +1485,11 @@ Create `app/pkg/infra/monitoring/health/registry.go`:
 package health
 
 import (
-	"context"
-	"log/slog"
-	"sync"
-	"sync/atomic"
-	"time"
+ "context"
+ "log/slog"
+ "sync"
+ "sync/atomic"
+ "time"
 )
 
 // DefaultCheckTimeout bounds each dependency check, so a hung dependency cannot hang the readiness endpoint.
@@ -1489,29 +1499,29 @@ const DefaultCheckTimeout = 2 * time.Second
 type Status string
 
 const (
-	// StatusOK means every check is up.
-	StatusOK Status = "ok"
-	// StatusDegraded means only optional checks are down; the process can still serve traffic.
-	StatusDegraded Status = "degraded"
-	// StatusUnavailable means a required check is down.
-	StatusUnavailable Status = "unavailable"
-	// StatusDraining means the process is shutting down and wants no new traffic.
-	StatusDraining Status = "draining"
+ // StatusOK means every check is up.
+ StatusOK Status = "ok"
+ // StatusDegraded means only optional checks are down; the process can still serve traffic.
+ StatusDegraded Status = "degraded"
+ // StatusUnavailable means a required check is down.
+ StatusUnavailable Status = "unavailable"
+ // StatusDraining means the process is shutting down and wants no new traffic.
+ StatusDraining Status = "draining"
 )
 
 // Check probes one dependency. A Required check that fails makes the process not ready; an optional one only
 // degrades it.
 type Check struct {
-	Name     string
-	Required bool
-	Fn       func(ctx context.Context) error
+ Name     string
+ Required bool
+ Fn       func(ctx context.Context) error
 }
 
 // Report is the readiness result. Checks maps a check name to "up" or "down". It never carries error text: the
 // endpoint is public, and failures are logged server-side instead.
 type Report struct {
-	Status Status            `json:"status"`
-	Checks map[string]string `json:"checks"`
+ Status Status            `json:"status"`
+ Checks map[string]string `json:"checks"`
 }
 
 // Ready reports whether traffic should be sent to the process.
@@ -1519,76 +1529,76 @@ func (r Report) Ready() bool { return r.Status == StatusOK || r.Status == Status
 
 // Registry runs the registered checks. Add every check before serving; Add is not safe for concurrent use.
 type Registry struct {
-	timeout  time.Duration
-	checks   []Check
-	draining atomic.Bool
+ timeout  time.Duration
+ checks   []Check
+ draining atomic.Bool
 }
 
 // NewRegistry creates a registry whose checks each get at most timeout.
 func NewRegistry(timeout time.Duration) *Registry {
-	return &Registry{timeout: timeout}
+ return &Registry{timeout: timeout}
 }
 
 // Add registers a check.
 func (r *Registry) Add(check Check) {
-	r.checks = append(r.checks, check)
+ r.checks = append(r.checks, check)
 }
 
 // SetDraining flips readiness to "draining" for the rest of the process's life. Call it when shutdown begins.
 func (r *Registry) SetDraining() {
-	slog.Info("readiness: draining, no longer accepting new traffic")
-	r.draining.Store(true)
+ slog.Info("readiness: draining, no longer accepting new traffic")
+ r.draining.Store(true)
 }
 
 // Run executes every check in parallel, each bounded by the registry's timeout.
 func (r *Registry) Run(ctx context.Context) Report {
-	if r.draining.Load() {
-		return Report{Status: StatusDraining, Checks: map[string]string{}}
-	}
+ if r.draining.Load() {
+  return Report{Status: StatusDraining, Checks: map[string]string{}}
+ }
 
-	errs := make([]error, len(r.checks))
-	var wg sync.WaitGroup
-	for i, check := range r.checks {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errs[i] = r.runOne(ctx, check)
-		}()
-	}
-	wg.Wait()
+ errs := make([]error, len(r.checks))
+ var wg sync.WaitGroup
+ for i, check := range r.checks {
+  wg.Add(1)
+  go func() {
+   defer wg.Done()
+   errs[i] = r.runOne(ctx, check)
+  }()
+ }
+ wg.Wait()
 
-	report := Report{Status: StatusOK, Checks: make(map[string]string, len(r.checks))}
-	for i, check := range r.checks {
-		if errs[i] == nil {
-			report.Checks[check.Name] = "up"
-			continue
-		}
-		report.Checks[check.Name] = "down"
-		slog.Warn("health check failed", "check", check.Name, "required", check.Required, "error", errs[i])
-		if check.Required {
-			report.Status = StatusUnavailable
-		} else if report.Status == StatusOK {
-			report.Status = StatusDegraded
-		}
-	}
-	return report
+ report := Report{Status: StatusOK, Checks: make(map[string]string, len(r.checks))}
+ for i, check := range r.checks {
+  if errs[i] == nil {
+   report.Checks[check.Name] = "up"
+   continue
+  }
+  report.Checks[check.Name] = "down"
+  slog.Warn("health check failed", "check", check.Name, "required", check.Required, "error", errs[i])
+  if check.Required {
+   report.Status = StatusUnavailable
+  } else if report.Status == StatusOK {
+   report.Status = StatusDegraded
+  }
+ }
+ return report
 }
 
 // runOne runs a check in its own goroutine and gives up after the timeout even if the check ignores its context. A
 // check that never returns leaks its goroutine; that is the price of a bounded readiness endpoint.
 func (r *Registry) runOne(ctx context.Context, check Check) error {
-	ctx, cancel := context.WithTimeout(ctx, r.timeout)
-	defer cancel()
+ ctx, cancel := context.WithTimeout(ctx, r.timeout)
+ defer cancel()
 
-	done := make(chan error, 1)
-	go func() { done <- check.Fn(ctx) }()
+ done := make(chan error, 1)
+ go func() { done <- check.Fn(ctx) }()
 
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+ select {
+ case err := <-done:
+  return err
+ case <-ctx.Done():
+  return ctx.Err()
+ }
 }
 ```
 
@@ -1605,97 +1615,97 @@ Create `app/api/probes/router_test.go`:
 package probes
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"io"
-	"net/http/httptest"
-	"testing"
-	"time"
+ "context"
+ "encoding/json"
+ "errors"
+ "io"
+ "net/http/httptest"
+ "testing"
+ "time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/gofiber/fiber/v2"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func appWith(registry *health.Registry) *fiber.App {
-	app := fiber.New()
-	for _, route := range NewRouter(registry).Routes() {
-		app.Add(route.Method(), route.Path(), route.Handler())
-	}
-	return app
+ app := fiber.New()
+ for _, route := range NewRouter(registry).Routes() {
+  app.Add(route.Method(), route.Path(), route.Handler())
+ }
+ return app
 }
 
 func get(t *testing.T, app *fiber.App, path string) (int, string) {
-	t.Helper()
-	resp, err := app.Test(httptest.NewRequest("GET", path, nil))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	return resp.StatusCode, string(body)
+ t.Helper()
+ resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+ require.NoError(t, err)
+ defer resp.Body.Close()
+ body, err := io.ReadAll(resp.Body)
+ require.NoError(t, err)
+ return resp.StatusCode, string(body)
 }
 
 func registryWith(postgres, redis error) *health.Registry {
-	registry := health.NewRegistry(time.Second)
-	registry.Add(health.Check{Name: "postgres", Required: true, Fn: func(context.Context) error { return postgres }})
-	registry.Add(health.Check{Name: "redis", Required: false, Fn: func(context.Context) error { return redis }})
-	return registry
+ registry := health.NewRegistry(time.Second)
+ registry.Add(health.Check{Name: "postgres", Required: true, Fn: func(context.Context) error { return postgres }})
+ registry.Add(health.Check{Name: "redis", Required: false, Fn: func(context.Context) error { return redis }})
+ return registry
 }
 
 func TestLiveness_IsAlwaysOkWhileTheProcessRuns(t *testing.T) {
-	registry := registryWith(errors.New("down"), errors.New("down"))
-	registry.SetDraining()
+ registry := registryWith(errors.New("down"), errors.New("down"))
+ registry.SetDraining()
 
-	status, body := get(t, appWith(registry), LivePath)
+ status, body := get(t, appWith(registry), LivePath)
 
-	assert.Equal(t, 200, status)
-	assert.JSONEq(t, `{"status":"ok"}`, body)
+ assert.Equal(t, 200, status)
+ assert.JSONEq(t, `{"status":"ok"}`, body)
 }
 
 func TestReadiness_ReportsEachDependency(t *testing.T) {
-	cases := map[string]struct {
-		registry   *health.Registry
-		wantStatus int
-		wantBody   string
-	}{
-		"all up":        {registryWith(nil, nil), 200, `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`},
-		"redis down":    {registryWith(nil, errors.New("x")), 200, `{"status":"degraded","checks":{"postgres":"up","redis":"down"}}`},
-		"postgres down": {registryWith(errors.New("x"), nil), 503, `{"status":"unavailable","checks":{"postgres":"down","redis":"up"}}`},
-	}
+ cases := map[string]struct {
+  registry   *health.Registry
+  wantStatus int
+  wantBody   string
+ }{
+  "all up":        {registryWith(nil, nil), 200, `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`},
+  "redis down":    {registryWith(nil, errors.New("x")), 200, `{"status":"degraded","checks":{"postgres":"up","redis":"down"}}`},
+  "postgres down": {registryWith(errors.New("x"), nil), 503, `{"status":"unavailable","checks":{"postgres":"down","redis":"up"}}`},
+ }
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			status, body := get(t, appWith(tc.registry), ReadyPath)
+ for name, tc := range cases {
+  t.Run(name, func(t *testing.T) {
+   status, body := get(t, appWith(tc.registry), ReadyPath)
 
-			assert.Equal(t, tc.wantStatus, status)
-			assert.JSONEq(t, tc.wantBody, body)
-		})
-	}
+   assert.Equal(t, tc.wantStatus, status)
+   assert.JSONEq(t, tc.wantBody, body)
+  })
+ }
 }
 
 func TestReadiness_ReturnsServiceUnavailableWhileDraining(t *testing.T) {
-	registry := registryWith(nil, nil)
-	registry.SetDraining()
+ registry := registryWith(nil, nil)
+ registry.SetDraining()
 
-	status, body := get(t, appWith(registry), ReadyPath)
+ status, body := get(t, appWith(registry), ReadyPath)
 
-	assert.Equal(t, 503, status)
-	assert.JSONEq(t, `{"status":"draining","checks":{}}`, body)
+ assert.Equal(t, 503, status)
+ assert.JSONEq(t, `{"status":"draining","checks":{}}`, body)
 }
 
 // The endpoint is public, so a failing dependency's error text (addresses, user names) must stay in the log.
 func TestReadiness_NeverLeaksErrorText(t *testing.T) {
-	leak := errors.New("dial tcp 10.0.0.5:5432: password authentication failed for user curtz-user")
+ leak := errors.New("dial tcp 10.0.0.5:5432: password authentication failed for user fupi-user")
 
-	_, body := get(t, appWith(registryWith(leak, leak)), ReadyPath)
+ _, body := get(t, appWith(registryWith(leak, leak)), ReadyPath)
 
-	assert.NotContains(t, body, "10.0.0.5")
-	assert.NotContains(t, body, "password")
-	assert.NotContains(t, body, "curtz-user")
-	var decoded map[string]any
-	require.NoError(t, json.Unmarshal([]byte(body), &decoded))
+ assert.NotContains(t, body, "10.0.0.5")
+ assert.NotContains(t, body, "password")
+ assert.NotContains(t, body, "fupi-user")
+ var decoded map[string]any
+ require.NoError(t, json.Unmarshal([]byte(body), &decoded))
 }
 ```
 
@@ -1711,47 +1721,47 @@ Create `app/api/probes/router.go`:
 package probes
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
+ "github.com/gofiber/fiber/v2"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
 )
 
 const (
-	// LivePath answers 200 while the process runs.
-	LivePath = "/health"
-	// ReadyPath answers 200 when the process can serve traffic and 503 when it cannot or is draining.
-	ReadyPath = "/health/ready"
+ // LivePath answers 200 while the process runs.
+ LivePath = "/health"
+ // ReadyPath answers 200 when the process can serve traffic and 503 when it cannot or is draining.
+ ReadyPath = "/health/ready"
 )
 
 type probesRouter struct {
-	registry *health.Registry
-	routes   []router.Route
+ registry *health.Registry
+ routes   []router.Route
 }
 
 // NewRouter creates the liveness and readiness routes. Both are unauthenticated, so list them as public paths in the
 // auth middleware.
 func NewRouter(registry *health.Registry) router.Router {
-	r := &probesRouter{registry: registry}
-	r.routes = []router.Route{
-		router.NewGetRoute(LivePath, r.live),
-		router.NewGetRoute(ReadyPath, r.ready),
-	}
-	return r
+ r := &probesRouter{registry: registry}
+ r.routes = []router.Route{
+  router.NewGetRoute(LivePath, r.live),
+  router.NewGetRoute(ReadyPath, r.ready),
+ }
+ return r
 }
 
 func (r *probesRouter) Routes() []router.Route { return r.routes }
 
 func (r *probesRouter) live(ctx *fiber.Ctx) error {
-	return ctx.JSON(fiber.Map{"status": "ok"})
+ return ctx.JSON(fiber.Map{"status": "ok"})
 }
 
 func (r *probesRouter) ready(ctx *fiber.Ctx) error {
-	report := r.registry.Run(ctx.UserContext())
-	status := fiber.StatusOK
-	if !report.Ready() {
-		status = fiber.StatusServiceUnavailable
-	}
-	return ctx.Status(status).JSON(report)
+ report := r.registry.Run(ctx.UserContext())
+ status := fiber.StatusOK
+ if !report.Ready() {
+  status = fiber.StatusServiceUnavailable
+ }
+ return ctx.Status(status).JSON(report)
 }
 ```
 
@@ -1773,6 +1783,7 @@ EOF
 ### Task 5: Graceful serve and the `run` function
 
 **Files:**
+
 - Modify: `app/pkg/infra/server/server.go` (add `Serve`, `ServeListener`)
 - Modify: `app/pkg/infra/server/server_test.go` (add shutdown tests)
 - Rewrite: `app/cmd/main.go`
@@ -1780,6 +1791,7 @@ EOF
 - Create: `app/cmd/main_integration_test.go`
 
 **Interfaces:**
+
 - Consumes: Task 2 `config.Load`/`config.App`; Task 3 `cache.CacheClient.Ping/Close` and `redis.NewRedisClient`; Task 4 `health.NewRegistry/Check/DefaultCheckTimeout`, `probes.NewRouter/LivePath/ReadyPath`; Task 1 `postgres.NewPostgresClient` (already uses `ConnectionString`).
 - Produces: `(*server.Server).Serve(ctx, timeout, onDrain) error`, `(*server.Server).ServeListener(ctx, ln net.Listener, timeout, onDrain) error`; `run(ctx context.Context, cfg config.App) error` in `package main`.
 
@@ -1791,116 +1803,116 @@ Append to `app/pkg/infra/server/server_test.go` (add the imports `context`, `io`
 
 ```go
 func listenOnFreePort(t *testing.T) net.Listener {
-	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	return ln
+ t.Helper()
+ ln, err := net.Listen("tcp", "127.0.0.1:0")
+ require.NoError(t, err)
+ return ln
 }
 
 func waitFor(t *testing.T, ch <-chan struct{}, what string) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(5 * time.Second):
-		t.Fatalf("timed out waiting for %s", what)
-	}
+ t.Helper()
+ select {
+ case <-ch:
+ case <-time.After(5 * time.Second):
+  t.Fatalf("timed out waiting for %s", what)
+ }
 }
 
 // Cancelling the context calls onDrain first, lets the in-flight request finish, and only then returns.
 func TestServe_FinishesInFlightRequestsBeforeReturning(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
-	started := make(chan struct{})
-	release := make(chan struct{})
-	srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
-		router.NewGetRoute("/slow", func(c *fiber.Ctx) error {
-			close(started)
-			<-release
-			return c.SendString("done")
-		}),
-	}}})
-	ln := listenOnFreePort(t)
+ srv := NewServer(ServerConfig{AppName: "fupi-test"})
+ started := make(chan struct{})
+ release := make(chan struct{})
+ srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
+  router.NewGetRoute("/slow", func(c *fiber.Ctx) error {
+   close(started)
+   <-release
+   return c.SendString("done")
+  }),
+ }}})
+ ln := listenOnFreePort(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var drained atomic.Bool
-	served := make(chan error, 1)
-	go func() {
-		served <- srv.ServeListener(ctx, ln, 5*time.Second, func() { drained.Store(true) })
-	}()
+ ctx, cancel := context.WithCancel(context.Background())
+ defer cancel()
+ var drained atomic.Bool
+ served := make(chan error, 1)
+ go func() {
+  served <- srv.ServeListener(ctx, ln, 5*time.Second, func() { drained.Store(true) })
+ }()
 
-	type response struct {
-		body string
-		err  error
-	}
-	responses := make(chan response, 1)
-	go func() {
-		resp, err := http.Get("http://" + ln.Addr().String() + "/slow")
-		if err != nil {
-			responses <- response{err: err}
-			return
-		}
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		responses <- response{body: string(body)}
-	}()
+ type response struct {
+  body string
+  err  error
+ }
+ responses := make(chan response, 1)
+ go func() {
+  resp, err := http.Get("http://" + ln.Addr().String() + "/slow")
+  if err != nil {
+   responses <- response{err: err}
+   return
+  }
+  defer resp.Body.Close()
+  body, _ := io.ReadAll(resp.Body)
+  responses <- response{body: string(body)}
+ }()
 
-	waitFor(t, started, "the request to reach its handler")
-	cancel() // the SIGTERM
+ waitFor(t, started, "the request to reach its handler")
+ cancel() // the SIGTERM
 
-	require.Eventually(t, drained.Load, 2*time.Second, 5*time.Millisecond, "onDrain must run when the context is cancelled")
-	select {
-	case err := <-served:
-		t.Fatalf("Serve returned (%v) while a request was still in flight", err)
-	case <-time.After(150 * time.Millisecond):
-	}
+ require.Eventually(t, drained.Load, 2*time.Second, 5*time.Millisecond, "onDrain must run when the context is cancelled")
+ select {
+ case err := <-served:
+  t.Fatalf("Serve returned (%v) while a request was still in flight", err)
+ case <-time.After(150 * time.Millisecond):
+ }
 
-	close(release)
-	got := <-responses
-	require.NoError(t, got.err)
-	assert.Equal(t, "done", got.body)
-	require.NoError(t, <-served)
+ close(release)
+ got := <-responses
+ require.NoError(t, got.err)
+ assert.Equal(t, "done", got.body)
+ require.NoError(t, <-served)
 }
 
 // A request that never finishes must not hold the process forever: shutdown gives up at the timeout and says so.
 func TestServe_ReturnsAnErrorWhenInFlightRequestsOutlastTheTimeout(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
-	started := make(chan struct{})
-	release := make(chan struct{})
-	t.Cleanup(func() { close(release) })
-	srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
-		router.NewGetRoute("/stuck", func(c *fiber.Ctx) error {
-			close(started)
-			<-release
-			return nil
-		}),
-	}}})
-	ln := listenOnFreePort(t)
+ srv := NewServer(ServerConfig{AppName: "fupi-test"})
+ started := make(chan struct{})
+ release := make(chan struct{})
+ t.Cleanup(func() { close(release) })
+ srv.RegisterHandlers([]router.Router{stubRouter{routes: []router.Route{
+  router.NewGetRoute("/stuck", func(c *fiber.Ctx) error {
+   close(started)
+   <-release
+   return nil
+  }),
+ }}})
+ ln := listenOnFreePort(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	served := make(chan error, 1)
-	go func() { served <- srv.ServeListener(ctx, ln, 100*time.Millisecond, nil) }()
-	go func() { _, _ = http.Get("http://" + ln.Addr().String() + "/stuck") }()
+ ctx, cancel := context.WithCancel(context.Background())
+ defer cancel()
+ served := make(chan error, 1)
+ go func() { served <- srv.ServeListener(ctx, ln, 100*time.Millisecond, nil) }()
+ go func() { _, _ = http.Get("http://" + ln.Addr().String() + "/stuck") }()
 
-	waitFor(t, started, "the request to reach its handler")
-	cancel()
+ waitFor(t, started, "the request to reach its handler")
+ cancel()
 
-	select {
-	case err := <-served:
-		assert.Error(t, err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Serve did not give up at the shutdown timeout")
-	}
+ select {
+ case err := <-served:
+  assert.Error(t, err)
+ case <-time.After(5 * time.Second):
+  t.Fatal("Serve did not give up at the shutdown timeout")
+ }
 }
 
 func TestServe_ReturnsTheListenerError(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
-	ln := listenOnFreePort(t)
-	require.NoError(t, ln.Close())
+ srv := NewServer(ServerConfig{AppName: "fupi-test"})
+ ln := listenOnFreePort(t)
+ require.NoError(t, ln.Close())
 
-	err := srv.ServeListener(context.Background(), ln, time.Second, nil)
+ err := srv.ServeListener(context.Background(), ln, time.Second, nil)
 
-	assert.Error(t, err)
+ assert.Error(t, err)
 }
 ```
 
@@ -1916,36 +1928,36 @@ In `app/pkg/infra/server/server.go` add `"context"`, `"net"` and `"time"` to the
 ```go
 // Serve listens on the configured port and blocks until ctx is cancelled or the listener fails. See ServeListener.
 func (srv *Server) Serve(ctx context.Context, timeout time.Duration, onDrain func()) error {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", srv.cfg.Port))
-	if err != nil {
-		return fmt.Errorf("listen on port %d: %w", srv.cfg.Port, err)
-	}
+ ln, err := net.Listen("tcp", fmt.Sprintf(":%d", srv.cfg.Port))
+ if err != nil {
+  return fmt.Errorf("listen on port %d: %w", srv.cfg.Port, err)
+ }
 
-	srv.log.Infow("Listening on port", "port", srv.cfg.Port)
-	return srv.ServeListener(ctx, ln, timeout, onDrain)
+ srv.log.Infow("Listening on port", "port", srv.cfg.Port)
+ return srv.ServeListener(ctx, ln, timeout, onDrain)
 }
 
 // ServeListener serves on ln until ctx is cancelled or the listener fails. When ctx is cancelled it calls onDrain
 // (use it to turn readiness to 503), stops accepting connections, and waits up to timeout for in-flight requests to
 // finish. It returns nil after a clean drain and an error if the listener failed or the deadline passed first.
 func (srv *Server) ServeListener(ctx context.Context, ln net.Listener, timeout time.Duration, onDrain func()) error {
-	listenErr := make(chan error, 1)
-	go func() { listenErr <- srv.app.Listener(ln) }()
+ listenErr := make(chan error, 1)
+ go func() { listenErr <- srv.app.Listener(ln) }()
 
-	select {
-	case err := <-listenErr:
-		return err
-	case <-ctx.Done():
-	}
+ select {
+ case err := <-listenErr:
+  return err
+ case <-ctx.Done():
+ }
 
-	if onDrain != nil {
-		onDrain()
-	}
-	srv.log.Infow("shutting down server", "timeout", timeout.String())
-	if err := srv.app.ShutdownWithTimeout(timeout); err != nil {
-		return fmt.Errorf("shut down within %s: %w", timeout, err)
-	}
-	return nil
+ if onDrain != nil {
+  onDrain()
+ }
+ srv.log.Infow("shutting down server", "timeout", timeout.String())
+ if err := srv.app.ShutdownWithTimeout(timeout); err != nil {
+  return fmt.Errorf("shut down within %s: %w", timeout, err)
+ }
+ return nil
 }
 ```
 
@@ -1962,39 +1974,39 @@ Create `app/cmd/main_test.go`:
 package main
 
 import (
-	"context"
-	"testing"
-	"time"
+ "context"
+ "testing"
+ "time"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/sanctumlabs/fupi/app/config"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func lookupOf(env map[string]string) config.Lookup {
-	return func(key string) (string, bool) {
-		value, ok := env[key]
-		return value, ok
-	}
+ return func(key string) (string, bool) {
+  value, ok := env[key]
+  return value, ok
+ }
 }
 
 // Postgres is the one required dependency: with it unreachable the process must exit with an error, not hang or serve.
 func TestRun_ReturnsAnErrorWhenPostgresIsUnreachable(t *testing.T) {
-	if testing.Short() {
-		t.Skip("takes about three seconds of connection retries")
-	}
-	cfg, err := config.Load(lookupOf(map[string]string{
-		"DATABASE_PORT": "1", "DATABASE_CONN_TIMEOUT": "1", "REDIS_ADDRESS": "127.0.0.1:1",
-	}))
-	require.NoError(t, err)
+ if testing.Short() {
+  t.Skip("takes about three seconds of connection retries")
+ }
+ cfg, err := config.Load(lookupOf(map[string]string{
+  "DATABASE_PORT": "1", "DATABASE_CONN_TIMEOUT": "1", "REDIS_ADDRESS": "127.0.0.1:1",
+ }))
+ require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+ ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+ defer cancel()
 
-	err = run(ctx, cfg)
+ err = run(ctx, cfg)
 
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "postgres")
+ require.Error(t, err)
+ assert.ErrorContains(t, err, "postgres")
 }
 ```
 
@@ -2008,153 +2020,153 @@ Expected: build failure `undefined: run`.
 Replace the whole file with:
 
 ```go
-// Command curtz runs the Curtz HTTP API.
+// Command fupi runs the Fupi HTTP API.
 //
 // Only the Identity bounded context is wired up so far; the URL context follows once its
 // application layer exists.
 package main
 
 import (
-	"context"
-	"fmt"
-	"log/slog"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+ "context"
+ "fmt"
+ "log/slog"
+ "os"
+ "os/signal"
+ "syscall"
+ "time"
 
-	"github.com/joho/godotenv"
-	"github.com/sanctumlabs/curtz/app/api/probes"
-	apimiddleware "github.com/sanctumlabs/curtz/app/api/middleware"
-	identityapi "github.com/sanctumlabs/curtz/app/api/v1/identity"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/internal/adapters/jwtauth"
-	"github.com/sanctumlabs/curtz/app/internal/adapters/notifications"
-	identitydatastore "github.com/sanctumlabs/curtz/app/internal/adapters/postgres/identity"
-	identityapp "github.com/sanctumlabs/curtz/app/internal/application/identity"
-	cacheredis "github.com/sanctumlabs/curtz/app/pkg/infra/cache/redis"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/monitoring/health"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
-	"github.com/sanctumlabs/curtz/app/pkg/jwt"
-	recoveryutils "github.com/sanctumlabs/curtz/app/pkg/utils/recover"
+ "github.com/joho/godotenv"
+ "github.com/sanctumlabs/fupi/app/api/probes"
+ apimiddleware "github.com/sanctumlabs/fupi/app/api/middleware"
+ identityapi "github.com/sanctumlabs/fupi/app/api/v1/identity"
+ "github.com/sanctumlabs/fupi/app/config"
+ "github.com/sanctumlabs/fupi/app/internal/adapters/jwtauth"
+ "github.com/sanctumlabs/fupi/app/internal/adapters/notifications"
+ identitydatastore "github.com/sanctumlabs/fupi/app/internal/adapters/postgres/identity"
+ identityapp "github.com/sanctumlabs/fupi/app/internal/application/identity"
+ cacheredis "github.com/sanctumlabs/fupi/app/pkg/infra/cache/redis"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/database"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/monitoring/health"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/server"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
+ "github.com/sanctumlabs/fupi/app/pkg/jwt"
+ recoveryutils "github.com/sanctumlabs/fupi/app/pkg/utils/recover"
 )
 
 const (
-	baseURI = "/api/v1/curtz"
+ baseURI = "/api/v1/fupi"
 
-	// redisStartupPingTimeout bounds the one ping that only decides which startup line is logged.
-	redisStartupPingTimeout = 2 * time.Second
+ // redisStartupPingTimeout bounds the one ping that only decides which startup line is logged.
+ redisStartupPingTimeout = 2 * time.Second
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("no .env file found, relying on the environment", "error", err)
-	}
+ if err := godotenv.Load(); err != nil {
+  slog.Warn("no .env file found, relying on the environment", "error", err)
+ }
 
-	cfg, err := config.Load(os.LookupEnv)
-	if err != nil {
-		slog.Error("invalid configuration", "error", err)
-		os.Exit(1)
-	}
+ cfg, err := config.Load(os.LookupEnv)
+ if err != nil {
+  slog.Error("invalid configuration", "error", err)
+  os.Exit(1)
+ }
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-ctx.Done()
-		// Hand signal handling back to the runtime as soon as the first signal arrives, so a second Ctrl-C ends a
-		// stuck drain immediately instead of being swallowed.
-		stop()
-	}()
+ ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+ go func() {
+  <-ctx.Done()
+  // Hand signal handling back to the runtime as soon as the first signal arrives, so a second Ctrl-C ends a
+  // stuck drain immediately instead of being swallowed.
+  stop()
+ }()
 
-	err = run(ctx, cfg)
-	stop()
-	if err != nil {
-		slog.Error("curtz stopped", "error", err)
-		os.Exit(1)
-	}
+ err = run(ctx, cfg)
+ stop()
+ if err != nil {
+  slog.Error("fupi stopped", "error", err)
+  os.Exit(1)
+ }
 }
 
 // run builds the API from cfg and serves it until ctx is cancelled, then drains in-flight requests and closes the
 // data clients. Postgres is required: failing to reach it is an error. Redis is optional: failing to reach it is
 // logged and the API carries on (readiness reports it as down).
 func run(ctx context.Context, cfg config.App) error {
-	dbClient, err := postgres.NewPostgresClient(cfg.Database.Postgres)
-	if err != nil {
-		return fmt.Errorf("connect to postgres: %w", err)
-	}
-	defer dbClient.Close()
+ dbClient, err := postgres.NewPostgresClient(cfg.Database.Postgres)
+ if err != nil {
+  return fmt.Errorf("connect to postgres: %w", err)
+ }
+ defer dbClient.Close()
 
-	cache, err := cacheredis.NewRedisClient(cfg.Redis)
-	if err != nil {
-		return fmt.Errorf("create redis client: %w", err)
-	}
-	defer func() {
-		if closeErr := cache.Close(); closeErr != nil {
-			slog.Warn("closing redis", "error", closeErr)
-		}
-	}()
+ cache, err := cacheredis.NewRedisClient(cfg.Redis)
+ if err != nil {
+  return fmt.Errorf("create redis client: %w", err)
+ }
+ defer func() {
+  if closeErr := cache.Close(); closeErr != nil {
+   slog.Warn("closing redis", "error", closeErr)
+  }
+ }()
 
-	pingCtx, cancel := context.WithTimeout(ctx, redisStartupPingTimeout)
-	if pingErr := cache.Ping(pingCtx); pingErr != nil {
-		slog.Warn("redis is down, continuing without it", "addresses", cfg.Redis.Address, "error", pingErr)
-	} else {
-		slog.Info("redis is up", "addresses", cfg.Redis.Address)
-	}
-	cancel()
+ pingCtx, cancel := context.WithTimeout(ctx, redisStartupPingTimeout)
+ if pingErr := cache.Ping(pingCtx); pingErr != nil {
+  slog.Warn("redis is down, continuing without it", "addresses", cfg.Redis.Address, "error", pingErr)
+ } else {
+  slog.Info("redis is up", "addresses", cfg.Redis.Address)
+ }
+ cancel()
 
-	registry := health.NewRegistry(health.DefaultCheckTimeout)
-	registry.Add(health.Check{Name: "postgres", Required: true, Fn: dbClient.HealthCheck})
-	registry.Add(health.Check{Name: "redis", Required: false, Fn: cache.Ping})
+ registry := health.NewRegistry(health.DefaultCheckTimeout)
+ registry.Add(health.Check{Name: "postgres", Required: true, Fn: dbClient.HealthCheck})
+ registry.Add(health.Check{Name: "redis", Required: false, Fn: cache.Ping})
 
-	dbConfig := database.Config{
-		OperationTimeout: cfg.Database.OperationTimeout,
-		RetryConfig:      recoveryutils.DefaultRetryConfig,
-	}
+ dbConfig := database.Config{
+  OperationTimeout: cfg.Database.OperationTimeout,
+  RetryConfig:      recoveryutils.DefaultRetryConfig,
+ }
 
-	tokenService := jwtauth.NewTokenService(cfg.Auth, jwt.New())
+ tokenService := jwtauth.NewTokenService(cfg.Auth, jwt.New())
 
-	// No email transport is configured yet, so verification links are logged rather than sent.
-	notifier := notifications.NewEmailNotifier(cfg.Server.BaseURL, notifications.NewLoggingEmailSender())
+ // No email transport is configured yet, so verification links are logged rather than sent.
+ notifier := notifications.NewEmailNotifier(cfg.Server.BaseURL, notifications.NewLoggingEmailSender())
 
-	identityService := identityapp.NewService(
-		identitydatastore.NewUserDatastoreAdapter(dbClient, dbConfig),
-		tokenService,
-		notifier,
-	)
+ identityService := identityapp.NewService(
+  identitydatastore.NewUserDatastoreAdapter(dbClient, dbConfig),
+  tokenService,
+  notifier,
+ )
 
-	srv := server.NewServer(server.ServerConfig{
-		Header:      cfg.Server.Header,
-		Host:        cfg.Server.Host,
-		Port:        cfg.Server.Port,
-		AppName:     cfg.Server.Name,
-		Version:     cfg.Server.Version,
-		Environment: cfg.Environment,
-	})
+ srv := server.NewServer(server.ServerConfig{
+  Header:      cfg.Server.Header,
+  Host:        cfg.Server.Host,
+  Port:        cfg.Server.Port,
+  AppName:     cfg.Server.Name,
+  Version:     cfg.Server.Version,
+  Environment: cfg.Environment,
+ })
 
-	// Everything is authenticated unless it is listed here. Registration, login, token refresh
-	// and email verification must be reachable without a token, by definition, and so must the probes.
-	srv.Use(apimiddleware.AuthMiddleware(apimiddleware.AuthConfig{
-		TokenService: tokenService,
-		PublicPaths: []string{
-			baseURI + "/auth/register",
-			baseURI + "/auth/login",
-			baseURI + "/auth/oauth/token",
-			baseURI + "/auth/verify",
-			probes.LivePath,
-			probes.ReadyPath,
-			"/metrics",
-		},
-		PublicPrefixes: []string{"/docs/"},
-	}))
+ // Everything is authenticated unless it is listed here. Registration, login, token refresh
+ // and email verification must be reachable without a token, by definition, and so must the probes.
+ srv.Use(apimiddleware.AuthMiddleware(apimiddleware.AuthConfig{
+  TokenService: tokenService,
+  PublicPaths: []string{
+   baseURI + "/auth/register",
+   baseURI + "/auth/login",
+   baseURI + "/auth/oauth/token",
+   baseURI + "/auth/verify",
+   probes.LivePath,
+   probes.ReadyPath,
+   "/metrics",
+  },
+  PublicPrefixes: []string{"/docs/"},
+ }))
 
-	srv.RegisterHandlers([]router.Router{
-		probes.NewRouter(registry),
-		identityapi.NewRouter(baseURI, identityService),
-	})
+ srv.RegisterHandlers([]router.Router{
+  probes.NewRouter(registry),
+  identityapi.NewRouter(baseURI, identityService),
+ })
 
-	return srv.Serve(ctx, cfg.ShutdownTimeout, registry.SetDraining)
+ return srv.Serve(ctx, cfg.ShutdownTimeout, registry.SetDraining)
 }
 ```
 
@@ -2173,86 +2185,86 @@ Create `app/cmd/main_integration_test.go`:
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net"
-	"net/http"
-	"strconv"
-	"testing"
-	"time"
+ "context"
+ "encoding/json"
+ "fmt"
+ "net"
+ "net/http"
+ "strconv"
+ "testing"
+ "time"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/test"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/sanctumlabs/fupi/app/config"
+ "github.com/sanctumlabs/fupi/app/test"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func freePort(t *testing.T) int {
-	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer ln.Close()
-	return ln.Addr().(*net.TCPAddr).Port
+ t.Helper()
+ ln, err := net.Listen("tcp", "127.0.0.1:0")
+ require.NoError(t, err)
+ defer ln.Close()
+ return ln.Addr().(*net.TCPAddr).Port
 }
 
 // With Postgres up and Redis down the API serves, reports itself degraded, and stops cleanly when its context ends.
 func TestRun_ServesReadinessAndStopsCleanlyOnCancel(t *testing.T) {
-	ctx := context.Background()
-	container, err := test.TestPostgresDatabaseContainer(ctx, test.DefaultTestDatabaseConfig())
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = container.Terminate(context.Background()) })
-	connectionString, err := container.ConnectionString(ctx, "sslmode=disable")
-	require.NoError(t, err)
-	require.NoError(t, test.RunDatabaseMigration(ctx, connectionString))
+ ctx := context.Background()
+ container, err := test.TestPostgresDatabaseContainer(ctx, test.DefaultTestDatabaseConfig())
+ require.NoError(t, err)
+ t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+ connectionString, err := container.ConnectionString(ctx, "sslmode=disable")
+ require.NoError(t, err)
+ require.NoError(t, test.RunDatabaseMigration(ctx, connectionString))
 
-	port := freePort(t)
-	cfg, err := config.Load(lookupOf(map[string]string{
-		"DATABASE_URL":  connectionString,
-		"HTTP_PORT":     strconv.Itoa(port),
-		"REDIS_ADDRESS": "127.0.0.1:1",
-	}))
-	require.NoError(t, err)
+ port := freePort(t)
+ cfg, err := config.Load(lookupOf(map[string]string{
+  "DATABASE_URL":  connectionString,
+  "HTTP_PORT":     strconv.Itoa(port),
+  "REDIS_ADDRESS": "127.0.0.1:1",
+ }))
+ require.NoError(t, err)
 
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- run(runCtx, cfg) }()
+ runCtx, cancel := context.WithCancel(ctx)
+ defer cancel()
+ done := make(chan error, 1)
+ go func() { done <- run(runCtx, cfg) }()
 
-	base := fmt.Sprintf("http://127.0.0.1:%d", port)
-	require.Eventually(t, func() bool {
-		resp, err := http.Get(base + "/health/ready")
-		if err != nil {
-			return false
-		}
-		defer resp.Body.Close()
-		return resp.StatusCode == http.StatusOK
-	}, 30*time.Second, 200*time.Millisecond, "the API never became ready")
+ base := fmt.Sprintf("http://127.0.0.1:%d", port)
+ require.Eventually(t, func() bool {
+  resp, err := http.Get(base + "/health/ready")
+  if err != nil {
+   return false
+  }
+  defer resp.Body.Close()
+  return resp.StatusCode == http.StatusOK
+ }, 30*time.Second, 200*time.Millisecond, "the API never became ready")
 
-	resp, err := http.Get(base + "/health/ready")
-	require.NoError(t, err)
-	var body struct {
-		Status string            `json:"status"`
-		Checks map[string]string `json:"checks"`
-	}
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
-	resp.Body.Close()
-	assert.Equal(t, "degraded", body.Status)
-	assert.Equal(t, "up", body.Checks["postgres"])
-	assert.Equal(t, "down", body.Checks["redis"])
+ resp, err := http.Get(base + "/health/ready")
+ require.NoError(t, err)
+ var body struct {
+  Status string            `json:"status"`
+  Checks map[string]string `json:"checks"`
+ }
+ require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+ resp.Body.Close()
+ assert.Equal(t, "degraded", body.Status)
+ assert.Equal(t, "up", body.Checks["postgres"])
+ assert.Equal(t, "down", body.Checks["redis"])
 
-	live, err := http.Get(base + "/health")
-	require.NoError(t, err)
-	live.Body.Close()
-	assert.Equal(t, http.StatusOK, live.StatusCode)
+ live, err := http.Get(base + "/health")
+ require.NoError(t, err)
+ live.Body.Close()
+ assert.Equal(t, http.StatusOK, live.StatusCode)
 
-	cancel()
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	case <-time.After(20 * time.Second):
-		t.Fatal("run did not return after its context was cancelled")
-	}
+ cancel()
+ select {
+ case err := <-done:
+  require.NoError(t, err)
+ case <-time.After(20 * time.Second):
+  t.Fatal("run did not return after its context was cancelled")
+ }
 }
 ```
 
@@ -2277,11 +2289,13 @@ EOF
 ### Task 6: The migrator command
 
 **Files:**
+
 - Create: `app/cmd/migrator/main.go`
 - Create: `app/cmd/migrator/main_test.go`
 - Modify: `.make/dev.mk` (`run.with.migrations`)
 
 **Interfaces:**
+
 - Consumes: Task 1 `postgres.ConnectionString`, `postgres.Migrate`; Task 2 `config.Lookup`, `config.LoadDatabase`, `config.LoadMigrations`.
 - Produces: the `migrator` binary (`go run ./app/cmd/migrator`); `run(lookup config.Lookup, migrate migrateFunc) error` in its `package main`.
 
@@ -2295,89 +2309,89 @@ Create `app/cmd/migrator/main_test.go`:
 package main
 
 import (
-	"errors"
-	"testing"
+ "errors"
+ "testing"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+ "github.com/sanctumlabs/fupi/app/config"
+ "github.com/stretchr/testify/assert"
+ "github.com/stretchr/testify/require"
 )
 
 func lookupOf(env map[string]string) config.Lookup {
-	return func(key string) (string, bool) {
-		value, ok := env[key]
-		return value, ok
-	}
+ return func(key string) (string, bool) {
+  value, ok := env[key]
+  return value, ok
+ }
 }
 
 type recorder struct {
-	calls []call
-	err   error
+ calls []call
+ err   error
 }
 
 type call struct {
-	url, path string
-	inDocker  bool
+ url, path string
+ inDocker  bool
 }
 
 func (r *recorder) migrate(databaseURL, migrationPath string, inDocker bool) error {
-	r.calls = append(r.calls, call{databaseURL, migrationPath, inDocker})
-	return r.err
+ r.calls = append(r.calls, call{databaseURL, migrationPath, inDocker})
+ return r.err
 }
 
 func TestRun_MigratesTheConfiguredDatabase(t *testing.T) {
-	dir := t.TempDir()
-	rec := &recorder{}
+ dir := t.TempDir()
+ rec := &recorder{}
 
-	err := run(lookupOf(map[string]string{
-		"DATABASE_HOST": "db.internal", "DATABASE_PORT": "6432", "MIGRATIONS_PATH": dir,
-	}), rec.migrate)
+ err := run(lookupOf(map[string]string{
+  "DATABASE_HOST": "db.internal", "DATABASE_PORT": "6432", "MIGRATIONS_PATH": dir,
+ }), rec.migrate)
 
-	require.NoError(t, err)
-	require.Len(t, rec.calls, 1)
-	assert.Contains(t, rec.calls[0].url, "postgres://curtz-user:curtz-pass@db.internal:6432/curtzdb?")
-	assert.Equal(t, "file://"+dir, rec.calls[0].path)
-	assert.False(t, rec.calls[0].inDocker)
+ require.NoError(t, err)
+ require.Len(t, rec.calls, 1)
+ assert.Contains(t, rec.calls[0].url, "postgres://fupi-user:fupi-pass@db.internal:6432/fupidb?")
+ assert.Equal(t, "file://"+dir, rec.calls[0].path)
+ assert.False(t, rec.calls[0].inDocker)
 }
 
 func TestRun_RefusesTheDevelopmentPasswordInProduction(t *testing.T) {
-	rec := &recorder{}
+ rec := &recorder{}
 
-	err := run(lookupOf(map[string]string{"ENVIRONMENT": "production", "MIGRATIONS_PATH": t.TempDir()}), rec.migrate)
+ err := run(lookupOf(map[string]string{"ENVIRONMENT": "production", "MIGRATIONS_PATH": t.TempDir()}), rec.migrate)
 
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "DATABASE_PASSWORD")
-	assert.Empty(t, rec.calls, "nothing may be migrated with a development password in production")
+ require.Error(t, err)
+ assert.ErrorContains(t, err, "DATABASE_PASSWORD")
+ assert.Empty(t, rec.calls, "nothing may be migrated with a development password in production")
 }
 
 // The migrator needs only the database section; it must not demand an AUTH_SECRET.
 func TestRun_DoesNotNeedAnAuthSecret(t *testing.T) {
-	rec := &recorder{}
+ rec := &recorder{}
 
-	err := run(lookupOf(map[string]string{
-		"ENVIRONMENT": "production", "DATABASE_PASSWORD": "a-real-password", "MIGRATIONS_PATH": t.TempDir(),
-	}), rec.migrate)
+ err := run(lookupOf(map[string]string{
+  "ENVIRONMENT": "production", "DATABASE_PASSWORD": "a-real-password", "MIGRATIONS_PATH": t.TempDir(),
+ }), rec.migrate)
 
-	require.NoError(t, err)
-	assert.Len(t, rec.calls, 1)
+ require.NoError(t, err)
+ assert.Len(t, rec.calls, 1)
 }
 
 func TestRun_FailsWhenTheMigrationsDirectoryIsMissing(t *testing.T) {
-	rec := &recorder{}
+ rec := &recorder{}
 
-	err := run(lookupOf(map[string]string{"MIGRATIONS_PATH": "/does/not/exist"}), rec.migrate)
+ err := run(lookupOf(map[string]string{"MIGRATIONS_PATH": "/does/not/exist"}), rec.migrate)
 
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "/does/not/exist")
-	assert.Empty(t, rec.calls)
+ require.Error(t, err)
+ assert.ErrorContains(t, err, "/does/not/exist")
+ assert.Empty(t, rec.calls)
 }
 
 func TestRun_ReturnsTheMigrationError(t *testing.T) {
-	rec := &recorder{err: errors.New("dirty database version 2")}
+ rec := &recorder{err: errors.New("dirty database version 2")}
 
-	err := run(lookupOf(map[string]string{"MIGRATIONS_PATH": t.TempDir()}), rec.migrate)
+ err := run(lookupOf(map[string]string{"MIGRATIONS_PATH": t.TempDir()}), rec.migrate)
 
-	assert.ErrorContains(t, err, "dirty database version 2")
+ assert.ErrorContains(t, err, "dirty database version 2")
 }
 ```
 
@@ -2397,54 +2411,54 @@ Create `app/cmd/migrator/main.go`:
 //
 // Run it from the repository root (or set MIGRATIONS_PATH):
 //
-//	go run ./app/cmd/migrator
+// go run ./app/cmd/migrator
 package main
 
 import (
-	"fmt"
-	"log/slog"
-	"os"
-	"path/filepath"
+ "fmt"
+ "log/slog"
+ "os"
+ "path/filepath"
 
-	"github.com/joho/godotenv"
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database/postgres"
+ "github.com/joho/godotenv"
+ "github.com/sanctumlabs/fupi/app/config"
+ "github.com/sanctumlabs/fupi/app/pkg/infra/database/postgres"
 )
 
 type migrateFunc func(databaseURL, migrationPath string, inDocker bool) error
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("no .env file found, relying on the environment", "error", err)
-	}
+ if err := godotenv.Load(); err != nil {
+  slog.Warn("no .env file found, relying on the environment", "error", err)
+ }
 
-	if err := run(os.LookupEnv, postgres.Migrate); err != nil {
-		slog.Error("migration failed", "error", err)
-		os.Exit(1)
-	}
+ if err := run(os.LookupEnv, postgres.Migrate); err != nil {
+  slog.Error("migration failed", "error", err)
+  os.Exit(1)
+ }
 }
 
 func run(lookup config.Lookup, migrate migrateFunc) error {
-	database, err := config.LoadDatabase(lookup)
-	if err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
-	}
-	migrations, err := config.LoadMigrations(lookup)
-	if err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
-	}
+ database, err := config.LoadDatabase(lookup)
+ if err != nil {
+  return fmt.Errorf("invalid configuration: %w", err)
+ }
+ migrations, err := config.LoadMigrations(lookup)
+ if err != nil {
+  return fmt.Errorf("invalid configuration: %w", err)
+ }
 
-	dir, err := filepath.Abs(migrations.Path)
-	if err != nil {
-		return fmt.Errorf("resolve the migrations path %q: %w", migrations.Path, err)
-	}
-	if _, err := os.Stat(dir); err != nil {
-		return fmt.Errorf("migrations directory %s: %w", dir, err)
-	}
+ dir, err := filepath.Abs(migrations.Path)
+ if err != nil {
+  return fmt.Errorf("resolve the migrations path %q: %w", migrations.Path, err)
+ }
+ if _, err := os.Stat(dir); err != nil {
+  return fmt.Errorf("migrations directory %s: %w", dir, err)
+ }
 
-	pg := database.Postgres
-	slog.Info("applying migrations", "host", pg.Host, "port", pg.Port, "database", pg.Name, "path", dir)
-	return migrate(postgres.ConnectionString(pg), "file://"+dir, false)
+ pg := database.Postgres
+ slog.Info("applying migrations", "host", pg.Host, "port", pg.Port, "database", pg.Name, "path", dir)
+ return migrate(postgres.ConnectionString(pg), "file://"+dir, false)
 }
 ```
 
@@ -2460,8 +2474,8 @@ In `.make/dev.mk` replace
 ```
 .PHONY: runWithMigrations
 run.with.migrations: ## Runs the project applying migrations
-	@echo "${GREEN} Running application ${NC}"
-	cd cmd && CGO_ENABLED=0 go run -tags migrate main.go
+ @echo "${GREEN} Running application ${NC}"
+ cd cmd && CGO_ENABLED=0 go run -tags migrate main.go
 ```
 
 with
@@ -2469,8 +2483,8 @@ with
 ```
 .PHONY: run.with.migrations
 run.with.migrations: ## Applies the migrations with the migrator command, then runs the project
-	@echo "${GREEN} Applying migrations, then running application ${NC}"
-	CGO_ENABLED=0 go run ./app/cmd/migrator && CGO_ENABLED=0 go run app/cmd/main.go
+ @echo "${GREEN} Applying migrations, then running application ${NC}"
+ CGO_ENABLED=0 go run ./app/cmd/migrator && CGO_ENABLED=0 go run app/cmd/main.go
 ```
 
 Run: `make -n run.with.migrations`
@@ -2494,6 +2508,7 @@ EOF
 ### Task 7: ADRs, documentation and README
 
 **Files:**
+
 - Create: `docs/adr/0014-migrations-run-from-a-migrator-command.md`
 - Create: `docs/adr/0015-postgres-is-the-only-required-dependency.md`
 - Modify: `docs/LocalInfrastructure.md` (new section before `## The stacks`)
@@ -2622,6 +2637,7 @@ EOF
 ### Task 8: Live verification against the real stack (single and HA)
 
 **Files:**
+
 - Modify (only if a drill finds something): `deploy/redis/start.sh`, the Go files named by the finding
 - Modify: `docs/superpowers/specs/2026-10-04-app-connectivity-design.md` (append `## 13. Implementation notes`)
 
@@ -2629,37 +2645,40 @@ EOF
 
 **Task test command:** `go test ./... && go test -tags integration -count=1 ./app/cmd/... ./app/pkg/infra/cache/... ./app/pkg/infra/database/postgres/`
 
-Preconditions: Docker is running; `docker ps --filter name=curtz` shows nothing (if the user's own containers are up, leave them alone and tell the user); `which python3 curl` both succeed. Use a scratch directory for binaries and logs: `SCRATCH=$(mktemp -d)`; never write them into the repo.
+Preconditions: Docker is running; `docker ps --filter name=fupi` shows nothing (if the user's own containers are up, leave them alone and tell the user); `which python3 curl` both succeed. Use a scratch directory for binaries and logs: `SCRATCH=$(mktemp -d)`; never write them into the repo.
 
 - [ ] **Step 1: Build the binaries and start the single-node stack**
 
 ```bash
 SCRATCH=$(mktemp -d); echo "$SCRATCH"
-go build -o "$SCRATCH/curtz" ./app/cmd && go build -o "$SCRATCH/migrator" ./app/cmd/migrator
+go build -o "$SCRATCH/fupi" ./app/cmd && go build -o "$SCRATCH/migrator" ./app/cmd/migrator
 make infra.core.up MODE=single
 ```
+
 Expected: both builds succeed; the stack reports ready (Postgres, Redis, Kafka healthy; the compose `migrate` job exited 0).
 
 - [ ] **Step 2: The migrator on a fresh database, then idempotently**
 
 ```bash
-docker compose --profile '*' exec -T postgres-single psql -U postgres -c 'CREATE DATABASE migrator_check OWNER "curtz-user"'
+docker compose --profile '*' exec -T postgres-single psql -U postgres -c 'CREATE DATABASE migrator_check OWNER "fupi-user"'
 DATABASE_NAME=migrator_check "$SCRATCH/migrator" > "$SCRATCH/m1.log" 2>&1; echo "first run exit: $?"; tail -5 "$SCRATCH/m1.log"
 DATABASE_NAME=migrator_check "$SCRATCH/migrator" > "$SCRATCH/m2.log" 2>&1; echo "second run exit: $?"; tail -5 "$SCRATCH/m2.log"
 docker compose --profile '*' exec -T postgres-single psql -U postgres -d migrator_check -c "SELECT version, dirty FROM schema_migrations" -c "SELECT to_regclass('outbox_events')"
 docker compose --profile '*' exec -T postgres-single psql -U postgres -c 'DROP DATABASE migrator_check'
 ```
-Expected: the first run logs `migrate: up success`, the second `migrate: no change`, both exit 0; `schema_migrations` has the highest migration version and `dirty = f`; `outbox_events` exists. The throwaway database is dropped (this touches only `migrator_check`, never `curtzdb`).
+
+Expected: the first run logs `migrate: up success`, the second `migrate: no change`, both exit 0; `schema_migrations` has the highest migration version and `dirty = f`; `outbox_events` exists. The throwaway database is dropped (this touches only `migrator_check`, never `fupidb`).
 
 - [ ] **Step 3: Start the API and read readiness**
 
 ```bash
-nohup "$SCRATCH/curtz" > "$SCRATCH/curtz.log" 2>&1 &
-echo $! > "$SCRATCH/curtz.pid"
+nohup "$SCRATCH/fupi" > "$SCRATCH/fupi.log" 2>&1 &
+echo $! > "$SCRATCH/fupi.pid"
 sleep 3; curl -s -i localhost:8085/health | head -1; curl -s localhost:8085/health/ready; echo
-grep -E "redis is (up|down)|connected to DB" "$SCRATCH/curtz.log"
+grep -E "redis is (up|down)|connected to DB" "$SCRATCH/fupi.log"
 ```
-Expected: `HTTP/1.1 200 OK`; `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`; the log shows `connected to DB` and `redis is up`. If Redis reports `down` on single mode, run `make infra.redis.cli` and check whether `curtz-svc` can run `CLUSTER SLOTS`; that is spec step 7 and a finding.
+
+Expected: `HTTP/1.1 200 OK`; `{"status":"ok","checks":{"postgres":"up","redis":"up"}}`; the log shows `connected to DB` and `redis is up`. If Redis reports `down` on single mode, run `make infra.redis.cli` and check whether `fupi-svc` can run `CLUSTER SLOTS`; that is spec step 7 and a finding.
 
 - [ ] **Step 4: Redis down is degraded, and recovery needs no restart**
 
@@ -2669,6 +2688,7 @@ sleep 1; curl -s -w ' [%{http_code}]\n' localhost:8085/health/ready
 docker compose --profile '*' start redis-single
 sleep 8; curl -s -w ' [%{http_code}]\n' localhost:8085/health/ready
 ```
+
 Expected: `{"status":"degraded","checks":{"postgres":"up","redis":"down"}} [200]`, then (without restarting the API) `{"status":"ok",...} [200]`. If the service name differs, `docker compose --profile '*' ps` lists it.
 
 - [ ] **Step 5: Postgres down is not ready**
@@ -2679,55 +2699,59 @@ sleep 1; curl -s -w ' [%{http_code}]\n' localhost:8085/health/ready; curl -s -o 
 docker compose --profile '*' start postgres-single
 sleep 10; curl -s -w ' [%{http_code}]\n' localhost:8085/health/ready
 ```
+
 Expected: `unavailable ... [503]` with `"postgres":"down"`, liveness still `live [200]`, then `ok [200]` after Postgres is back.
 
 - [ ] **Step 6: End to end: register a user and see the outbox row**
 
 ```bash
-curl -s -w ' [%{http_code}]\n' -X POST localhost:8085/api/v1/curtz/auth/register -H 'Content-Type: application/json' \
+curl -s -w ' [%{http_code}]\n' -X POST localhost:8085/api/v1/fupi/auth/register -H 'Content-Type: application/json' \
   -d '{"username":"live-check","first_name":"Live","email":"live-check@example.com","password":"Sup3r-secret-pw!"}'
 docker compose --profile '*' exec -T postgres-single sh -c 'PGPASSWORD="$PG_APP_PASSWORD" psql -h postgres -U "$PG_APP_USER" "$PG_DATABASE" -c "SELECT event_type, destination, sent_time FROM outbox_events ORDER BY created_at DESC LIMIT 3"'
 ```
+
 Expected: `[201]` (or the documented success status from ADR-0007's endpoint) and at least one `outbox_events` row for the registration with `sent_time` empty (no relay yet). Record the event type seen.
 
 - [ ] **Step 7: SIGTERM during an in-flight request, then a second signal**
 
 ```bash
-python3 - "$(cat "$SCRATCH/curtz.pid")" <<'PY'
+python3 - "$(cat "$SCRATCH/fupi.pid")" <<'PY'
 import os, signal, socket, sys, time
 pid = int(sys.argv[1])
 body = b'{"email":"a@example.com","password":"x"}'
 s = socket.create_connection(("127.0.0.1", 8085))
-s.sendall(b"POST /api/v1/curtz/auth/login HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n" % len(body) + body[:5])
+s.sendall(b"POST /api/v1/fupi/auth/login HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n" % len(body) + body[:5])
 time.sleep(0.5)
 os.kill(pid, signal.SIGTERM)          # the request is half-sent and therefore in flight
 time.sleep(1.0)
 s.sendall(body[5:])
 print(s.recv(4096).split(b"\r\n")[0].decode())
 PY
-sleep 2; kill -0 "$(cat "$SCRATCH/curtz.pid")" 2>/dev/null && echo "still running" || echo "exited"
-grep -E "draining|shutting down" "$SCRATCH/curtz.log"
+sleep 2; kill -0 "$(cat "$SCRATCH/fupi.pid")" 2>/dev/null && echo "still running" || echo "exited"
+grep -E "draining|shutting down" "$SCRATCH/fupi.log"
 ```
+
 Expected: a status line such as `HTTP/1.1 401 Unauthorized` (the in-flight request was answered during the drain), then `exited`, and the log shows `readiness: draining` before `shutting down server`.
 
 Exit code of an idle shutdown:
 
 ```bash
-"$SCRATCH/curtz" > "$SCRATCH/curtz-idle.log" 2>&1 &
+"$SCRATCH/fupi" > "$SCRATCH/fupi-idle.log" 2>&1 &
 P=$!; sleep 3; kill -TERM $P; wait $P; echo "exit $?"
 ```
+
 Expected: `exit 0`.
 
 Second-signal drill (Review Focus 5): hold a request open, send SIGTERM, then SIGINT while the drain is still waiting:
 
 ```bash
-"$SCRATCH/curtz" > "$SCRATCH/curtz-second.log" 2>&1 &
+"$SCRATCH/fupi" > "$SCRATCH/fupi-second.log" 2>&1 &
 P=$!; sleep 3
 python3 - "$P" <<'PY'
 import os, signal, socket, sys, time
 pid = int(sys.argv[1])
 s = socket.create_connection(("127.0.0.1", 8085))
-s.sendall(b"POST /api/v1/curtz/auth/login HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{")
+s.sendall(b"POST /api/v1/fupi/auth/login HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{")
 time.sleep(0.5)
 os.kill(pid, signal.SIGTERM)          # the drain starts and waits for the incomplete request
 time.sleep(1.0)
@@ -2737,14 +2761,16 @@ PY
 kill -0 $P 2>/dev/null && echo "STILL RUNNING: the second signal was swallowed" || echo "exited"
 wait $P; echo "exit $?"
 ```
+
 Expected: `exited` within about two seconds of the SIGINT and a non-zero exit status (the default signal behaviour), not a wait for `SHUTDOWN_TIMEOUT` (15 seconds). If the process is still running, the `main()` goroutine that calls `stop()` is not working: debug it with `superpowers:systematic-debugging`, add what test is possible, fix it.
 
 - [ ] **Step 8: Production guard**
 
 ```bash
-ENVIRONMENT=production "$SCRATCH/curtz" > "$SCRATCH/prod-api.log" 2>&1; echo "api exit: $?"; tail -3 "$SCRATCH/prod-api.log"
+ENVIRONMENT=production "$SCRATCH/fupi" > "$SCRATCH/prod-api.log" 2>&1; echo "api exit: $?"; tail -3 "$SCRATCH/prod-api.log"
 ENVIRONMENT=production "$SCRATCH/migrator" > "$SCRATCH/prod-mig.log" 2>&1; echo "migrator exit: $?"; tail -3 "$SCRATCH/prod-mig.log"
 ```
+
 Expected: both print an error naming `AUTH_SECRET`/`DATABASE_PASSWORD`/`REDIS_PASSWORD` (the migrator only `DATABASE_PASSWORD`), never the values, and exit 1.
 
 - [ ] **Step 9: Switch to HA and repeat the connection drills**
@@ -2753,28 +2779,31 @@ Expected: both print an error naming `AUTH_SECRET`/`DATABASE_PASSWORD`/`REDIS_PA
 make infra.core.down
 make infra.hosts
 ```
+
 Add the printed line to `/etc/hosts` only if it is not already there (ask the user if it needs `sudo`; never edit `/etc/hosts` without them). Then:
 
 ```bash
 make infra.core.up
 REDIS_ADDRESS=localhost:7001,localhost:7002,localhost:7003,localhost:7004,localhost:7005,localhost:7006 \
-  nohup "$SCRATCH/curtz" > "$SCRATCH/curtz-ha.log" 2>&1 &
-echo $! > "$SCRATCH/curtz.pid"
+  nohup "$SCRATCH/fupi" > "$SCRATCH/fupi-ha.log" 2>&1 &
+echo $! > "$SCRATCH/fupi.pid"
 sleep 5; curl -s localhost:8085/health/ready; echo
 ```
-Expected: `ok` with both up (the cluster client reached the six-node cluster as `curtz-svc`). Then:
+
+Expected: `ok` with both up (the cluster client reached the six-node cluster as `fupi-svc`). Then:
 
 - Stop one Redis master (find one with `make infra.redis.cli`, then `cluster nodes`; the node is `redis-N` for the matching port `700N`): `docker compose --profile '*' stop redis-N`; send 20 readiness requests over 20 seconds (`for i in $(seq 20); do curl -s localhost:8085/health/ready; echo; sleep 1; done`). Expected: `ok` or `degraded` throughout and never a `503`; once a replica is promoted it should settle on `ok`. If readiness reports Redis `down` while the cluster still serves, treat it as a code bug (systematic debugging, a failing test where one is possible), not a documentation note. Restart the node afterwards.
 - Stop the Postgres primary (`make infra.patroni.list` shows which node leads; `docker compose --profile '*' stop <leader>`): readiness goes `503`, and after Patroni and HAProxy recover (about 30 to 40 seconds) it returns to `ok` without restarting the API. Restart the stopped node afterwards.
 - Run the migrator against HA (`"$SCRATCH/migrator"`): `migrate: no change`, exit 0.
 
-If the `curtz-svc` ACL blocks a cluster command the client needs (the log shows `NOPERM`), fix `deploy/redis/start.sh`, re-run `bash scripts/infra_test.sh` and `make infra.config`, and record the change in the spec's implementation notes (this edits a slice 1 file, which spec §10.7 allows).
+If the `fupi-svc` ACL blocks a cluster command the client needs (the log shows `NOPERM`), fix `deploy/redis/start.sh`, re-run `bash scripts/infra_test.sh` and `make infra.config`, and record the change in the spec's implementation notes (this edits a slice 1 file, which spec §10.7 allows).
 
 - [ ] **Step 10: Tear down and record the evidence**
 
 ```bash
-kill "$(cat "$SCRATCH/curtz.pid")" 2>/dev/null; make infra.core.down; docker ps --filter name=curtz --format '{{.Names}}'
+kill "$(cat "$SCRATCH/fupi.pid")" 2>/dev/null; make infra.core.down; docker ps --filter name=fupi --format '{{.Names}}'
 ```
+
 Expected: nothing left running. Append `## 13. Implementation notes` to `docs/superpowers/specs/2026-10-04-app-connectivity-design.md`: one line per drill step above with what was observed (including "none" where nothing changed and any fix made), then:
 
 ```bash
@@ -2786,4 +2815,5 @@ docs: record the live verification of app connectivity in both modes
 EOF
 )"
 ```
+
 Expected: no non-`ok` lines; a clean `git status`.

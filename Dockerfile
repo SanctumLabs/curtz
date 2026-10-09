@@ -23,10 +23,10 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -eu; \
     ldflags="-s -w \
-      -X github.com/sanctumlabs/curtz/app/pkg.Version=${VERSION} \
-      -X github.com/sanctumlabs/curtz/app/pkg.GitCommit=${GIT_COMMIT} \
-      -X github.com/sanctumlabs/curtz/app/pkg.BuildTime=${BUILD_TIME}"; \
-    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/curtz ./app/cmd; \
+      -X github.com/sanctumlabs/fupi/app/pkg.Version=${VERSION} \
+      -X github.com/sanctumlabs/fupi/app/pkg.GitCommit=${GIT_COMMIT} \
+      -X github.com/sanctumlabs/fupi/app/pkg.BuildTime=${BUILD_TIME}"; \
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/fupi ./app/cmd; \
     CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/migrator ./app/cmd/migrator; \
     CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "${ldflags}" -o /out/worker ./app/cmd/worker
 
@@ -37,9 +37,9 @@ ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
 
-LABEL org.opencontainers.image.title="curtz" \
-      org.opencontainers.image.description="Curtz URL shortener API, database migrator and outbox relay worker" \
-      org.opencontainers.image.source="https://github.com/SanctumLabs/curtz" \
+LABEL org.opencontainers.image.title="fupi" \
+      org.opencontainers.image.description="Fupi URL shortener API, database migrator and outbox relay worker" \
+      org.opencontainers.image.source="https://github.com/SanctumLabs/fupi" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${GIT_COMMIT}" \
@@ -47,7 +47,7 @@ LABEL org.opencontainers.image.title="curtz" \
 
 WORKDIR /app
 
-COPY --from=build /out/curtz /out/migrator /out/worker /app/
+COPY --from=build /out/fupi /out/migrator /out/worker /app/
 COPY app/internal/adapters/postgres/migrations /app/migrations
 
 # A container started without ENVIRONMENT refuses the development secrets; compose overrides it for local use.
@@ -58,6 +58,6 @@ USER 65532:65532
 
 EXPOSE 8085
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/app/curtz", "healthcheck"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/app/fupi", "healthcheck"]
 
-ENTRYPOINT ["/app/curtz"]
+ENTRYPOINT ["/app/fupi"]

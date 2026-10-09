@@ -50,17 +50,17 @@ check_image() {
   if [ "$value" = "65532:65532" ]; then pass "runs as the nonroot uid 65532"; else fail "runs as the nonroot uid 65532 (User is '$value')"; fi
 
   value="$(docker image inspect --format '{{json .Config.Healthcheck.Test}}' "$image")"
-  if [ "$value" = '["CMD","/app/curtz","healthcheck"]' ]; then pass "HEALTHCHECK runs /app/curtz healthcheck"; else fail "HEALTHCHECK runs /app/curtz healthcheck (is $value)"; fi
+  if [ "$value" = '["CMD","/app/fupi","healthcheck"]' ]; then pass "HEALTHCHECK runs /app/fupi healthcheck"; else fail "HEALTHCHECK runs /app/fupi healthcheck (is $value)"; fi
 
   value="$(docker image inspect --format '{{json .Config.Entrypoint}}' "$image")"
-  if [ "$value" = '["/app/curtz"]' ]; then pass "entrypoint is /app/curtz"; else fail "entrypoint is /app/curtz (is $value)"; fi
+  if [ "$value" = '["/app/fupi"]' ]; then pass "entrypoint is /app/fupi"; else fail "entrypoint is /app/fupi (is $value)"; fi
 
   value="$(docker image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image")"
   if grep -qx 'ENVIRONMENT=production' <<<"$value"; then pass "ENVIRONMENT defaults to production"; else fail "ENVIRONMENT defaults to production"; fi
   if grep -qx 'MIGRATIONS_PATH=/app/migrations' <<<"$value"; then pass "MIGRATIONS_PATH is /app/migrations"; else fail "MIGRATIONS_PATH is /app/migrations"; fi
 
   value="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$image")"
-  if [ "$value" = "https://github.com/SanctumLabs/curtz" ]; then pass "carries the OCI source label"; else fail "carries the OCI source label (is '$value')"; fi
+  if [ "$value" = "https://github.com/SanctumLabs/fupi" ]; then pass "carries the OCI source label"; else fail "carries the OCI source label (is '$value')"; fi
 
   docker run --rm --entrypoint /bin/sh "$image" -c true >/dev/null 2>&1
   code=$?
@@ -75,7 +75,7 @@ check_image() {
   else
     fail "refuses to start without secrets (exit $code: $out)"
   fi
-  if grep -qE 'curtz-secret|curtz-pass|curtz-svc' <<<"$out"; then fail "the refusal must not print a secret value"; else pass "the refusal prints no secret value"; fi
+  if grep -qE 'fupi-secret|fupi-pass|fupi-svc' <<<"$out"; then fail "the refusal must not print a secret value"; else pass "the refusal prints no secret value"; fi
 
   out="$(docker run --rm --entrypoint /app/migrator "$image" 2>&1)"
   code=$?

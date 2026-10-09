@@ -4,7 +4,7 @@ status: accepted
 
 # The API exports traces and metrics over OTLP, keeps logs on stdout, and instruments HTTP with a small Fiber middleware
 
-The API sends traces and metrics to the OpenTelemetry Collector over OTLP/gRPC, configured with the standard `OTEL_*` variables (the service name defaults to `curtz`, `OTEL_SDK_DISABLED=true` turns it off). The collector feeds Tempo and the Prometheus scrape. Logs stay one JSON object per line on stdout, which Filebeat and Logstash already ship to Elasticsearch; they carry `trace_id` and `span_id` when the log call's context has a span.
+The API sends traces and metrics to the OpenTelemetry Collector over OTLP/gRPC, configured with the standard `OTEL_*` variables (the service name defaults to `fupi`, `OTEL_SDK_DISABLED=true` turns it off). The collector feeds Tempo and the Prometheus scrape. Logs stay one JSON object per line on stdout, which Filebeat and Logstash already ship to Elasticsearch; they carry `trace_id` and `span_id` when the log call's context has a span.
 
 There is one trace ID everywhere: the W3C trace ID of the OpenTelemetry span. `tracing.GetTraceID` returns it when a span is present and falls back to the old KSUID-style value only without one, so the logs, the spans and the gRPC metadata agree and Grafana can jump from a span to its log lines.
 

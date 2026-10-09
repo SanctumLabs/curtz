@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the Curtz API observable inside the local observability and ELK stacks: traces in Tempo, metrics in Prometheus and Grafana, JSON logs in Elasticsearch, all tied together by one W3C trace ID, with the existing dashboard, alert and trace-to-logs link working without edits.
+**Goal:** Make the Fupi API observable inside the local observability and ELK stacks: traces in Tempo, metrics in Prometheus and Grafana, JSON logs in Elasticsearch, all tied together by one W3C trace ID, with the existing dashboard, alert and trace-to-logs link working without edits.
 
 **Architecture:** A new `app/pkg/infra/telemetry` package installs the OpenTelemetry SDK (OTLP/gRPC to the collector) and the slog handler that adds `trace_id`/`span_id`. A small custom Fiber middleware, first in the chain, creates the HTTP server span and the `http.server.request.duration` metric; a slog access-log middleware replaces Fiber's text logger. `otelpgx` and `redisotel` instrument Postgres and Redis, identity use cases get spans, the Bids-era `/metrics` code is removed, and `main` wires telemetry in and flushes it after the server drains.
 
@@ -12,11 +12,11 @@
 
 ## Global Constraints
 
-- Go `1.26.0` (`go.mod`). All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/curtz`, on branch `feat/otel-instrumentation`.
+- Go `1.26.0` (`go.mod`). All commands run from the repo root `/Users/lusina/Projects/SanctumLabs/fupi`, on branch `feat/otel-instrumentation`.
 - **Commit trailer (D11):** every commit made while executing this plan ends with the `Co-Authored-By` trailer given in the session's attribution instructions. The `git commit` snippets below omit the trailer text on purpose; add it to each commit.
 - **Download gate:** nothing is downloaded without the user's explicit go-ahead naming source and size. `go.opentelemetry.io/otel/sdk` and `.../sdk/metric` at v1.44.0 are already in the module cache: Task 3 adds them with `GOPROXY=off`, which fails instead of downloading. Everything else new (`otlptracegrpc`, `otlpmetricgrpc` and their dependencies, `otelpgx`, `redisotel`, and `go mod tidy`, which resolves test-only dependencies of dependencies) needs the go-ahead first; Task 9 starts with that stop.
 - **Version pins** (resolved against the proxy only after the go-ahead; if a pin cannot be met, stop and ask): every `go.opentelemetry.io/otel/...` module at **v1.44.0**, in lockstep with `go.opentelemetry.io/otel v1.44.0` already in `go.mod`; `github.com/redis/go-redis/extra/redisotel/v9` at **v9.19.0**, equal to `go-redis/v9 v9.19.0` already in `go.mod`; `github.com/exaring/otelpgx` at its latest (v0.12.0 when this was written; needs Go 1.25+ and pgx v5). No existing requirement (pgx, go-redis, grpc, otel) may be bumped without asking.
-- Environment variables are the standard `OTEL_*` ones; the service name defaults to `curtz`; `OTEL_SDK_DISABLED=true` installs no-ops (D2).
+- Environment variables are the standard `OTEL_*` ones; the service name defaults to `fupi`; `OTEL_SDK_DISABLED=true` installs no-ops (D2).
 - Traces and metrics leave over OTLP/gRPC; logs stay JSON on stdout (D1). `/health` and `/health/ready` get no span, no metric and only a debug-level log line (D8).
 - Never record SQL parameters, Redis command text, the query string, the client address, request headers, an email address, a username or a token in a span (D7, spec section 5 and 7).
 - Telemetry can never affect a request: exporters are asynchronous, the error handler logs each distinct error at most once a minute (D9).
@@ -69,7 +69,7 @@ Failure modes the spec implies but the obvious tests do not cover, most likely f
 | `app/pkg/infra/cache/redis/client.go` | `redisotel` tracing and metrics |
 | `app/cmd/main.go` | logger install, `Setup` and flush, `ProbePaths` |
 | `deploy/app/compose.yml`, `.env.example` | `OTEL_*` variables |
-| `deploy/observability/grafana/dashboards/curtz-service.json` | Dependencies row |
+| `deploy/observability/grafana/dashboards/fupi-service.json` | Dependencies row |
 | `docs/LocalInfrastructure.md`, `docs/Deployment.md`, `docs/adr/0017-...md` | documentation |
 
 ---
@@ -299,7 +299,7 @@ func logLine(t *testing.T, buf *bytes.Buffer) map[string]any {
 
 func TestNewLogger_JSONCarriesTheKeysTheELKPipelineMaps(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(spanContext(t, trace.FlagsSampled), "hello", "user", "u-1")
 
@@ -307,7 +307,7 @@ func TestNewLogger_JSONCarriesTheKeysTheELKPipelineMaps(t *testing.T) {
 	assert.Equal(t, "hello", line["msg"])
 	assert.Equal(t, "INFO", line["level"])
 	assert.NotEmpty(t, line["time"])
-	assert.Equal(t, "curtz", line["service"])
+	assert.Equal(t, "fupi", line["service"])
 	assert.Equal(t, "u-1", line["user"])
 	assert.Equal(t, testTraceID, line["trace_id"])
 	assert.Equal(t, testSpanID, line["span_id"])
@@ -315,7 +315,7 @@ func TestNewLogger_JSONCarriesTheKeysTheELKPipelineMaps(t *testing.T) {
 
 func TestNewLogger_OmitsTheIDsWithoutASpan(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(context.Background(), "no span")
 	logger.Info("no context at all")
@@ -323,14 +323,14 @@ func TestNewLogger_OmitsTheIDsWithoutASpan(t *testing.T) {
 	for _, raw := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
 		assert.NotContains(t, raw, "trace_id")
 		assert.NotContains(t, raw, "span_id")
-		assert.Contains(t, raw, `"service":"curtz"`)
+		assert.Contains(t, raw, `"service":"fupi"`)
 	}
 }
 
 // A span that was sampled out still has IDs, and the log line is still worth finding by them.
 func TestNewLogger_AddsTheIDsOfAnUnsampledSpanToo(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(spanContext(t, 0), "sampled out")
 
@@ -340,7 +340,7 @@ func TestNewLogger_AddsTheIDsOfAnUnsampledSpanToo(t *testing.T) {
 // slog.With wraps the handler through WithAttrs; a wrapper that forgot to wrap its result would silently stop adding IDs.
 func TestNewLogger_DerivedLoggersKeepAddingTheIDs(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelInfo, "fupi")
 
 	logger.With("component", "x").WithGroup("g").InfoContext(spanContext(t, trace.FlagsSampled), "derived", "k", "v")
 
@@ -355,7 +355,7 @@ func TestNewLogger_DerivedLoggersKeepAddingTheIDs(t *testing.T) {
 
 func TestNewLogger_HonoursTheLevel(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "json", slog.LevelWarn, "curtz")
+	logger := NewLogger(&buf, "json", slog.LevelWarn, "fupi")
 
 	logger.Info("dropped")
 	logger.Debug("dropped")
@@ -367,23 +367,23 @@ func TestNewLogger_HonoursTheLevel(t *testing.T) {
 
 func TestNewLogger_TextFormatIsForTerminals(t *testing.T) {
 	var buf bytes.Buffer
-	logger := NewLogger(&buf, "text", slog.LevelInfo, "curtz")
+	logger := NewLogger(&buf, "text", slog.LevelInfo, "fupi")
 
 	logger.InfoContext(spanContext(t, trace.FlagsSampled), "hello")
 
 	out := buf.String()
 	assert.False(t, strings.HasPrefix(out, "{"), "text format must not be JSON: %s", out)
 	assert.Contains(t, out, "msg=hello")
-	assert.Contains(t, out, "service=curtz")
+	assert.Contains(t, out, "service=fupi")
 	assert.Contains(t, out, "trace_id="+testTraceID)
 }
 
 func TestServiceName(t *testing.T) {
 	t.Setenv("OTEL_SERVICE_NAME", "")
-	assert.Equal(t, "curtz", ServiceName(), "an empty value counts as unset")
+	assert.Equal(t, "fupi", ServiceName(), "an empty value counts as unset")
 
-	t.Setenv("OTEL_SERVICE_NAME", "  curtz-api ")
-	assert.Equal(t, "curtz-api", ServiceName())
+	t.Setenv("OTEL_SERVICE_NAME", "  fupi-api ")
+	assert.Equal(t, "fupi-api", ServiceName())
 }
 ```
 
@@ -409,9 +409,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const defaultServiceName = "curtz"
+const defaultServiceName = "fupi"
 
-// ServiceName is the name this process reports: OTEL_SERVICE_NAME, or "curtz" when it is not set. The log lines and the
+// ServiceName is the name this process reports: OTEL_SERVICE_NAME, or "fupi" when it is not set. The log lines and the
 // telemetry resource both use it, so a log line and the trace it belongs to name the same service.
 func ServiceName() string {
 	if name := strings.TrimSpace(os.Getenv("OTEL_SERVICE_NAME")); name != "" {
@@ -1354,7 +1354,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const instrumentationName = "github.com/sanctumlabs/curtz/app/pkg/infra/server/middleware"
+const instrumentationName = "github.com/sanctumlabs/fupi/app/pkg/infra/server/middleware"
 
 // OTelConfig configures OTelMiddleware. The zero value uses the global tracer provider, meter provider and propagator,
 // which is what the running API wants; tests inject their own.
@@ -1505,7 +1505,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/propagation"
@@ -1518,7 +1518,7 @@ func logTo(t *testing.T, level slog.Level) *bytes.Buffer {
 	t.Helper()
 	var buf bytes.Buffer
 	previous := slog.Default()
-	slog.SetDefault(telemetry.NewLogger(&buf, "json", level, "curtz-test"))
+	slog.SetDefault(telemetry.NewLogger(&buf, "json", level, "fupi-test"))
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	return &buf
 }
@@ -1576,7 +1576,7 @@ func TestAccessLog_WritesOneLineWithTheRequestsFacts(t *testing.T) {
 	assert.EqualValues(t, 5, line["bytes"])
 	assert.Equal(t, "req-123", line["request_id"])
 	assert.GreaterOrEqual(t, line["duration_ms"], float64(0))
-	assert.Equal(t, "curtz-test", line["service"])
+	assert.Equal(t, "fupi-test", line["service"])
 	assert.NotContains(t, buf.String(), "secret")
 }
 
@@ -1744,8 +1744,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/server/router"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/server/router"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
@@ -1768,7 +1768,7 @@ func instrumented(t *testing.T, routes ...router.Route) (*Server, *tracetest.InM
 
 	var logs bytes.Buffer
 	previousLogger := slog.Default()
-	slog.SetDefault(telemetry.NewLogger(&logs, "json", slog.LevelInfo, "curtz-test"))
+	slog.SetDefault(telemetry.NewLogger(&logs, "json", slog.LevelInfo, "fupi-test"))
 
 	t.Cleanup(func() {
 		slog.SetDefault(previousLogger)
@@ -1777,7 +1777,7 @@ func instrumented(t *testing.T, routes ...router.Route) (*Server, *tracetest.InM
 		_ = provider.Shutdown(context.Background())
 	})
 
-	srv := NewServer(ServerConfig{AppName: "curtz-test", ProbePaths: []string{"/health", "/health/ready"}})
+	srv := NewServer(ServerConfig{AppName: "fupi-test", ProbePaths: []string{"/health", "/health/ready"}})
 	srv.RegisterHandlers([]router.Router{stubRouter{routes: routes}})
 	return srv, exporter, &logs
 }
@@ -1904,7 +1904,7 @@ Append to `app/pkg/infra/server/instrumentation_test.go`:
 ```go
 // The Fiber monitor page was unauthenticated, exposed runtime statistics and was not Prometheus. Metrics leave over OTLP.
 func TestNewServer_DoesNotServeAMetricsPage(t *testing.T) {
-	srv := NewServer(ServerConfig{AppName: "curtz-test"})
+	srv := NewServer(ServerConfig{AppName: "fupi-test"})
 
 	resp, err := srv.App().Test(httptest.NewRequest("GET", "/metrics", nil))
 	require.NoError(t, err)
@@ -1979,9 +1979,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entity"
-	"github.com/sanctumlabs/curtz/app/internal/domain/identity"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/internal/core/entity"
+	"github.com/sanctumlabs/fupi/app/internal/domain/identity"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -2065,13 +2065,13 @@ func (suite *IdentityServiceTestSuite) TestLogin_RecordsASpanAndMarksAWrongPassw
 	user := suite.registeredUser("the-right-password")
 	suite.mockUsers.EXPECT().FetchByEmail(gomock.Any(), gomock.Any()).Return(*user, nil)
 
-	_, _, err := suite.service.Login(ctx, "john.doe@curtz.com", "the-wrong-password")
+	_, _, err := suite.service.Login(ctx, "john.doe@fupi.com", "the-wrong-password")
 	suite.Require().Error(err)
 
 	span := suite.useCaseSpan(exporter, "identity.Login")
 	suite.Equal(codes.Error, span.Status.Code)
 	suite.Equal("unauthorized", span.Status.Description)
-	suite.NotContains(spanText(span), "john.doe@curtz.com")
+	suite.NotContains(spanText(span), "john.doe@fupi.com")
 	suite.NotContains(spanText(span), "the-wrong-password")
 }
 
@@ -2084,7 +2084,7 @@ func (suite *IdentityServiceTestSuite) TestLogin_ASuccessLeavesTheSpanUnset() {
 	suite.mockTokens.EXPECT().GenerateAccessToken(userID).Return("access-token", nil)
 	suite.mockTokens.EXPECT().GenerateRefreshToken(userID).Return("refresh-token", nil)
 
-	_, _, err := suite.service.Login(ctx, "john.doe@curtz.com", password)
+	_, _, err := suite.service.Login(ctx, "john.doe@fupi.com", password)
 	suite.Require().NoError(err)
 
 	span := suite.useCaseSpan(exporter, "identity.Login")
@@ -2156,13 +2156,13 @@ package identityapp
 import (
 	"context"
 
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
-const instrumentationName = "github.com/sanctumlabs/curtz/app/internal/application/identity"
+const instrumentationName = "github.com/sanctumlabs/fupi/app/internal/application/identity"
 
 // startUseCase starts the span of one use case, named identity.<useCase>, as a child of the request's span.
 func (svc *Service) startUseCase(ctx context.Context, useCase string) (context.Context, trace.Span) {
@@ -2320,7 +2320,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -2357,7 +2357,7 @@ func TestRegistry_ChecksRunUnderAnUnsampledParentSoTheirPingsAreNotTraced(t *tes
 func TestRegistry_ALogLineFromAFailedCheckCarriesTheCallersTrace(t *testing.T) {
 	var buf bytes.Buffer
 	previous := slog.Default()
-	slog.SetDefault(telemetry.NewLogger(&buf, "json", slog.LevelInfo, "curtz-test"))
+	slog.SetDefault(telemetry.NewLogger(&buf, "json", slog.LevelInfo, "fupi-test"))
 	t.Cleanup(func() { slog.SetDefault(previous) })
 	traceID, _ := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
 	spanID, _ := trace.SpanIDFromHex("00f067aa0ba902b7")
@@ -2384,7 +2384,7 @@ Expected: FAIL `TestRegistry_ChecksRunUnderAnUnsampledParentSoTheirPingsAreNotTr
 In `app/pkg/infra/monitoring/health/registry.go` add the import (after the standard-library group):
 
 ```go
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 ```
 
 Replace the doc comment and the top of `Run` through the goroutine launch so it reads:
@@ -2450,7 +2450,7 @@ func TestNewPostgresClient_LogsThroughTheDefaultSlogLogger(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(previous) })
 
 	_, err := NewPostgresClient(PostgresDatabaseConfig{
-		Host: "127.0.0.1", Port: "1", Name: "curtzdb", Username: "u", Password: "p", SslMode: "disable",
+		Host: "127.0.0.1", Port: "1", Name: "fupidb", Username: "u", Password: "p", SslMode: "disable",
 		MaxConns: 1, ConnTimeout: time.Second,
 	})
 
@@ -2478,7 +2478,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/database"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/database"
 )
 ```
 
@@ -2670,7 +2670,7 @@ func TestSetup_ExportsSpansAndMetricsOnShutdownWithTheServiceResource(t *testing
 	name, _ := resourceAttribute(attrs, "service.name")
 	version, _ := resourceAttribute(attrs, "service.version")
 	environment, _ := resourceAttribute(attrs, "deployment.environment.name")
-	assert.Equal(t, "curtz", name, "the service name defaults to curtz: the dashboard filters on it")
+	assert.Equal(t, "fupi", name, "the service name defaults to fupi: the dashboard filters on it")
 	assert.Equal(t, "1.2.3", version)
 	assert.Equal(t, "test", environment)
 	for _, key := range []string{"process.pid", "process.command_args", "process.owner"} {
@@ -2683,7 +2683,7 @@ func TestSetup_ExportsSpansAndMetricsOnShutdownWithTheServiceResource(t *testing
 	for _, request := range c.metricRequests() {
 		for _, resourceMetrics := range request.GetResourceMetrics() {
 			metricName, _ := resourceAttribute(resourceMetrics.GetResource().GetAttributes(), "service.name")
-			assert.Equal(t, "curtz", metricName)
+			assert.Equal(t, "fupi", metricName)
 			for _, scope := range resourceMetrics.GetScopeMetrics() {
 				for _, m := range scope.GetMetrics() {
 					metricNames = append(metricNames, m.GetName())
@@ -3000,7 +3000,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/test"
+	"github.com/sanctumlabs/fupi/app/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
@@ -3273,9 +3273,9 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/sanctumlabs/curtz/app/config"
-	"github.com/sanctumlabs/curtz/app/pkg"
-	"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"
+	"github.com/sanctumlabs/fupi/app/config"
+	"github.com/sanctumlabs/fupi/app/pkg"
+	"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -3366,7 +3366,7 @@ Expected: build failure `undefined: setupTelemetry` and `undefined: startTelemet
 
 - [ ] **Step 3: Implement in `app/cmd/main.go`**
 
-Imports: add `"github.com/sanctumlabs/curtz/app/pkg"` and `"github.com/sanctumlabs/curtz/app/pkg/infra/telemetry"` (keep the block sorted).
+Imports: add `"github.com/sanctumlabs/fupi/app/pkg"` and `"github.com/sanctumlabs/fupi/app/pkg/infra/telemetry"` (keep the block sorted).
 
 In the `const` block add:
 
@@ -3445,11 +3445,11 @@ Expected: no gofmt output; `ok`. This includes the existing `TestRun_ReturnsAnEr
 
 - [ ] **Step 5: Add the variables to compose and `.env.example`**
 
-In `deploy/app/compose.yml`, in `x-app-env`, after `AUTH_SECRET: ${AUTH_SECRET:-curtz-secret}` add:
+In `deploy/app/compose.yml`, in `x-app-env`, after `AUTH_SECRET: ${AUTH_SECRET:-fupi-secret}` add:
 
 ```yaml
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-  OTEL_SERVICE_NAME: curtz
+  OTEL_SERVICE_NAME: fupi
 ```
 
 In `.env.example` replace
@@ -3467,7 +3467,7 @@ with the block below (it stays above the `# --- Local infrastructure` line, whic
 # (make infra.observability.up). Logs stay JSON on stdout. OTEL_SDK_DISABLED=true turns it all off. Keep a
 # parent-based sampler: the health probes rely on it. See docs/LocalInfrastructure.md, "Observing the app".
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-OTEL_SERVICE_NAME=curtz
+OTEL_SERVICE_NAME=fupi
 OTEL_TRACES_SAMPLER=parentbased_always_on
 ```
 
@@ -3504,7 +3504,7 @@ No code is written in this task. It proves success criteria 1 to 5 against the r
 **Files:** none (findings go into the ledger; Task 14 uses the measured metric names).
 
 **Interfaces:**
-- Consumes: everything from Tasks 1 to 12 on the branch; the already-local images of the observability, ELK, Postgres, Redis stacks and `curtz-app:local`'s pinned base images.
+- Consumes: everything from Tasks 1 to 12 on the branch; the already-local images of the observability, ELK, Postgres, Redis stacks and `fupi-app:local`'s pinned base images.
 - Produces: ledger lines `Task 13: dependency metrics: ...` (names and label names of the Postgres pool and Redis metrics), and a `Task 13: Ruling:` line for any drill finding that needed a change.
 
 - [ ] **Step 1: Pre-flight**
@@ -3528,7 +3528,7 @@ Expected: each `make` ends with `ready: <profile>`; the last command prints `{"s
 - [ ] **Step 3: Send a known trace**
 
 ```bash
-BASE=http://localhost:8085/api/v1/curtz
+BASE=http://localhost:8085/api/v1/fupi
 T1=4bf92f3577b34da6a3ce929d0e0e4736
 TP="traceparent: 00-$T1-00f067aa0ba902b7-01"
 curl -s -o /dev/null -w 'register %{http_code}\n' -H "$TP" -H 'content-type: application/json' \
@@ -3559,7 +3559,7 @@ for b in batches:
 print("services:", services)
 print("scopes:  ", sorted(s for s in scopes if s))
 print("spans:   ", names)
-assert services == {"curtz"}, services
+assert services == {"fupi"}, services
 assert any(n.startswith("POST ") and n.endswith("/auth/register") for n in names), "no HTTP register span"
 assert any(n.startswith("POST ") and n.endswith("/auth/login") for n in names), "no HTTP login span"
 assert "identity.Register" in names and "identity.Login" in names, "no use-case spans"
@@ -3569,10 +3569,10 @@ for secret in ("drill@example.com", "drill-password-1", "Bearer"):
     assert secret not in text, "personal data in a span: " + secret
 print("ok")
 EOF
-curl -s --get localhost:3200/api/search --data-urlencode 'q={ resource.service.name = "curtz" && name =~ ".*health.*" }' --data-urlencode 'limit=20'
+curl -s --get localhost:3200/api/search --data-urlencode 'q={ resource.service.name = "fupi" && name =~ ".*health.*" }' --data-urlencode 'limit=20'
 ```
 
-Expected: `services: {'curtz'}`, the HTTP, use-case and `otelpgx` spans listed, `ok`; the last command prints `{"traces":[],...}` (no probe span). If the trace is not found after a minute, look at `docker logs curtz-app-single-1` for `telemetry export failed` and at the collector's log before changing anything.
+Expected: `services: {'fupi'}`, the HTTP, use-case and `otelpgx` spans listed, `ok`; the last command prints `{"traces":[],...}` (no probe span). If the trace is not found after a minute, look at `docker logs fupi-app-single-1` for `telemetry export failed` and at the collector's log before changing anything.
 
 - [ ] **Step 5: Prometheus has the metrics, the dashboard panels have data, the alert expression evaluates (criterion 2)**
 
@@ -3581,12 +3581,12 @@ Wait at least 30 seconds after the traffic (the metric interval is 15 s and `rat
 ```bash
 for i in 1 2 3 4 5; do curl -s -o /dev/null -H 'content-type: application/json' -d '{"email":"drill@example.com","password":"wrong"}' "$BASE/auth/login"; done
 sleep 45
-curl -s localhost:9090/api/v1/query --data-urlencode 'query=sum by (http_route, http_response_status_code) (http_server_request_duration_seconds_count{service_name="curtz"})' | python3 -m json.tool
-curl -s localhost:9090/api/v1/query --data-urlencode 'query=http_server_request_duration_seconds_count{service_name="curtz",http_route=~"/health.*"}' | python3 -m json.tool
-curl -s localhost:9090/api/v1/query --data-urlencode 'query=histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="curtz"}[5m]))) > 0.1'
+curl -s localhost:9090/api/v1/query --data-urlencode 'query=sum by (http_route, http_response_status_code) (http_server_request_duration_seconds_count{service_name="fupi"})' | python3 -m json.tool
+curl -s localhost:9090/api/v1/query --data-urlencode 'query=http_server_request_duration_seconds_count{service_name="fupi",http_route=~"/health.*"}' | python3 -m json.tool
+curl -s localhost:9090/api/v1/query --data-urlencode 'query=histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="fupi"}[5m]))) > 0.1'
 ```
 
-Expected: series for `http_route="/api/v1/curtz/auth/register"` code `201`, `/auth/login` codes `200` and `401`; the second query returns an empty `result` (probes are not counted); the third returns `"status":"success"` (an empty result means p99 is under 100 ms).
+Expected: series for `http_route="/api/v1/fupi/auth/register"` code `201`, `/auth/login` codes `200` and `401`; the second query returns an empty `result` (probes are not counted); the third returns `"status":"success"` (an empty result means p99 is under 100 ms).
 
 Then run every Prometheus panel of the dashboard through Grafana itself:
 
@@ -3596,9 +3596,9 @@ import base64, json, urllib.request
 def call(path, body=None):
     req = urllib.request.Request("http://localhost:3000" + path, data=None if body is None else json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json",
-                                          "Authorization": "Basic " + base64.b64encode(b"admin:curtz-grafana-dev").decode()})
+                                          "Authorization": "Basic " + base64.b64encode(b"admin:fupi-grafana-dev").decode()})
     return json.load(urllib.request.urlopen(req))
-dash = call("/api/dashboards/uid/curtz-service")["dashboard"]
+dash = call("/api/dashboards/uid/fupi-service")["dashboard"]
 failed = False
 for panel in dash["panels"]:
     for target in panel.get("targets", []):
@@ -3619,17 +3619,17 @@ Expected: every listed panel prints at least one value and the exit status is 0 
 
 ```bash
 for i in $(seq 1 12); do
-  curl -s -u elastic:curtz-elastic-dev 'localhost:9200/logs-curtz-*/_search?size=20' -H 'content-type: application/json' \
+  curl -s -u elastic:fupi-elastic-dev 'localhost:9200/logs-fupi-*/_search?size=20' -H 'content-type: application/json' \
     -d "{\"query\":{\"match_phrase\":{\"trace.id\":\"$T1\"}},\"_source\":[\"@timestamp\",\"message\",\"log.level\",\"service.name\",\"trace.id\",\"span.id\",\"app.route\",\"app.status\",\"app.request_id\"]}" \
     -o "$SCRATCH/es.json"
   python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1]))["hits"]["total"]["value"] else 1)' "$SCRATCH/es.json" && break
   sleep 5
 done
 python3 -m json.tool "$SCRATCH/es.json" | head -60
-curl -s -u elastic:curtz-elastic-dev 'localhost:9200/logs-curtz-*/_count' -H 'content-type: application/json' -d '{"query":{"match_phrase":{"app.path":"/health"}}}'
+curl -s -u elastic:fupi-elastic-dev 'localhost:9200/logs-fupi-*/_count' -H 'content-type: application/json' -d '{"query":{"match_phrase":{"app.path":"/health"}}}'
 ```
 
-Expected: hits whose `message` is `request` (the access log, with `app.route` `/api/v1/curtz/auth/register`, `app.status` 201, `app.request_id`) and the use-case lines (`IdentityService<Register> Registered user`), all with `service.name` `curtz`, `log.level` `INFO` and `trace.id` equal to `$T1`; the count query prints `"count":0` (probes are not logged at info). If a `curtz` log line has no `trace.id`, the JSON keys do not match `deploy/elk/logstash/pipeline/20-filter.conf`: compare the raw container line (`docker logs curtz-app-single-1 | head -3`) with the filter before changing code.
+Expected: hits whose `message` is `request` (the access log, with `app.route` `/api/v1/fupi/auth/register`, `app.status` 201, `app.request_id`) and the use-case lines (`IdentityService<Register> Registered user`), all with `service.name` `fupi`, `log.level` `INFO` and `trace.id` equal to `$T1`; the count query prints `"count":0` (probes are not logged at info). If a `fupi` log line has no `trace.id`, the JSON keys do not match `deploy/elk/logstash/pipeline/20-filter.conf`: compare the raw container line (`docker logs fupi-app-single-1 | head -3`) with the filter before changing code.
 
 Then run the query Grafana's trace-to-logs link builds (`trace.id:"<id>"`, `deploy/observability/grafana/provisioning/datasources/datasources.yml`) through the Elasticsearch datasource:
 
@@ -3641,7 +3641,7 @@ body = {"queries": [{"refId": "A", "datasource": {"type": "elasticsearch", "uid"
                      "bucketAggs": [], "timeField": "@timestamp"}], "from": "now-1h", "to": "now"}
 req = urllib.request.Request("http://localhost:3000/api/ds/query", data=json.dumps(body).encode(),
                              headers={"Content-Type": "application/json",
-                                      "Authorization": "Basic " + base64.b64encode(b"admin:curtz-grafana-dev").decode()})
+                                      "Authorization": "Basic " + base64.b64encode(b"admin:fupi-grafana-dev").decode()})
 res = json.load(urllib.request.urlopen(req))["results"]["A"]
 rows = sum(len(f["data"]["values"][0]) if f["data"]["values"] else 0 for f in res.get("frames", []))
 print("log rows found through the link's query:", rows)
@@ -3661,7 +3661,7 @@ sleep 40
 curl -s localhost:9090/api/v1/label/__name__/values | python3 -c 'import json,sys; print("\n".join(n for n in json.load(sys.stdin)["data"] if any(k in n for k in ("db_client","redis","pgx","pool","connections"))))'
 ```
 
-For each name print its labels and one sample, for example `curl -s localhost:9090/api/v1/series --get --data-urlencode 'match[]=<name>{service_name="curtz"}' | python3 -m json.tool`, and write one ledger line `Task 13: dependency metrics: <name> labels <...> ; ...` for the Postgres pool (connections in use/idle/max, acquire waits) and for Redis (command count and duration, with the label that holds the command name). Task 14 builds the Dependencies row from exactly these names. Note in the ledger whether the readiness `PING` shows in the Redis series (it is expected to: plan note 9).
+For each name print its labels and one sample, for example `curl -s localhost:9090/api/v1/series --get --data-urlencode 'match[]=<name>{service_name="fupi"}' | python3 -m json.tool`, and write one ledger line `Task 13: dependency metrics: <name> labels <...> ; ...` for the Postgres pool (connections in use/idle/max, acquire waits) and for Redis (command count and duration, with the label that holds the command name). Task 14 builds the Dependencies row from exactly these names. Note in the ledger whether the readiness `PING` shows in the Redis series (it is expected to: plan note 9).
 
 - [ ] **Step 8: The collector goes away and comes back (criterion 4)**
 
@@ -3671,8 +3671,8 @@ docker compose --profile observability stop otel-collector
 for i in $(seq 1 20); do curl -s -o /dev/null -w '%{time_total}\n' localhost:8085/health; done | sort -n | tail -3
 curl -s -o /dev/null -w 'login while the collector is down: %{http_code} in %{time_total}s\n' -H 'content-type: application/json' -d '{"email":"drill@example.com","password":"drill-password-1"}' "$BASE/auth/login"
 sleep 130
-docker logs curtz-app-single-1 2>&1 | grep -c 'telemetry export failed'
-docker logs curtz-app-single-1 2>&1 | grep 'telemetry export failed' | tail -3
+docker logs fupi-app-single-1 2>&1 | grep -c 'telemetry export failed'
+docker logs fupi-app-single-1 2>&1 | grep 'telemetry export failed' | tail -3
 ```
 
 Expected: the slowest `/health` times are in the same range before and after (milliseconds), the login still answers 200 in its usual time, and the count of `telemetry export failed` lines is a handful (roughly one per signal per minute, so at most about ten after two minutes), not hundreds. Then:
@@ -3691,8 +3691,8 @@ Expected: the trace arrives without restarting the API (gRPC reconnects with bac
 ```bash
 T3=1af7651916cd43dd8448eb211c80319d
 curl -s -o /dev/null -H "traceparent: 00-$T3-00f067aa0ba902b7-01" -H 'content-type: application/json' -d '{"email":"drill@example.com","password":"drill-password-1"}' "$BASE/auth/login"
-docker stop -t 20 curtz-app-single-1
-docker inspect -f 'exit code {{.State.ExitCode}}' curtz-app-single-1
+docker stop -t 20 fupi-app-single-1
+docker inspect -f 'exit code {{.State.ExitCode}}' fupi-app-single-1
 for i in $(seq 1 12); do curl -sf "localhost:3200/api/traces/$T3" -o /dev/null && echo "trace $T3 found" && break; sleep 5; done
 ```
 
@@ -3701,19 +3701,19 @@ Expected: exit code `0` and `trace ... found`: the request was made less than a 
 - [ ] **Step 10: `OTEL_SDK_DISABLED` and the text log format (run on the host)**
 
 ```bash
-go build -o "$SCRATCH/curtz" ./app/cmd
-OTEL_SDK_DISABLED=true LOG_FORMAT=text HTTP_PORT=8086 "$SCRATCH/curtz" > "$SCRATCH/host.log" 2>&1 &
+go build -o "$SCRATCH/fupi" ./app/cmd
+OTEL_SDK_DISABLED=true LOG_FORMAT=text HTTP_PORT=8086 "$SCRATCH/fupi" > "$SCRATCH/host.log" 2>&1 &
 echo $! > "$SCRATCH/host.pid"
 sleep 3
 T4=2af7651916cd43dd8448eb211c80319e
-curl -s -o /dev/null -w '%{http_code}\n' -H "traceparent: 00-$T4-00f067aa0ba902b7-01" -H 'content-type: application/json' -d '{"email":"drill@example.com","password":"drill-password-1"}' http://localhost:8086/api/v1/curtz/auth/login
+curl -s -o /dev/null -w '%{http_code}\n' -H "traceparent: 00-$T4-00f067aa0ba902b7-01" -H 'content-type: application/json' -d '{"email":"drill@example.com","password":"drill-password-1"}' http://localhost:8086/api/v1/fupi/auth/login
 kill "$(cat "$SCRATCH/host.pid")"; sleep 2
 head -5 "$SCRATCH/host.log"
 sleep 30
 curl -s -o /dev/null -w 'tempo answers %{http_code} for the disabled run (404 expected)\n' "localhost:3200/api/traces/$T4"
 ```
 
-Expected: `200`; the log is readable `key=value` text with `service=curtz` (no JSON); Tempo answers 404 for `$T4`. (The host API reaches the same Postgres and Redis through their default `localhost` ports.) `rm "$SCRATCH/curtz" "$SCRATCH/host.pid" "$SCRATCH/host.log"` afterwards.
+Expected: `200`; the log is readable `key=value` text with `service=fupi` (no JSON); Tempo answers 404 for `$T4`. (The host API reaches the same Postgres and Redis through their default `localhost` ports.) `rm "$SCRATCH/fupi" "$SCRATCH/host.pid" "$SCRATCH/host.log"` afterwards.
 
 - [ ] **Step 11: Tear down what the drill started**
 
@@ -3732,7 +3732,7 @@ Expected: only containers that were running before Step 1 remain. (The data volu
 ### Task 14: Dependencies row, alert comment, documentation and ADR
 
 **Files:**
-- Modify: `deploy/observability/grafana/dashboards/curtz-service.json`
+- Modify: `deploy/observability/grafana/dashboards/fupi-service.json`
 - Modify: `deploy/observability/prometheus/rules/stack.yml` (one comment)
 - Modify: `docs/LocalInfrastructure.md`, `docs/Deployment.md`
 - Create: `docs/adr/0017-the-api-exports-telemetry-over-otlp-and-keeps-logs-on-stdout.md`
@@ -3756,7 +3756,7 @@ PG_WAITS = "<pool acquire waits metric>"         # rate of waits for a connectio
 REDIS_DURATION = "<redis command duration histogram, without _bucket/_count>"
 REDIS_COMMAND_LABEL = "<its command-name label>"
 
-path = "deploy/observability/grafana/dashboards/curtz-service.json"
+path = "deploy/observability/grafana/dashboards/fupi-service.json"
 text = open(path).read()
 prom = {"type": "prometheus", "uid": "prometheus"}
 
@@ -3766,10 +3766,10 @@ def panel(id, title, x, expr, legend, unit):
 
 panels = [
     {"id": 8, "type": "row", "title": "Dependencies", "gridPos": {"x": 0, "y": 30, "w": 24, "h": 1}, "collapsed": False, "panels": []},
-    panel(9, "Postgres pool connections", 0, f'sum by ({PG_CONNECTIONS_LABEL}) ({PG_CONNECTIONS}{{service_name="curtz"}})', f"{{{{{PG_CONNECTIONS_LABEL}}}}}", "short"),
-    panel(10, "Postgres pool waits per second", 12, f'sum(rate({PG_WAITS}{{service_name="curtz"}}[5m]))', "waits", "ops"),
-    panel(11, "Redis commands per second", 0, f'sum by ({REDIS_COMMAND_LABEL}) (rate({REDIS_DURATION}_count{{service_name="curtz"}}[5m]))', f"{{{{{REDIS_COMMAND_LABEL}}}}}", "ops"),
-    panel(12, "Redis command latency p99", 12, f'histogram_quantile(0.99, sum by (le) (rate({REDIS_DURATION}_bucket{{service_name="curtz"}}[5m])))', "p99", "s"),
+    panel(9, "Postgres pool connections", 0, f'sum by ({PG_CONNECTIONS_LABEL}) ({PG_CONNECTIONS}{{service_name="fupi"}})', f"{{{{{PG_CONNECTIONS_LABEL}}}}}", "short"),
+    panel(10, "Postgres pool waits per second", 12, f'sum(rate({PG_WAITS}{{service_name="fupi"}}[5m]))', "waits", "ops"),
+    panel(11, "Redis commands per second", 0, f'sum by ({REDIS_COMMAND_LABEL}) (rate({REDIS_DURATION}_count{{service_name="fupi"}}[5m]))', f"{{{{{REDIS_COMMAND_LABEL}}}}}", "ops"),
+    panel(12, "Redis command latency p99", 12, f'histogram_quantile(0.99, sum by (le) (rate({REDIS_DURATION}_bucket{{service_name="fupi"}}[5m])))', "p99", "s"),
 ]
 lines = ",\n".join("    " + json.dumps(p, separators=(",", ":")) for p in panels)
 
@@ -3781,7 +3781,7 @@ text = text.replace('"version": 1,', '"version": 2,', 1)
 open(path, "w").write(text)
 json.loads(text)  # still valid JSON
 EOF
-git diff --stat deploy/observability/grafana/dashboards/curtz-service.json
+git diff --stat deploy/observability/grafana/dashboards/fupi-service.json
 ```
 
 Expected: the diff adds the new panel lines and changes the `version` line; if the file ends differently from what the pattern assumes, the `assert` fails: fix the insertion by hand instead (insert before the line that closes the `panels` array), keeping the one-panel-per-line style. If the library records no waits metric, delete panel 10 and ledger it.
@@ -3789,7 +3789,7 @@ Expected: the diff adds the new panel lines and changes the `version` line; if t
 - [ ] **Step 2: Check the new panels against the running stack**
 
 Grafana re-reads the file every few seconds (provisioning `updateIntervalSeconds`). With the stacks from Task 13 running again (repeat its Steps 2 and 3 and 7 if you tore them down, so the series exist), run the panel script of Task 13 Step 5 once more.
-Expected: all panels, including the four new ones, print at least one value and the exit status is 0. Then `curl -s -u admin:curtz-grafana-dev localhost:3000/api/dashboards/uid/curtz-service | python3 -c 'import json,sys; d=json.load(sys.stdin)["dashboard"]; print(d["version"], len(d["panels"]))'` prints `2 12`. Stop the stacks again as in Task 13 Step 11.
+Expected: all panels, including the four new ones, print at least one value and the exit status is 0. Then `curl -s -u admin:fupi-grafana-dev localhost:3000/api/dashboards/uid/fupi-service | python3 -c 'import json,sys; d=json.load(sys.stdin)["dashboard"]; print(d["version"], len(d["panels"]))'` prints `2 12`. Stop the stacks again as in Task 13 Step 11.
 
 - [ ] **Step 3: Fix the alert comment that is no longer true**
 
@@ -3816,7 +3816,7 @@ status: accepted
 
 # The API exports traces and metrics over OTLP, keeps logs on stdout, and instruments HTTP with a small Fiber middleware
 
-The API sends traces and metrics to the OpenTelemetry Collector over OTLP/gRPC, configured with the standard `OTEL_*` variables (the service name defaults to `curtz`, `OTEL_SDK_DISABLED=true` turns it off). The collector feeds Tempo and the Prometheus scrape. Logs stay one JSON object per line on stdout, which Filebeat and Logstash already ship to Elasticsearch; they carry `trace_id` and `span_id` when the log call's context has a span.
+The API sends traces and metrics to the OpenTelemetry Collector over OTLP/gRPC, configured with the standard `OTEL_*` variables (the service name defaults to `fupi`, `OTEL_SDK_DISABLED=true` turns it off). The collector feeds Tempo and the Prometheus scrape. Logs stay one JSON object per line on stdout, which Filebeat and Logstash already ship to Elasticsearch; they carry `trace_id` and `span_id` when the log call's context has a span.
 
 There is one trace ID everywhere: the W3C trace ID of the OpenTelemetry span. `tracing.GetTraceID` returns it when a span is present and falls back to the old KSUID-style value only without one, so the logs, the spans and the gRPC metadata agree and Grafana can jump from a span to its log lines.
 
@@ -3861,19 +3861,19 @@ Follow one request. Send it with a `traceparent` of your own, so you know the tr
 
 ```bash
 curl -s -H 'traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' -H 'content-type: application/json' \
-  -d '{"email":"you@example.com","password":"your-password"}' localhost:8085/api/v1/curtz/auth/login
+  -d '{"email":"you@example.com","password":"your-password"}' localhost:8085/api/v1/fupi/auth/login
 ```
 
-- **Traces:** Grafana (<http://localhost:3000>), Explore, Tempo, "TraceQL" with `{ resource.service.name = "curtz" }`, or "Trace ID" with `4bf92f3577b34da6a3ce929d0e0e4736`. The trace is the HTTP server span `POST /api/v1/curtz/auth/login`, the `identity.Login` use-case span and the Postgres query spans. "Logs for this span" jumps to the Elasticsearch lines with that `trace.id`.
-- **Metrics:** the "Curtz service" dashboard (folder Curtz): requests per second and latency by route, the 5xx ratio, application logs and recent traces, and a Dependencies row with the Postgres pool and Redis commands. In Prometheus the request metric is `http_server_request_duration_seconds_*` with `service_name`, `http_route` and `http_response_status_code`.
-- **Logs:** Kibana (<http://localhost:5601>), data view `logs-curtz-*`, filter `trace.id : "4bf92f3577b34da6a3ce929d0e0e4736"`. The access log line is the message `request` with the method, route, status, duration and request ID.
+- **Traces:** Grafana (<http://localhost:3000>), Explore, Tempo, "TraceQL" with `{ resource.service.name = "fupi" }`, or "Trace ID" with `4bf92f3577b34da6a3ce929d0e0e4736`. The trace is the HTTP server span `POST /api/v1/fupi/auth/login`, the `identity.Login` use-case span and the Postgres query spans. "Logs for this span" jumps to the Elasticsearch lines with that `trace.id`.
+- **Metrics:** the "Fupi service" dashboard (folder Fupi): requests per second and latency by route, the 5xx ratio, application logs and recent traces, and a Dependencies row with the Postgres pool and Redis commands. In Prometheus the request metric is `http_server_request_duration_seconds_*` with `service_name`, `http_route` and `http_response_status_code`.
+- **Logs:** Kibana (<http://localhost:5601>), data view `logs-fupi-*`, filter `trace.id : "4bf92f3577b34da6a3ce929d0e0e4736"`. The access log line is the message `request` with the method, route, status, duration and request ID.
 
 What to know:
 
 - `/health` and `/health/ready` produce no spans and no HTTP metrics, and their access log lines are debug level. The readiness check's Redis `PING` still shows in the Redis command metrics.
 - Never recorded in a span: SQL arguments, Redis keys and values, query strings, request headers, client addresses, email addresses, usernames and tokens.
 - An API run on your host (`make run`) still exports to the collector on `localhost:4317`. Its logs go to your terminal only (Filebeat reads container logs, not your terminal); `LOG_FORMAT=text` makes them readable, `LOG_LEVEL=debug` shows the probes.
-- Settings are the standard OpenTelemetry variables, listed in `.env.example`: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`), `OTEL_SERVICE_NAME` (default `curtz`), `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`; keep a parent-based sampler, the readiness checks rely on it), `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds, default 15000) and `OTEL_SDK_DISABLED=true` to turn it all off.
+- Settings are the standard OpenTelemetry variables, listed in `.env.example`: `OTEL_EXPORTER_OTLP_ENDPOINT` (default `http://localhost:4317`), `OTEL_SERVICE_NAME` (default `fupi`), `OTEL_TRACES_SAMPLER` (default `parentbased_always_on`; keep a parent-based sampler, the readiness checks rely on it), `OTEL_METRIC_EXPORT_INTERVAL` (milliseconds, default 15000) and `OTEL_SDK_DISABLED=true` to turn it all off.
 ````
 
 In `### Observability`, replace the sentence `The service dashboard shows "No data" until the app emits OpenTelemetry metrics.` (it is split across two lines in the bullet about Grafana) with `The service dashboard fills in once the API runs (see "Observing the app").`; keep the rest of the bullet and re-wrap if needed.
@@ -3888,7 +3888,7 @@ Optional telemetry and logging variables (the defaults suit the local stack; non
 | Variable | Meaning |
 |---|---|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | the OpenTelemetry Collector's OTLP/gRPC address, for example `http://otel-collector:4317` (default `http://localhost:4317`); an `https://` address uses TLS |
-| `OTEL_SERVICE_NAME` | the service name on traces, metrics and log lines (default `curtz`) |
+| `OTEL_SERVICE_NAME` | the service name on traces, metrics and log lines (default `fupi`) |
 | `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | default `parentbased_always_on`, which is too much for production traffic: set for example `parentbased_traceidratio` with `0.05`. Keep a parent-based sampler: the readiness checks run under an unsampled parent so they leave no spans |
 | `OTEL_METRIC_EXPORT_INTERVAL` | milliseconds between metric exports (default 15000) |
 | `OTEL_SDK_DISABLED` | `true` turns tracing and metrics off |

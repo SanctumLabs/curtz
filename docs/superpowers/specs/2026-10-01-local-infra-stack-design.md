@@ -4,7 +4,7 @@ Status: draft for review · Date: 2026-10-01 · Slice 1 of 5
 
 ## 1. Intent
 
-Curtz is being built as a scalable URL shortener (target: 1B URLs, 100M DAU, ~11.6K redirects/s).
+Fupi is being built as a scalable URL shortener (target: 1B URLs, 100M DAU, ~11.6K redirects/s).
 Its production topology (see `architecture-v2.md`, "Infrastructure stack") is Postgres with Patroni,
 a 6-node Redis Cluster, a 3-broker Kafka cluster, and Prometheus/Grafana/OpenTelemetry. Developers
 need to run that topology locally so HA behaviour (failover, replication, quorum) can be exercised
@@ -85,7 +85,7 @@ scripts/infra_env_check.sh    # compose defaults == .env.example; no unsafe char
 docs/LocalInfrastructure.md
 ```
 
-The root file declares `name: curtz` and a single bridge network `curtz`, then `include:`s each
+The root file declares `name: fupi` and a single bridge network `fupi`, then `include:`s each
 stack with `env_file: .env` (verified: `include` needs an explicit `env_file` to see the root
 `.env`, a missing `.env` is an error, shell variables override it, and relative bind mounts resolve
 against the included file's directory). Every `infra.*` target therefore depends on `create.envfile`.
@@ -177,14 +177,14 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
   `appendonly yes`, `maxmemory 128mb`, `maxmemory-policy allkeys-lru` (per v2 spec),
   `cluster-announce-hostname` + `cluster-preferred-endpoint-type hostname`.
 - ACL: default user locked with a password (also used for `masterauth`/replication); app user
-  `curtz-svc` with the permissions the app needs. Credentials from env.
+  `fupi-svc` with the permissions the app needs. Credentials from env.
 - **HA:** `redis-1..6` on ports 7001–7006 (client port; bus port = +10000, in-network only).
   `redis-init-ha` runs `redis-cli --cluster create … --cluster-replicas 1` (3 shards × 1 replica).
 - **Single:** `redis-single` on 7001; `redis-init-single` runs `CLUSTER ADDSLOTSRANGE 0 16383`.
 - Cluster state lives in a per-node volume (`nodes.conf`); init jobs are idempotent (skip when
   `cluster_state:ok`).
 - Nodes have **fixed IP addresses** (`${FUPI_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
-  peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `curtz` network
+  peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `fupi` network
   therefore has an explicit subnet, with other containers drawn from its upper half (`ip_range`).
 
 ### 6.3 Postgres
@@ -197,8 +197,8 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
     Prometheus metrics on `:8404/metrics`.
   - **Replication:** async by default; `synchronous_mode` documented as a one-line toggle.
     `use_pg_rewind: true`; `pg_stat_statements` preloaded.
-  - **Roles** (created by a bootstrap SQL script shared with single mode): `curtz-user` owning
-    database `curtzdb` (current app defaults), `exporter` with `pg_monitor`, `replicator`.
+  - **Roles** (created by a bootstrap SQL script shared with single mode): `fupi-user` owning
+    database `fupidb` (current app defaults), `exporter` with `pg_monitor`, `replicator`.
 - **Single:** `postgres:18` official image, same roles via `/docker-entrypoint-initdb.d/`.
   Host ports `5432` and `5433` both map to the one node, so read/write-split code works in both modes.
 - **`migrate`** (shared): `migrate/migrate` against `postgres:5432` with `./app/internal/adapters/postgres/migrations`
@@ -211,13 +211,13 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
 - Elastic 9.x for Elasticsearch, Logstash, Kibana and Filebeat, all on the same version.
 - **Log path:** Filebeat (container input + `add_docker_metadata`, reads `/var/lib/docker/containers`,
   excludes its own container) → Logstash (beats input) → Elasticsearch **data stream**
-  `logs-curtz-default` with an ILM policy (roll over daily, delete after 7 days). One log store; no Loki.
+  `logs-fupi-default` with an ILM policy (roll over daily, delete after 7 days). One log store; no Loki.
 - **Logstash pipeline:** parse a JSON `message` when present (the app's format), otherwise keep the raw
   line; map to `service.name`, `trace.id`, `span.id`, `log.level`; persistent queue and dead-letter queue.
 - **One-shot setup jobs** (idempotent): in HA, `elk-setup-certs-ha` generates a CA and node certs with
   `elasticsearch-certutil` into a shared volume and exits (the Elasticsearch nodes wait for it to complete). In both modes
   `elk-setup-{ha,single}` then waits for Elasticsearch (with a deadline), sets `kibana_system`'s password, creates
-  `logstash_writer` (write to `logs-curtz-*` only), `grafana_reader` and `metrics_reader` (read-only, plus cluster
+  `logstash_writer` (write to `logs-fupi-*` only), `grafana_reader` and `metrics_reader` (read-only, plus cluster
   `monitor` for Grafana's health check) and installs the ILM policy and index template.
 - **HA:** `es-1..3` (all master+data, quorum of 3, heap 512 MB, `bootstrap.memory_lock=false`;
   `es-1/2/3` published on 9200/9201/9202), `logstash-1..2` (Filebeat load-balances across both),
@@ -248,7 +248,7 @@ Image tags are pinned exactly (verified against the registries on 2026-10-01); s
   emits it) — and a stub receiver; the docs show how to add Slack/email.
 - **Grafana:** admin password from env, anonymous access off, provisioned datasources Prometheus, Tempo
   and Elasticsearch (read-only user), with Tempo's trace→logs linked on `trace.id`. Two dashboards ship
-  in this slice: **Stack overview** and **Curtz service** (the latter fills in as slice 4 lands). Community
+  in this slice: **Stack overview** and **Fupi service** (the latter fills in as slice 4 lands). Community
   dashboard IDs for deeper per-component views are listed in the docs.
 
 ### 6.6 Legacy
@@ -300,7 +300,7 @@ Runtime, on this machine (Docker Desktop ~7.7 GiB, 10 CPUs), one stack at a time
 | Kafka | create topics (RF 3); stop `kafka-2`; produce and consume still succeed; restart, ISR recovers | topics exist (RF 1); produce/consume |
 | Redis | cluster `ok`, 3 masters/3 replicas; kill a master, replica promoted, cluster client keeps writing | one node owns 16384 slots; `SET/GET` |
 | Postgres | `patronictl list` shows leader + 2 replicas; migrations apply via `postgres:5432`; stop the leader, new leader elected, `:5432` follows, `:5433` serves reads | migrations apply; both host ports reach the node |
-| ELK | cluster green; stop `es-2`, stays yellow/green and logs keep flowing; stop `logstash-1`, Filebeat fails over; stop `kibana-1`, UI still reachable; a log line appears in `logs-curtz-default` | log line reaches Kibana |
+| ELK | cluster green; stop `es-2`, stays yellow/green and logs keep flowing; stop `logstash-1`, Filebeat fails over; stop `kibana-1`, UI still reachable; a log line appears in `logs-fupi-default` | log line reaches Kibana |
 | Observability | all datasources healthy in Grafana; Prometheus targets present for the running stacks; a synthetic OTLP span reaches Tempo and is visible from Grafana | same |
 
 `full-single` is brought up together and its measured memory recorded. `full-ha` (est. ~12 GiB) **cannot
@@ -367,7 +367,7 @@ Heaps are sized small (512 MB for Kafka/ES/Logstash).
   they have exited 0; every other service must be running and healthy (or have no healthcheck). A failed job (other than
   `migrate`, which restarts until the database is up) fails the wait immediately with its logs. Shared services (Kafka UI,
   exporters, `migrate`) belong to both modes' profiles, so switching mode recreates them.
-- Every included compose file redeclares the `curtz` network as `name: curtz` with no `external:` flag; the root file owns
+- Every included compose file redeclares the `fupi` network as `name: fupi` with no `external:` flag; the root file owns
   the driver and subnet. An `external: true` declaration in an included file merges into the root's definition, makes
   Compose treat the network as pre-existing, and drops the subnet the Redis static IPs need.
 - Prometheus targets use DNS service discovery; etcd is scraped on its metrics port `2381`, Patroni on its REST port `8008`.

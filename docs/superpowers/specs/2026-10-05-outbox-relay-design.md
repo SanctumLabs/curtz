@@ -23,7 +23,7 @@ Consumers are not part of it: none exists yet (Analytics and cache invalidation 
   `aggregate_id` and `occurred_at`.
 - The generic sqlc outbox queries cannot serve a relay: their `ORDER BY` sorts by the string `'ASC'` rather than by time, and the unsent
   queries take date-filter parameters nobody needs. The relay gets purpose-built queries and leaves the old ones alone.
-- Kafka locally: KRaft, `kafka-1:9092` inside the `curtz` network and `localhost:19092` (HA also `29092`, `39092`) from the host, no
+- Kafka locally: KRaft, `kafka-1:9092` inside the `fupi` network and `localhost:19092` (HA also `29092`, `39092`) from the host, no
   authentication, auto-creation of topics off, replication factor 3 with `min.insync.replicas=2` in HA and 1 in single mode.
 - The image is distroless static built with `CGO_ENABLED=0`, so a cgo client (librdkafka) is out.
 - Slice 4 supplies `telemetry.Setup`, the slog JSON handler, `telemetry.Unsampled`, `health.Registry` and the strict config loader.
@@ -44,7 +44,7 @@ Consumers are not part of it: none exists yet (Analytics and cache invalidation 
 
 ## 2. Scope
 
-Slice table (slices 1 to 4 are on `feat/local-infra-stack`, whose PR is SanctumLabs/curtz#342):
+Slice table (slices 1 to 4 are on `feat/local-infra-stack`, whose PR is SanctumLabs/fupi#342):
 
 | # | Slice | State |
 |---|-------|-------|
@@ -78,7 +78,7 @@ URL context's own events (it adopts the writer helper when its application layer
 | D8 | The relay polls Postgres (default every 100 ms), with no `LISTEN/NOTIFY`. | The v2 spec's design, simple, cheap on a partial index; 100 ms is far below any consumer's need. |
 | D9 | The writer stores `traceparent` and `tracestate` in `headers`; the relay starts an `outbox.publish` span per record as a child of that context and sends the span's `traceparent` to Kafka. | A trace then continues through the outbox (slice 4, D5). Baggage is not stored: it can carry user data. |
 | D10 | Layering: the franz-go wrapper is infrastructure (`pkg/infra/queue/kafka`), the port is `ports.EventPublisher` (`ports/event_bus.go`), its implementation is `internal/adapters/kafka`; the relay is `internal/application/outbox` behind `ports.OutboxDatastore`. | The existing convention: infra holds connection and client code, adapters implement ports, ports are named `…Datastore` (ADR-0013). |
-| D11 | The worker's default service name is `curtz-worker`. | The dashboards and alerts that filter `service_name="curtz"` are about the API; the worker must not mix into them. |
+| D11 | The worker's default service name is `fupi-worker`. | The dashboards and alerts that filter `service_name="fupi"` are about the API; the worker must not mix into them. |
 | D12 | The relay's housekeeping queries (claim, backlog, purge, lock checks) run under `telemetry.Unsampled`. | Otherwise a poll every 100 ms would start ten traces a second. |
 | D13 | The worker never migrates (ADR-0014): migration `000003` runs through the migrator and the compose `migrate` job like the others. | One migration entry point. |
 | D14 | Every commit made while implementing this spec ends with the `Co-Authored-By` trailer given in the session's attribution instructions; example `git commit` snippets in plans omit the trailer text. | The project's attribution convention. |
@@ -218,7 +218,7 @@ the error class, not the message text. No payload, key or header value is record
 | Variable | Default | Meaning |
 |---|---|---|
 | `KAFKA_BROKERS` | `localhost:19092` | comma-separated `host:port` list (HA from the host: `localhost:19092,localhost:29092,localhost:39092`) |
-| `KAFKA_CLIENT_ID` | `curtz-worker` | |
+| `KAFKA_CLIENT_ID` | `fupi-worker` | |
 | `KAFKA_PUBLISH_TIMEOUT` | `10` | seconds a record may take to be acknowledged before it counts as a transient failure |
 | `OUTBOX_POLL_INTERVAL_MS` | `100` | milliseconds between cycles when nothing was claimed (at least 10) |
 | `OUTBOX_BATCH_SIZE` | `100` | rows claimed per destination per cycle (1 to 1000) |
@@ -227,7 +227,7 @@ the error class, not the message text. No payload, key or header value is record
 | `OUTBOX_RETENTION_DAYS` | `7` | days sent rows are kept; `0` turns the purge off |
 | `WORKER_HTTP_PORT` | `8086` | health listener |
 
-- **Startup:** logger (default service name `curtz-worker` via a new `telemetry.Options.ServiceName` default and `telemetry.ServiceName(default)`),
+- **Startup:** logger (default service name `fupi-worker` via a new `telemetry.Options.ServiceName` default and `telemetry.ServiceName(default)`),
   `telemetry.Setup` (flushed right after the relay stops and before the clients close, as in `run` for the API), Postgres client, the Kafka
   producer, the health server, then the relay loop. Kafka being down is not a startup error.
 - **Health:** a small `net/http` handler (`probes` gains `NewHTTPHandler(registry)` on the same `LivePath`/`ReadyPath` and report shape).
@@ -246,15 +246,15 @@ Metrics (meter `…/application/outbox`, exported by the worker's own `Setup`): 
 standby reports only `leader = 0`.
 
 Three alert rules in `deploy/observability/prometheus/rules/stack.yml`, all silent when no worker runs (the series are absent, matching how slice 1
-avoids false "down" alerts): `OutboxBacklogOld` (`max(outbox_relay_oldest_unsent_age_seconds{service_name="curtz-worker"}) > 300` for 2 minutes),
-`OutboxEventsParked` (`max(outbox_relay_parked_rows{service_name="curtz-worker"}) > 0` for 5 minutes) and, added after the final review,
-`OutboxNoActiveRelay` (`sum(outbox_relay_leader{service_name="curtz-worker"}) == 0` for 2 minutes: workers are up but none holds the lease, so no
-backlog gauge is reported and the other two cannot see the stall). A dashboard `curtz-worker.json` (folder Curtz)
+avoids false "down" alerts): `OutboxBacklogOld` (`max(outbox_relay_oldest_unsent_age_seconds{service_name="fupi-worker"}) > 300` for 2 minutes),
+`OutboxEventsParked` (`max(outbox_relay_parked_rows{service_name="fupi-worker"}) > 0` for 5 minutes) and, added after the final review,
+`OutboxNoActiveRelay` (`sum(outbox_relay_leader{service_name="fupi-worker"}) == 0` for 2 minutes: workers are up but none holds the lease, so no
+backlog gauge is reported and the other two cannot see the stall). A dashboard `fupi-worker.json` (folder Fupi)
 shows the rates, the backlog and its oldest age, parked rows and the leader. The Prometheus names are confirmed from the running stack, as in slice 4.
 
 ## 9. Compose, image and documentation
 
-- **Image:** the `Dockerfile` also builds `/app/worker` (one image: `curtz`, `migrator`, `worker`); `scripts/image_test.sh` pins it.
+- **Image:** the `Dockerfile` also builds `/app/worker` (one image: `fupi`, `migrator`, `worker`); `scripts/image_test.sh` pins it.
 - **Stack:** `deploy/worker/compose.yml` with `worker-ha` and `worker-single` (the same hardening as the app services: read-only, no capabilities,
   `no-new-privileges`, explicit environment list, `stop_grace_period` 25 s), included from `docker-compose.yml`; `scripts/infra.sh` learns the stack
   `worker` (it brings up Postgres and Kafka for the mode first, then the worker, like `app` does); `make infra.worker.up|down MODE=…`;
@@ -312,6 +312,6 @@ Written test-first where there is code.
 - **Parked events leave a gap.** An aggregate's later events are delivered after a parked one; the gap is deliberate (D3) and alerted.
 - **Memory.** The worker is a small Go process; the drill adds Kafka single (heap 512 MB) to the observability, ELK and core stacks already
   measured at about 4.2 GiB.
-- **Service name default.** `telemetry.ServiceName` gains a parameter; the API's call passes `"curtz"`, so its behaviour is unchanged.
+- **Service name default.** `telemetry.ServiceName` gains a parameter; the API's call passes `"fupi"`, so its behaviour is unchanged.
 - **Kafka security.** The local stack has no TLS or SASL. The producer reads only `KAFKA_BROKERS`; adding SASL/TLS settings is a later,
   production-hardening change.

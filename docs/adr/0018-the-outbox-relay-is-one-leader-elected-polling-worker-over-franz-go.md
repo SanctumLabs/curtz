@@ -18,7 +18,7 @@ Domain events reach Kafka through a separate process, `worker` (`app/cmd/worker`
 
 **Layering.** The franz-go wrapper is infrastructure (`pkg/infra/queue/kafka`), the port is `ports.EventPublisher` and its adapter `internal/adapters/kafka`; the relay is a use case (`internal/application/outbox`) behind `ports.OutboxDatastore`, whose adapter is `internal/adapters/postgres/outbox`.
 
-**Traces continue through the outbox.** The writer stores `traceparent` and `tracestate` (never baggage, which can carry user data) in `outbox_events.headers`; the relay starts an `outbox.publish` span per record as a child of that context and sends that span's `traceparent` in the Kafka record, so one trace ID runs from the HTTP request to the consumer. The relay's own queries run under `telemetry.Unsampled`, otherwise a poll every 100 ms would start ten traces a second. The worker's service name is `curtz-worker`, so the API's dashboards and alerts stay about the API.
+**Traces continue through the outbox.** The writer stores `traceparent` and `tracestate` (never baggage, which can carry user data) in `outbox_events.headers`; the relay starts an `outbox.publish` span per record as a child of that context and sends that span's `traceparent` in the Kafka record, so one trace ID runs from the HTTP request to the consumer. The relay's own queries run under `telemetry.Unsampled`, otherwise a poll every 100 ms would start ten traces a second. The worker's service name is `fupi-worker`, so the API's dashboards and alerts stay about the API.
 
 **Sent rows are purged.** The leader deletes rows sent more than `OUTBOX_RETENTION_DAYS` ago (default 7, `0` keeps them), in batches; unsent and parked rows are never deleted.
 

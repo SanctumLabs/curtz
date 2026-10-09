@@ -28,7 +28,7 @@ This is **slice 3** of five (slice table from `2026-10-01-local-infra-stack-desi
 
 | # | Slice | Change in this spec |
 |---|-------|---------------------|
-| 1 | Local infrastructure stack | done (PR SanctumLabs/curtz#342) |
+| 1 | Local infrastructure stack | done (PR SanctumLabs/fupi#342) |
 | 2 | Dockerfile hardening + `app` compose profile | now **after** slice 3, so it can use this env contract, `/health` and the migrator |
 | 3 | **This spec** | config, Redis client, health, graceful shutdown, migrator |
 | 4 | OpenTelemetry | unchanged |
@@ -52,7 +52,7 @@ any schema change.
 | D3 | One Postgres pool, pointed at the primary (`:5432`). | Nothing reads from replicas yet; a read pool is speculative until the URL read paths exist. The old `5433` default was the HA read port, so a write would have failed in HA. |
 | D4 | Migrations are applied by a new `app/cmd/migrator` binary that calls `postgres.Migrate()`. The API never migrates at startup. | The user wants `Migrate()` used for real migrations, not only tests. The v2 layout already names `cmd/migrator` (ADR-0010). Several API replicas racing to migrate at boot is avoided, and the migrator can later run with a DDL-capable role. **Assumption** recorded for review: if you wanted an opt-in flag on the API instead, say so. |
 | D5 | A typed `config.Load` over a small strict reader (`Lookup`, satisfied by `os.LookupEnv`); no new config library. | About 25 variables; a library adds a dependency without removing code. The existing `env.EnvConfig` getters swallow parse errors, which §4 requires to be errors, so they are not reused. |
-| D6 | Production safety is opt-out: any `ENVIRONMENT` other than `development` or `test` rejects development default secrets. | A forgotten variable in a real deployment must fail at boot, not run with `curtz-secret`. Values like `release` (used by `fly.toml`) and `staging` are protected too. |
+| D6 | Production safety is opt-out: any `ENVIRONMENT` other than `development` or `test` rejects development default secrets. | A forgotten variable in a real deployment must fail at boot, not run with `fupi-secret`. Values like `release` (used by `fly.toml`) and `staging` are protected too. |
 | D7 | The public readiness response carries `up`/`down` only, never error text. | The endpoint is unauthenticated. Errors are logged server-side. |
 | D8 | The legacy-tagged code (`app/api/health`, `app/config` legacy types) is not touched. | `go vet -tags legacy ./app/...` already fails in `userepo/mapper.go`; unrelated to this work. |
 | D9 | The compose `migrate` job (slice 1) keeps using the `migrate/migrate` image. | It is verified and independent. Slice 2 can switch it to the app's migrator image once that image exists. |
@@ -70,28 +70,28 @@ Defaults are the stack's development values, so a host app works with no `.env`.
 |---|---|---|
 | `ENVIRONMENT` | `development` | `development` and `test` allow default secrets; anything else enforces D6 |
 | `HTTP_PORT` | `8085` | |
-| `SERVER_HOST` / `SERVER_HEADER` / `SERVER_NAME` / `SERVER_VERSION` | `0.0.0.0` / `Curtz` / `Curtz` / `1.0.0` | unchanged |
+| `SERVER_HOST` / `SERVER_HEADER` / `SERVER_NAME` / `SERVER_VERSION` | `0.0.0.0` / `Fupi` / `Fupi` / `1.0.0` | unchanged |
 | `APP_BASE_URL` | `http://localhost:8085` | unchanged |
 | `SHUTDOWN_TIMEOUT` | `15` (seconds) | drain deadline for in-flight requests |
 | `DATABASE_URL` | empty | when set it **wins** over the parts below (today it is passed in and silently ignored) |
 | `DATABASE_HOST` / `DATABASE_PORT` | `localhost` / **`5432`** | primary; was `5433` (HA read port) |
-| `DATABASE_NAME` / `DATABASE_USERNAME` / `DATABASE_PASSWORD` | `curtzdb` / `curtz-user` / `curtz-pass` | matches `PG_*` in `.env.example` |
+| `DATABASE_NAME` / `DATABASE_USERNAME` / `DATABASE_PASSWORD` | `fupidb` / `fupi-user` / `fupi-pass` | matches `PG_*` in `.env.example` |
 | `DATABASE_SSL_MODE` | `disable` | today ignored by the DSN builder; now honored |
 | `DATABASE_MAX_CONNS` / `MIN_CONNS` / `MAX_CONN_LIFETIME` / `MAX_CONN_IDLE_TIME` / `CONN_TIMEOUT` / `QUERY_TIMEOUT` / `OPERATION_TIMEOUT` | `30` / `5` / `1` h / `30` min / `30` s / `10` s / `30` s | unchanged |
 | `MIGRATIONS_PATH` | `app/internal/adapters/postgres/migrations` | migrator only; resolved to an absolute `file://` URL |
 | `REDIS_ADDRESS` | `localhost:7001` | comma-separated `host:port` list; one entry = plain client, several = cluster client (HA: `localhost:7001`..`7006`) |
-| `REDIS_USERNAME` / `REDIS_PASSWORD` | `curtz-svc` / `curtz-svc` | the stack's application ACL user |
+| `REDIS_USERNAME` / `REDIS_PASSWORD` | `fupi-svc` / `fupi-svc` | the stack's application ACL user |
 | `REDIS_DATABASE` | `0` | cluster mode serves database 0 only; any other value is rejected |
-| `AUTH_SECRET` | `curtz-secret` (dev only) | |
-| `AUTH_ISSUER` / `AUTH_EXPIRE_DELTA` / `AUTH_REFRESH_EXPIRE_DELTA` | `curtz` / `15` / `24` | unchanged (minutes / hours) |
+| `AUTH_SECRET` | `fupi-secret` (dev only) | |
+| `AUTH_ISSUER` / `AUTH_EXPIRE_DELTA` / `AUTH_REFRESH_EXPIRE_DELTA` | `fupi` / `15` / `24` | unchanged (minutes / hours) |
 
 **Validation (returns an error, so the process exits 1 with a clear message):**
 
 - A numeric variable that does not parse is an error. Today `EnvIntOr` logs and silently falls back.
 - `HTTP_PORT` and `DATABASE_PORT` must be 1..65535; pool sizes must satisfy `MIN <= MAX`; `REDIS_DATABASE` must be 0.
 - `REDIS_ADDRESS` entries must each be `host:port`.
-- Outside development/test (D6): `AUTH_SECRET == "curtz-secret"` or empty, `DATABASE_PASSWORD == "curtz-pass"` or empty,
-  and `REDIS_PASSWORD == "curtz-svc"` are errors. `DATABASE_SSL_MODE=disable` only logs a warning, because the
+- Outside development/test (D6): `AUTH_SECRET == "fupi-secret"` or empty, `DATABASE_PASSWORD == "fupi-pass"` or empty,
+  and `REDIS_PASSWORD == "fupi-svc"` are errors. `DATABASE_SSL_MODE=disable` only logs a warning, because the
   compose network is not TLS either.
 - Passwords are never logged. Startup logs the resolved host, port and database name only.
 
@@ -126,7 +126,7 @@ pings succeed. New behaviour:
 - `client_integration_test.go` imports `parksys/...` and does not compile under `-tags integration`. It is rewritten
   against testcontainers (already in `go.mod`): set/get/delete/exists, TTL expiry, ping, and a ping that fails after
   the container stops.
-- Cluster behaviour against the real 6-node cluster (including whether the `curtz-svc` ACL allows the `CLUSTER SLOTS`
+- Cluster behaviour against the real 6-node cluster (including whether the `fupi-svc` ACL allows the `CLUSTER SLOTS`
   call the cluster client makes) is verified live, not in a unit test (see §10).
 
 ## 7. Health
@@ -223,7 +223,7 @@ Postgres testcontainer, twice (second run is "no change"), reusing the existing 
 5. Send SIGTERM during a slow request: the request completes, the process exits 0, readiness was 503 while draining.
 6. `POST` a registration, then `make infra.psql` and confirm the `outbox_events` row.
 7. HA Redis from the host: with `make infra.hosts` applied, the cluster client connects and a set/get works; if the
-   `curtz-svc` ACL blocks a cluster command, fix the ACL in `deploy/redis/start.sh` (slice 1 file) and record the change.
+   `fupi-svc` ACL blocks a cluster command, fix the ACL in `deploy/redis/start.sh` (slice 1 file) and record the change.
 8. `ENVIRONMENT=production go run ./app/cmd` exits 1 naming the offending variable.
 
 ## 11. Risks and open items
@@ -266,11 +266,11 @@ Single mode (`make infra.postgres.up MODE=single`, `make infra.redis.up MODE=sin
 - `ENVIRONMENT=production`: the API named `DATABASE_PASSWORD`, `REDIS_PASSWORD` and `AUTH_SECRET`, the migrator only
   `DATABASE_PASSWORD`; both exited 1 and printed no value.
 
-HA mode (`MODE=ha`), API and migrator run in a container on the `curtz` network because `redis-1..6` in `/etc/hosts` needs sudo
+HA mode (`MODE=ha`), API and migrator run in a container on the `fupi` network because `redis-1..6` in `/etc/hosts` needs sudo
 (the host-side path with that line was not exercised):
 
 - Migrator: `no change`, exit 0 (the compose job had already migrated).
-- API: ready with the six-address `REDIS_ADDRESS`; the cluster client worked as `curtz-svc` with no `NOPERM`, so the Redis
+- API: ready with the six-address `REDIS_ADDRESS`; the cluster client worked as `fupi-svc` with no `NOPERM`, so the Redis
   ACL needed no change. 30 keys across slots (set, get, delete through the cache client) had 0 failures.
 - Redis master `redis-1` stopped: 25 readiness polls gave 24 `ok` and 1 `degraded` (a random-node `PING` can land on the dead
   node during the failover window), never a 503; `redis-5` was promoted, set/get kept working, and `redis-1` rejoined as a replica.

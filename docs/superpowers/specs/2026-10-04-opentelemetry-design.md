@@ -18,21 +18,21 @@ tied together by one W3C trace ID, with the existing dashboard, alert and trace-
 **What the stack already expects (slice 1)**
 
 - OTLP at the collector: gRPC `:4317` and HTTP `:4318` (`localhost` from the host, `otel-collector` from containers).
-- Metrics named `http_server_request_duration_seconds_{bucket,count}` with the labels `service_name="curtz"`, `http_route` and
-  `http_response_status_code` (the Curtz service dashboard and the `RedirectLatencyHigh` alert query exactly these). The collector's
+- Metrics named `http_server_request_duration_seconds_{bucket,count}` with the labels `service_name="fupi"`, `http_route` and
+  `http_response_status_code` (the Fupi service dashboard and the `RedirectLatencyHigh` alert query exactly these). The collector's
   Prometheus exporter turns OpenTelemetry's `http.server.request.duration` (unit `s`) into that name and the resource's `service.name`
   into `service_name`.
-- Traces whose resource has `service.name = "curtz"` (the dashboard's trace table queries it).
-- Logs in the `logs-curtz-*` data stream with `service.name`, `log.level`, `message` and `trace.id`; Grafana's trace-to-logs link
+- Traces whose resource has `service.name = "fupi"` (the dashboard's trace table queries it).
+- Logs in the `logs-fupi-*` data stream with `service.name`, `log.level`, `message` and `trace.id`; Grafana's trace-to-logs link
   searches `trace.id:"<id>"`. The Logstash filter maps a JSON line's `time`, `level`, `msg`, `service`, `trace_id` and `span_id` to those
   fields.
 
 **Success criteria**
 
 1. With the observability and ELK stacks running, one request to the containerised API produces a Tempo trace
-   (`resource.service.name = "curtz"`) containing the HTTP server span, an identity use-case span and the Postgres query spans.
-2. Prometheus has `http_server_request_duration_seconds_count` with `service_name="curtz"`, `http_route` and `http_response_status_code`
-   for that request, the Curtz service dashboard panels show data, and the `RedirectLatencyHigh` expression evaluates.
+   (`resource.service.name = "fupi"`) containing the HTTP server span, an identity use-case span and the Postgres query spans.
+2. Prometheus has `http_server_request_duration_seconds_count` with `service_name="fupi"`, `http_route` and `http_response_status_code`
+   for that request, the Fupi service dashboard panels show data, and the `RedirectLatencyHigh` expression evaluates.
 3. The same request's log line is in Elasticsearch with a `trace.id` equal to the Tempo trace ID, and Grafana's trace-to-logs link finds it.
 4. With the collector stopped the API's responses are unaffected and the log is not flooded; on SIGTERM the telemetry is flushed.
 5. Health probes create no spans and no metrics; Redis keys, values and SQL parameters never appear in a span.
@@ -44,8 +44,8 @@ tied together by one W3C trace ID, with the existing dashboard, alert and trace-
 Slice table (slices 1 to 3 are on `feat/local-infra-stack`):
 
 | # | Slice | State |
-|---|-------|-------|
-| 1 | Local infrastructure stack | on `feat/local-infra-stack` (PR SanctumLabs/curtz#342, open) |
+| --- | ------- | ------- |
+| 1 | Local infrastructure stack | on `feat/local-infra-stack` (PR SanctumLabs/fupi#342, open) |
 | 2 | Production image, `app` stack, CI | on `feat/local-infra-stack` |
 | 3 | App connectivity | on `feat/local-infra-stack` |
 | 4 | **This spec** — OpenTelemetry | |
@@ -54,7 +54,7 @@ Slice table (slices 1 to 3 are on `feat/local-infra-stack`):
 **In scope:** a new `app/pkg/infra/telemetry` package; the Fiber server middleware and access log; the request-path logging sweep; the pgx
 pool tracer and the Redis hooks; identity use-case spans; the `tracing` package clean-up; removal of the old metrics code; `app/config`
 (`LOG_LEVEL`, `LOG_FORMAT`); `deploy/app/compose.yml`, `.env.example`, `docs/LocalInfrastructure.md`, `docs/Deployment.md`, one ADR, and
-a Dependencies row on the Curtz service dashboard.
+a Dependencies row on the Fupi service dashboard.
 
 **Out of scope:** Kafka instrumentation and writing `traceparent` into `outbox_events.headers` (both slice 5, where the relay and the Kafka
 client are designed); OTLP logs (logs reach Elasticsearch through Filebeat, as slice 1 built it); gRPC server and client instrumentation
@@ -64,9 +64,9 @@ section 6 touches.
 ## 3. Decisions
 
 | # | Decision | Why |
-|---|----------|-----|
+| --- | ---------- | ----- |
 | D1 | Traces and metrics leave the process as OTLP over gRPC to the collector; logs stay JSON on stdout. | It is the pipeline slice 1 built: the collector feeds Tempo and the Prometheus scrape, Filebeat feeds Logstash. |
-| D2 | The SDK is configured with the standard `OTEL_*` variables; the service name defaults to `curtz`; `OTEL_SDK_DISABLED=true` installs no-ops. | No custom configuration to learn, and with no variable set it targets `localhost:4317`, the address contract from slice 1. |
+| D2 | The SDK is configured with the standard `OTEL_*` variables; the service name defaults to `fupi`; `OTEL_SDK_DISABLED=true` installs no-ops. | No custom configuration to learn, and with no variable set it targets `localhost:4317`, the address contract from slice 1. |
 | D3 | The HTTP server is instrumented by a small custom Fiber middleware. Confirmed by the user. | It emits exactly the metric names and labels the dashboard and alert use, takes route templates from Fiber, and adds no dependency whose metric names would need adapting. |
 | D4 | The `/metrics` page, the Bids-era `monitoring/metrics` package and the gRPC metrics interceptor are removed. Confirmed by the user. | OTLP is the one metrics path. The page is unauthenticated, exposes runtime stats and is not Prometheus; the package describes another project. |
 | D5 | Writing the trace context into `outbox_events.headers` waits for slice 5. Confirmed by the user. | Writing and reading the header are one feature, "a trace continues through the outbox", designed and tested with the relay. |
@@ -89,7 +89,7 @@ type Options struct {
 }
 ```
 
-- **Resource:** `service.name` (`OTEL_SERVICE_NAME`, default `curtz`), `service.version`, `deployment.environment.name`, plus the SDK's
+- **Resource:** `service.name` (`OTEL_SERVICE_NAME`, default `fupi`), `service.version`, `deployment.environment.name`, plus the SDK's
   host detector. The process detector is omitted on purpose: the collector turns every resource attribute into a label on every metric
   series, and `process.pid` or `process.command_args` are not labels anyone wants. The collector's Prometheus exporter turns
   `service.name` into the `service_name` label.
@@ -153,10 +153,10 @@ stays). `go mod tidy` then drops `github.com/prometheus/client_golang` if nothin
 
 ## 9. Configuration, compose and documentation
 
-- **Compose:** `deploy/app/compose.yml` adds `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` and `OTEL_SERVICE_NAME=curtz` to the
+- **Compose:** `deploy/app/compose.yml` adds `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` and `OTEL_SERVICE_NAME=fupi` to the
   explicit environment list. A collector that is not running only produces the rate-limited error line. `.env.example` gains an `OTEL_*`
   block (`OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317`, `OTEL_SERVICE_NAME`, `OTEL_TRACES_SAMPLER`).
-- **Dashboard:** a Dependencies row on the Curtz service dashboard with the Postgres pool and Redis metrics, using the metric names measured
+- **Dashboard:** a Dependencies row on the Fupi service dashboard with the Postgres pool and Redis metrics, using the metric names measured
   from the running stack (recorded in the implementation notes).
 - **Docs:** `docs/LocalInfrastructure.md` gains "Observing the app" (which stacks to start, where to look in Grafana, Tempo and Kibana, how
   to follow one request, the host-run log limitation); `docs/Deployment.md` gains the `OTEL_*` and `LOG_*` variables; ADR-0017 records D1, D3,
@@ -174,8 +174,8 @@ Written test-first where there is code.
 - **Integration tests** (`-tags integration`, testcontainers): a pgx query inside a parent span produces a child span with the SQL text and
   no arguments; a Redis command produces a span without its key or value.
 - **Live drill**, single mode, with `make infra.observability.up`, `make infra.elk.up MODE=single` and `make infra.app.up MODE=single`:
-  a registration and a login (a) show up in Tempo's search by `service.name=curtz` with the HTTP, use-case and query spans; (b) appear in
-  Prometheus as `http_server_request_duration_seconds_count{service_name="curtz",...}`; (c) have a log line in Elasticsearch with the same
+  a registration and a login (a) show up in Tempo's search by `service.name=fupi` with the HTTP, use-case and query spans; (b) appear in
+  Prometheus as `http_server_request_duration_seconds_count{service_name="fupi",...}`; (c) have a log line in Elasticsearch with the same
   `trace.id`; (d) make the dashboard panels non-empty and the trace-to-logs link find the line. Probes are absent from all three. Stopping
   the collector leaves response times unchanged and the log bounded; restarting it resumes export without restarting the API; SIGTERM
   flushes the last spans; `OTEL_SDK_DISABLED=true` produces nothing.

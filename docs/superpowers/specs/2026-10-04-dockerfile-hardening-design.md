@@ -11,7 +11,7 @@ use v1/v2 actions and Go 1.18, and the workflows that run on `workflow_run` chec
 that triggered them.
 
 This slice produces a hardened, reproducible image of the API and the migrator, an `app` compose stack so the container runs on
-the `curtz` network the way it will in production, repaired lint and scan targets, and modernized CI.
+the `fupi` network the way it will in production, repaired lint and scan targets, and modernized CI.
 
 **Success criteria**
 
@@ -32,7 +32,7 @@ Slice table (updated; slice 3 is merged into `feat/local-infra-stack`):
 
 | # | Slice | State |
 |---|-------|-------|
-| 1 | Local infrastructure stack | merged into `feat/local-infra-stack` (PR SanctumLabs/curtz#342, open) |
+| 1 | Local infrastructure stack | merged into `feat/local-infra-stack` (PR SanctumLabs/fupi#342, open) |
 | 3 | App connectivity (config, health, shutdown, migrator) | merged into `feat/local-infra-stack` |
 | 2 | **This spec** — image, `app` stack, CI | |
 | 4 | OpenTelemetry | next |
@@ -55,9 +55,9 @@ OpenTelemetry, the Kafka client, the shared workflows in `SanctumLabs/ci-workflo
 | # | Decision | Why |
 |---|----------|-----|
 | D1 | The final stage is distroless `static` `:nonroot`, pinned by digest, with no shell. Confirmed by the user. | Smallest attack surface: no shell, no package manager, uid 65532, CA certificates and tzdata included. |
-| D2 | The image carries `/app/curtz`, `/app/migrator` and `/app/migrations`. The compose `migrate` job stays on the `migrate/migrate` image. Confirmed by the user. | One artifact can serve and migrate (ADR-0014), and `make infra.postgres.up` still needs no app build. |
+| D2 | The image carries `/app/fupi`, `/app/migrator` and `/app/migrations`. The compose `migrate` job stays on the `migrate/migrate` image. Confirmed by the user. | One artifact can serve and migrate (ADR-0014), and `make infra.postgres.up` still needs no app build. |
 | D3 | CI is modernized as part of this slice. Confirmed by the user. | CI cannot build the app today. It can only be linted locally (`actionlint`); the first real run is on GitHub. |
-| D4 | Health checking is a `curtz healthcheck` subcommand that calls `GET /health` (liveness). | A distroless image has no `curl` or `wget`. Liveness, not readiness, so a Postgres outage does not mark the container unhealthy. |
+| D4 | Health checking is a `fupi healthcheck` subcommand that calls `GET /health` (liveness). | A distroless image has no `curl` or `wget`. Liveness, not readiness, so a Postgres outage does not mark the container unhealthy. |
 | D5 | The image sets `ENV ENVIRONMENT=production`. Compose overrides it with `development`. | A container started without `ENVIRONMENT` must refuse the development secrets instead of silently accepting them (slice 3 review finding). |
 | D6 | The `app` stack is not part of `core-*` or `full-*`. | `make infra.core.up` and `make infra.full.up` must not trigger an image build. |
 | D7 | The app container gets an explicit `environment:` list, not `env_file: .env`. | The `.env` file holds every stack's admin passwords. The app needs a handful of values. |
@@ -76,16 +76,16 @@ in the implementation notes appended to this spec):
 
 1. `COPY go.mod go.sum`, then `go mod download && go mod verify` with a BuildKit cache mount for `/go/pkg/mod`.
 2. `COPY app ./app` (the allowlisted context, below).
-3. `CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-s -w -X github.com/sanctumlabs/curtz/app/pkg.Version=$VERSION
-   -X …GitCommit=$GIT_COMMIT -X …BuildTime=$BUILD_TIME"` for `./app/cmd` (to `/out/curtz`) and `./app/cmd/migrator` (to
+3. `CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-s -w -X github.com/sanctumlabs/fupi/app/pkg.Version=$VERSION
+   -X …GitCommit=$GIT_COMMIT -X …BuildTime=$BUILD_TIME"` for `./app/cmd` (to `/out/fupi`) and `./app/cmd/migrator` (to
    `/out/migrator`), with cache mounts for `/go/pkg/mod` and the build cache. There is no `-mod=mod`, so the build uses `go.sum` as is.
 
 **Final stage** (distroless `static`, newest Debian release it publishes, `:nonroot`, pinned by digest):
 
-- `COPY --from=build /out/curtz /out/migrator /app/` and `COPY app/internal/adapters/postgres/migrations /app/migrations`.
-- `WORKDIR /app`, `USER 65532:65532`, `EXPOSE 8085`, `ENTRYPOINT ["/app/curtz"]`.
+- `COPY --from=build /out/fupi /out/migrator /app/` and `COPY app/internal/adapters/postgres/migrations /app/migrations`.
+- `WORKDIR /app`, `USER 65532:65532`, `EXPOSE 8085`, `ENTRYPOINT ["/app/fupi"]`.
 - `ENV ENVIRONMENT=production` (D5) and `ENV MIGRATIONS_PATH=/app/migrations`.
-- `HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/app/curtz", "healthcheck"]`.
+- `HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD ["/app/fupi", "healthcheck"]`.
 - OCI labels (`org.opencontainers.image.source`, `.revision`, `.version`, `.created`, `.title`, `.licenses`) from the build arguments.
 - No `# syntax=` directive: it would pull a BuildKit frontend image, and the cache mounts work with Docker's built-in frontend.
 
@@ -96,7 +96,7 @@ in the implementation notes appended to this spec):
 
 ## 5. The `healthcheck` subcommand
 
-`/app/curtz healthcheck` loads the server settings with `config.LoadServer` (so it honors `HTTP_PORT` and `SERVER_HOST`), calls
+`/app/fupi healthcheck` loads the server settings with `config.LoadServer` (so it honors `HTTP_PORT` and `SERVER_HOST`), calls
 `GET http://<host>:<port>/health` with a 2 second timeout, prints one line, and exits 0 on HTTP 200 and 1 otherwise. A host of
 `""`, `0.0.0.0` or `::` is dialed as `127.0.0.1`; any other configured host is dialed as given, because `Serve` now binds exactly
 the configured host. It does not load `.env`, and it stays in `app/cmd/main.go` so `make run` (`go run app/cmd/main.go`) keeps
@@ -106,12 +106,12 @@ working. Tests, written first: success, a non-200 status, a refused connection, 
 
 Included from the root `docker-compose.yml` with `env_file: .env`, like the other stacks.
 
-- Services `app-ha` and `app-single`, profiles `app-ha` and `app-single`, both on the `curtz` network with the alias `curtz-app`.
-  They build from the repository `Dockerfile` (`context: ../..`) and tag the result `curtz-app:local`.
+- Services `app-ha` and `app-single`, profiles `app-ha` and `app-single`, both on the `fupi` network with the alias `fupi-app`.
+  They build from the repository `Dockerfile` (`context: ../..`) and tag the result `fupi-app:local`.
 - Environment (D7): `ENVIRONMENT=development`, `HTTP_PORT=8085`, `DATABASE_HOST=postgres`, `DATABASE_PORT=5432`,
-  `DATABASE_NAME=${PG_DATABASE:-curtzdb}`, `DATABASE_USERNAME=${PG_APP_USER:-curtz-user}`,
-  `DATABASE_PASSWORD=${PG_APP_PASSWORD:-curtz-pass}`, `REDIS_USERNAME=${REDIS_USERNAME:-curtz-svc}`,
-  `REDIS_PASSWORD=${REDIS_PASSWORD:-curtz-svc}`, `AUTH_SECRET=${AUTH_SECRET:-curtz-secret}`, and `REDIS_ADDRESS` as
+  `DATABASE_NAME=${PG_DATABASE:-fupidb}`, `DATABASE_USERNAME=${PG_APP_USER:-fupi-user}`,
+  `DATABASE_PASSWORD=${PG_APP_PASSWORD:-fupi-pass}`, `REDIS_USERNAME=${REDIS_USERNAME:-fupi-svc}`,
+  `REDIS_PASSWORD=${REDIS_PASSWORD:-fupi-svc}`, `AUTH_SECRET=${AUTH_SECRET:-fupi-secret}`, and `REDIS_ADDRESS` as
   `redis-1:7001` in single mode and `redis-1:7001` to `redis-6:7006` in HA mode. Every `${VAR:-default}` must match
   `.env.example`, which `scripts/infra_env_check.sh` enforces.
 - Dependencies: none declared. A `depends_on` into a profile that is not enabled makes `docker compose config` fail (verified on
@@ -248,13 +248,13 @@ Checks:
 
 - `scripts/image_test.sh context`: the build context holds the sources and migrations only. With the old empty `.dockerignore` the same
   listing showed `.env`, `.env.example`, the whole `.git` directory and `.superpowers/`.
-- `scripts/image_test.sh image`: all 12 checks pass (uid 65532, `HEALTHCHECK /app/curtz healthcheck`, entrypoint, `ENVIRONMENT=production`,
+- `scripts/image_test.sh image`: all 12 checks pass (uid 65532, `HEALTHCHECK /app/fupi healthcheck`, entrypoint, `ENVIRONMENT=production`,
   `MIGRATIONS_PATH`, OCI source label, no shell, refuses to start without secrets and prints no value, migrator present, two migrations
   shipped, healthcheck works read-only without capabilities).
 - hadolint clean; `actionlint` and `scripts/workflows_check.sh` clean on every workflow.
-- Trivy (HIGH and CRITICAL, fixable only): the first scan found three findings in `google.golang.org/grpc v1.81.0` inside `app/curtz`
+- Trivy (HIGH and CRITICAL, fixable only): the first scan found three findings in `google.golang.org/grpc v1.81.0` inside `app/fupi`
   (CVE-2026-84304, CVE-2026-84445, GHSA-hrxh-6v49-42gf). With your approval `grpc` moved to v1.83.2 (with the indirect
-  `genproto/googleapis/rpc`); the rescan shows 0 for Debian 13.7, `app/curtz` and `app/migrator`. Build, vet, unit and e2e tests and
+  `genproto/googleapis/rpc`); the rescan shows 0 for Debian 13.7, `app/fupi` and `app/migrator`. Build, vet, unit and e2e tests and
   `go mod verify` stayed green.
 
 Live drills (Postgres and Redis stacks plus the app, single then HA):
@@ -275,7 +275,7 @@ Findings:
 
 - `docker save <repository>` with no tag exports every local tag of the repository, and Trivy refuses a tar with more than one image.
   `make scan.docker` therefore saves exactly one reference (the given tag, or `<name>:latest`), and runs Trivy with `--quiet --no-progress`.
-  Trivy's vulnerability database is about 121 MB and is cached in the named volume `curtz-trivy-cache`.
+  Trivy's vulnerability database is about 121 MB and is cached in the named volume `fupi-trivy-cache`.
 - `make scan.docker` bind-mounts a temporary directory into the scanner. That works on a developer machine but not under Docker-in-Docker,
   where the path would refer to the daemon's filesystem, so the mirror CI jobs do not reuse that target.
 

@@ -1,13 +1,13 @@
 # Fupi
 
-[![License](https://img.shields.io/github/license/sanctumlabs/curtz)](https://github.com/sanctumlabs/curtz/blob/main/LICENSE)
-[![Version](https://img.shields.io/github/v/release/sanctumlabs/curtz?color=%235351FB&label=version)](https://github.com/sanctumlabs/curtz/releases)
-[![Tests](https://github.com/sanctumlabs/curtz/actions/workflows/tests.yml/badge.svg)](https://github.com/sanctumlabs/curtz/actions/workflows/tests.yml)
-[![Lint](https://github.com/sanctumlabs/curtz/actions/workflows/lint.yml/badge.svg)](https://github.com/sanctumlabs/curtz/actions/workflows/lint.yml)
-[![Build](https://github.com/sanctumlabs/curtz/actions/workflows/build_app.yml/badge.svg)](https://github.com/sanctumlabs/curtz/actions/workflows/build_app.yml)
-[![codecov](https://codecov.io/gh/sanctumlabs/curtz/branch/develop/graph/badge.svg?token=RNg0UoESug)](https://codecov.io/gh/sanctumlabs/curtz)
+[![License](https://img.shields.io/github/license/sanctumlabs/fupi)](https://github.com/sanctumlabs/fupi/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/v/release/sanctumlabs/fupi?color=%235351FB&label=version)](https://github.com/sanctumlabs/fupi/releases)
+[![Tests](https://github.com/sanctumlabs/fupi/actions/workflows/tests.yml/badge.svg)](https://github.com/sanctumlabs/fupi/actions/workflows/tests.yml)
+[![Lint](https://github.com/sanctumlabs/fupi/actions/workflows/lint.yml/badge.svg)](https://github.com/sanctumlabs/fupi/actions/workflows/lint.yml)
+[![Build](https://github.com/sanctumlabs/fupi/actions/workflows/build_app.yml/badge.svg)](https://github.com/sanctumlabs/fupi/actions/workflows/build_app.yml)
+[![codecov](https://codecov.io/gh/sanctumlabs/fupi/branch/develop/graph/badge.svg?token=RNg0UoESug)](https://codecov.io/gh/sanctumlabs/fupi)
 [![Go](https://img.shields.io/badge/Go-1.18-blue.svg)](https://go.dev/)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/be035defd2d44675bddf744a88d1a2d5)](https://www.codacy.com/gh/SanctumLabs/curtz/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=SanctumLabs/curtz&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/be035defd2d44675bddf744a88d1a2d5)](https://www.codacy.com/gh/SanctumLabs/fupi/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=SanctumLabs/fupi&amp;utm_campaign=Badge_Grade)
 
 Simple URL Shortner Service
 
@@ -119,7 +119,7 @@ Architecture can be found [here](./docs/Architecture.md)
 
 ## Versioning
 
-[SemVer](https://semver.org/) is used for versioning. For the versions available, see the [tags](https://github.com/SanctumLabs/curtz/tags) in this repository.
+[SemVer](https://semver.org/) is used for versioning. For the versions available, see the [tags](https://github.com/SanctumLabs/fupi/tags) in this repository.
 
 ## License
 

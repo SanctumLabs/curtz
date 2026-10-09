@@ -17,7 +17,7 @@
 - **Pull gate:** before the first command that would pull an image (`docker compose up`, `docker run`, `docker compose run`, `docker build` of a not-yet-local base), **stop and ask the user for a go-ahead once**. The first pull is roughly 7–8 GiB. Static steps (`docker compose config`, shell tests) do not pull.
 - **Memory gate:** Docker Desktop has about 7.7 GiB. Run one stack at a time, tear it down (`make infra.<stack>.down`, then volume cleanup with `echo y | make infra.clean`) before starting the next. `full-ha` is verified statically only.
 - **System files:** never edit `/etc/hosts` or other system settings. When a step needs it, print the command and ask the user to run it.
-- Entry point `docker-compose.yml` declares `name: curtz` and one bridge network `curtz`; each stack is included with `env_file: .env`; per-stack files live at `deploy/<stack>/compose.yml` with their configs beside them.
+- Entry point `docker-compose.yml` declares `name: fupi` and one bridge network `fupi`; each stack is included with `env_file: .env`; per-stack files live at `deploy/<stack>/compose.yml` with their configs beside them.
 - Profiles are exactly: `kafka-ha kafka-single redis-ha redis-single postgres-ha postgres-single elk-ha elk-single observability legacy core-ha core-single full-ha full-single`. `core-*` = postgres + redis + kafka. `full-*` = core + elk + observability, never `legacy`.
 - Per-mode service names and aliases: `kafka-single`→`kafka-1`, `redis-single`→`redis-1`, `postgres-single`→`postgres`, `es-single`→`es-1`, `logstash-single`→`logstash-1`; HAProxy (HA) also carries alias `postgres`.
 - Address contract: Kafka host `localhost:19092` (HA also `29092`,`39092`), in-network `kafka-1:9092` (HA also `kafka-2:9092`,`kafka-3:9092`); Redis ports `7001..7006` (single `7001`), hostnames `redis-1..redis-6`, Redis serves logical DB 0 only; Postgres write `5432`, read `5433`, in-network `postgres:5432`; OTLP `4317` (gRPC) / `4318` (HTTP), in-network `otel-collector`.
@@ -25,10 +25,10 @@
 - Image tags exactly as in spec §10.
 - Every credential is `${VAR:-dev-default}` in compose and has the identical default in `.env.example`; values contain no quote, backslash or `$`.
 - Kafka: HA replication factor 3 / `min.insync.replicas=2`; single 1 / 1; `auto.create.topics.enable=false`; heap 512m.
-- Redis: `maxmemory 128mb`, `maxmemory-policy allkeys-lru`, `appendonly yes`, application ACL user `curtz-svc`.
-- Elasticsearch: security on; transport TLS in HA only; HTTP TLS off; data stream `logs-curtz-default`; ILM rolls over daily and deletes after 7 days; heap 512m.
+- Redis: `maxmemory 128mb`, `maxmemory-policy allkeys-lru`, `appendonly yes`, application ACL user `fupi-svc`.
+- Elasticsearch: security on; transport TLS in HA only; HTTP TLS off; data stream `logs-fupi-default`; ILM rolls over daily and deletes after 7 days; heap 512m.
 - Observability services are single-instance in every mode; Prometheus retention 7d.
-- **Shell helper:** commands on a named service (`stop`, `start`, `exec`, `logs`, `ps`) need every profile visible. Define `dc() { docker compose --profile '*' "$@"; }` in each shell session and use `dc` for them. Also export `SCRATCH=/private/tmp/claude-501/-Users-lusina-Projects-SanctumLabs-curtz/061327a7-747e-4428-b372-1aeee47d71de/scratchpad` in each shell (the smoke program and temporary files live there). `docker compose --profile <p> config` is used as is.
+- **Shell helper:** commands on a named service (`stop`, `start`, `exec`, `logs`, `ps`) need every profile visible. Define `dc() { docker compose --profile '*' "$@"; }` in each shell session and use `dc` for them. Also export `SCRATCH=/private/tmp/claude-501/-Users-lusina-Projects-SanctumLabs-fupi/061327a7-747e-4428-b372-1aeee47d71de/scratchpad` in each shell (the smoke program and temporary files live there). `docker compose --profile <p> config` is used as is.
 - Make targets use the `infra.` prefix, `MODE ?= ha`, and depend on `create.envfile`. Existing image targets in `.make/docker.mk` are not touched.
 
 ## Review Focus
@@ -59,12 +59,12 @@ Failure modes the spec implies that no happy-path drill would catch, most likely
 
 Several tasks prove that an application running on the host can reach the stack. This small Go program does that. It lives in the scratchpad so `go.mod` is untouched (slice 3 adds the real clients).
 
-Scratchpad: `/private/tmp/claude-501/-Users-lusina-Projects-SanctumLabs-curtz/061327a7-747e-4428-b372-1aeee47d71de/scratchpad` (`$SCRATCH` below).
+Scratchpad: `/private/tmp/claude-501/-Users-lusina-Projects-SanctumLabs-fupi/061327a7-747e-4428-b372-1aeee47d71de/scratchpad` (`$SCRATCH` below).
 
 - [ ] **Step 1: Create the module**
 
 ```bash
-SCRATCH=/private/tmp/claude-501/-Users-lusina-Projects-SanctumLabs-curtz/061327a7-747e-4428-b372-1aeee47d71de/scratchpad
+SCRATCH=/private/tmp/claude-501/-Users-lusina-Projects-SanctumLabs-fupi/061327a7-747e-4428-b372-1aeee47d71de/scratchpad
 mkdir -p "$SCRATCH/infracheck" && cd "$SCRATCH/infracheck"
 cat > main.go <<'GOEOF'
 // Throwaway host-side smoke checks for the local infrastructure stack. Not part of the repository.
@@ -159,8 +159,8 @@ func kafkaCheck(ctx context.Context, brokers []string) error {
 func redisCheck(ctx context.Context, seeds []string) error {
 	c := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    seeds,
-		Username: env("REDIS_USERNAME", "curtz-svc"),
-		Password: env("REDIS_PASSWORD", "curtz-svc"),
+		Username: env("REDIS_USERNAME", "fupi-svc"),
+		Password: env("REDIS_PASSWORD", "fupi-svc"),
 		// Cluster nodes announce hostnames (redis-1..redis-6). A real application resolves them through
 		// /etc/hosts; this dialer does the same mapping so the check needs no system change.
 		Dialer: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -196,7 +196,7 @@ func redisCheck(ctx context.Context, seeds []string) error {
 
 func postgresCheck(ctx context.Context, hostPort string, wantRecovery bool) error {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
-		env("PG_APP_USER", "curtz-user"), env("PG_APP_PASSWORD", "curtz-pass"), hostPort, env("PG_DATABASE", "curtzdb"))
+		env("PG_APP_USER", "fupi-user"), env("PG_APP_PASSWORD", "fupi-pass"), hostPort, env("PG_DATABASE", "fupidb"))
 	conn, err := pgx.Connect(ctx, dsn)
 	if err != nil {
 		return err
@@ -238,7 +238,7 @@ Expected: `usage: infracheck kafka|redis|postgres <args>` (exit 2). If `go get` 
 - [ ] **Step 1: Commit the spec and this plan**
 
 ```bash
-cd /Users/lusina/Projects/SanctumLabs/curtz
+cd /Users/lusina/Projects/SanctumLabs/fupi
 git add docs/superpowers
 git commit -m "docs: add local infrastructure stack spec and implementation plan" \
   -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
@@ -618,10 +618,10 @@ Expected: ends `all tests passed`. (The "passes on the repository" case holds tr
 
 - [ ] **Step 8: Append the infrastructure variables to `.env.example`**
 
-`.env.example` currently ends without a newline after `REDIS_MASTER_NAME=curtz-cache`. Use the Edit tool with `old_string` = `REDIS_MASTER_NAME=curtz-cache` and `new_string` = the text below (it begins with the same line):
+`.env.example` currently ends without a newline after `REDIS_MASTER_NAME=fupi-cache`. Use the Edit tool with `old_string` = `REDIS_MASTER_NAME=fupi-cache` and `new_string` = the text below (it begins with the same line):
 
 ```text
-REDIS_MASTER_NAME=curtz-cache
+REDIS_MASTER_NAME=fupi-cache
 
 # --- Local infrastructure (docker compose, see docs/LocalInfrastructure.md) ---------------------------------
 # Development-only defaults. Compose falls back to these same values when a variable is unset, so an older
@@ -633,33 +633,33 @@ FUPI_NET_PREFIX=172.29.0
 KAFKA_CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
 KAFKA_HEAP=512m
 
-REDIS_ADMIN_PASSWORD=curtz-redis-admin
+REDIS_ADMIN_PASSWORD=fupi-redis-admin
 
-PG_DATABASE=curtzdb
-PG_APP_USER=curtz-user
-PG_APP_PASSWORD=curtz-pass
-PG_SUPERUSER_PASSWORD=curtz-postgres-admin
-PG_REPLICATION_PASSWORD=curtz-replication
-PG_EXPORTER_PASSWORD=curtz-exporter
+PG_DATABASE=fupidb
+PG_APP_USER=fupi-user
+PG_APP_PASSWORD=fupi-pass
+PG_SUPERUSER_PASSWORD=fupi-postgres-admin
+PG_REPLICATION_PASSWORD=fupi-replication
+PG_EXPORTER_PASSWORD=fupi-exporter
 
-ELASTIC_PASSWORD=curtz-elastic-dev
-KIBANA_SYSTEM_PASSWORD=curtz-kibana-dev
-LOGSTASH_WRITER_PASSWORD=curtz-logstash-dev
-GRAFANA_READER_PASSWORD=curtz-grafana-reader
-METRICS_READER_PASSWORD=curtz-metrics-dev
-KIBANA_SECURITY_KEY=curtz-dev-kibana-security-key-0123456789ab
-KIBANA_ENCRYPTED_OBJECTS_KEY=curtz-dev-kibana-saved-objects-key-0123456789
-KIBANA_REPORTING_KEY=curtz-dev-kibana-reporting-key-0123456789ab
+ELASTIC_PASSWORD=fupi-elastic-dev
+KIBANA_SYSTEM_PASSWORD=fupi-kibana-dev
+LOGSTASH_WRITER_PASSWORD=fupi-logstash-dev
+GRAFANA_READER_PASSWORD=fupi-grafana-reader
+METRICS_READER_PASSWORD=fupi-metrics-dev
+KIBANA_SECURITY_KEY=fupi-dev-kibana-security-key-0123456789ab
+KIBANA_ENCRYPTED_OBJECTS_KEY=fupi-dev-kibana-saved-objects-key-0123456789
+KIBANA_REPORTING_KEY=fupi-dev-kibana-reporting-key-0123456789ab
 ES_HEAP=512m
 LS_HEAP=512m
 
 GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=curtz-grafana-dev
+GRAFANA_ADMIN_PASSWORD=fupi-grafana-dev
 ```
 
 - [ ] **Step 9: Create the stub stack files**
 
-Every included file redeclares the shared network with the same minimal definition (`name: curtz`) and no `external:` flag; the root file owns the driver and subnet. Declaring it `external: true` in an included file makes Compose treat the network as pre-existing, so it would refuse to start and ignore the subnet that the Redis static IPs depend on.
+Every included file redeclares the shared network with the same minimal definition (`name: fupi`) and no `external:` flag; the root file owns the driver and subnet. Declaring it `external: true` in an included file makes Compose treat the network as pre-existing, so it would refuse to start and ignore the subnet that the Redis static IPs depend on.
 
 Create each of `deploy/kafka/compose.yml`, `deploy/redis/compose.yml`, `deploy/postgres/compose.yml`, `deploy/elk/compose.yml`, `deploy/observability/compose.yml` with exactly:
 
@@ -668,8 +668,8 @@ Create each of `deploy/kafka/compose.yml`, `deploy/redis/compose.yml`, `deploy/p
 services: {}
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 10: Create `deploy/legacy/compose.yml`**
@@ -682,25 +682,25 @@ This moves the existing Mongo and standalone Redis services unchanged (image, cr
 services:
   documentdb:
     image: mongo:4.4.14
-    container_name: curtz-documentdb
+    container_name: fupi-documentdb
     hostname: documentdb
     profiles: [legacy]
     ports:
       - "127.0.0.1:27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: curtzUser
-      MONGO_INITDB_ROOT_PASSWORD: curtzPassword
-      MONGO_INITDB_DATABASE: curtzdb
-      MONGO_INITDB_USER: curtzUser
-      MONGO_INITDB_PASSWORD: curtzPassword
+      MONGO_INITDB_ROOT_USERNAME: fupiUser
+      MONGO_INITDB_ROOT_PASSWORD: fupiPassword
+      MONGO_INITDB_DATABASE: fupidb
+      MONGO_INITDB_USER: fupiUser
+      MONGO_INITDB_PASSWORD: fupiPassword
     volumes:
       - docdb:/data/db
     networks:
-      - curtz
+      - fupi
 
   cache:
     image: redis:7.0.2
-    container_name: curtz-cache
+    container_name: fupi-cache
     hostname: cache
     profiles: [legacy]
     ports:
@@ -708,15 +708,15 @@ services:
     volumes:
       - cache:/data
     networks:
-      - curtz
+      - fupi
 
 volumes:
   docdb:
   cache:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 11: Replace `docker-compose.yml`**
@@ -724,9 +724,9 @@ networks:
 First capture the old rendering for the equivalence check: `docker compose config > "$SCRATCH/old-compose.rendered.yml"` (run before replacing). Then replace the file's content with:
 
 ```yaml
-# Local infrastructure for Curtz. Nothing starts without a profile: use `make infra.<stack>.up`
+# Local infrastructure for Fupi. Nothing starts without a profile: use `make infra.<stack>.up`
 # (see docs/LocalInfrastructure.md). Each stack lives in deploy/<stack>/compose.yml.
-name: curtz
+name: fupi
 
 include:
   - path: deploy/kafka/compose.yml
@@ -743,8 +743,8 @@ include:
     env_file: .env
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
     driver: bridge
     # Redis Cluster nodes persist their peers' IP addresses, so they get fixed addresses (.11-.16) from the
     # lower half of the subnet; every other container is assigned from the upper half (ip_range).
@@ -843,7 +843,7 @@ infra.logs: ## Follow logs, usage - make infra.logs SERVICE=kafka-1 (omit SERVIC
 .PHONY: infra.stats
 infra.stats: ## Show memory and CPU of the running infrastructure containers
 	@docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}" \
-		$$(docker ps --filter label=com.docker.compose.project=curtz -q)
+		$$(docker ps --filter label=com.docker.compose.project=fupi -q)
 
 .PHONY: infra.clean
 infra.clean: confirm ## Remove every infrastructure container AND volume (all data is lost)
@@ -860,7 +860,7 @@ infra.hosts: ## Print the hosts-file line needed to run the app on the host agai
 - [ ] **Step 13: Verify**
 
 ```bash
-cd /Users/lusina/Projects/SanctumLabs/curtz
+cd /Users/lusina/Projects/SanctumLabs/fupi
 scripts/infra_test.sh                      # expect: all tests passed
 make infra.config                          # expect: "ok: <profile>" for all 14 profiles, then "ok: all profiles"
 make help | sed 's/\x1b\[[0-9;]*m//g' | grep -c '^infra\.'   # expect: 22 (16 up/down targets + config, ps, logs, stats, clean, hosts)
@@ -870,7 +870,7 @@ docker compose config --services | wc -l   # expect: 0 (no profile, nothing star
 docker compose ps -a --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}'   # expect: no error (empty output)
 ```
 
-Legacy equivalence: compare `$SCRATCH/old-compose.rendered.yml` with `docker compose --profile legacy config`. The only differences must be the added `profiles`/`networks` blocks, the `127.0.0.1` port binding, and the network name. Image, container names, hostnames, environment and the `curtz_docdb` / `curtz_cache` volume names must be identical, so existing Mongo data is kept.
+Legacy equivalence: compare `$SCRATCH/old-compose.rendered.yml` with `docker compose --profile legacy config`. The only differences must be the added `profiles`/`networks` blocks, the `127.0.0.1` port binding, and the network name. Image, container names, hostnames, environment and the `fupi_docdb` / `fupi_cache` volume names must be identical, so existing Mongo data is kept.
 
 Run shellcheck: `command -v shellcheck && shellcheck scripts/*.sh || docker run --rm -v "$PWD:/mnt" koalaman/shellcheck:stable /mnt/scripts/*.sh` (pull gate applies to the fallback). Expected: no findings.
 
@@ -890,7 +890,7 @@ git commit -m "feat(infra): add compose skeleton, profile runner and legacy stac
 - Modify: `.make/docker.mk` (append `infra.kafka.topics`)
 
 **Interfaces:**
-- Consumes: Task 1 (`infra.sh`, profiles, `.env` variables `KAFKA_CLUSTER_ID`, `KAFKA_HEAP`, network `curtz`).
+- Consumes: Task 1 (`infra.sh`, profiles, `.env` variables `KAFKA_CLUSTER_ID`, `KAFKA_HEAP`, network `fupi`).
 - Produces: services `kafka-1..3` + `kafka-init-ha` (HA), `kafka-single` (alias `kafka-1`) + `kafka-init-single`, shared `kafka-ui` (host 8080) and `kafka-exporter` (in-network `kafka-exporter:9308`); Make variable `KAFKA_SERVICE`-based target `infra.kafka.topics`. Topics created: `url.events`, `identity.events`, `url.access`, `url.invalidations`, `security.scan.requests`, `webhook.deliveries`.
 
 - [ ] **Step 1: Write `deploy/kafka/create-topics.sh`**
@@ -899,7 +899,7 @@ Idempotent: `--if-not-exists` makes a second run a no-op.
 
 ```bash
 #!/usr/bin/env bash
-# Creates the Curtz topics. Safe to run repeatedly. Retention and partition counts are local-development defaults
+# Creates the Fupi topics. Safe to run repeatedly. Retention and partition counts are local-development defaults
 # taken from the v2 data architecture; production sizing is out of scope.
 # Env: BOOTSTRAP (broker address), REPLICATION_FACTOR, MIN_ISR.
 set -euo pipefail
@@ -986,7 +986,7 @@ services:
     volumes:
       - kafka-1-data:/var/lib/kafka/data
     networks:
-      - curtz
+      - fupi
 
   kafka-2:
     <<: *kafka-common
@@ -1001,7 +1001,7 @@ services:
     volumes:
       - kafka-2-data:/var/lib/kafka/data
     networks:
-      - curtz
+      - fupi
 
   kafka-3:
     <<: *kafka-common
@@ -1016,7 +1016,7 @@ services:
     volumes:
       - kafka-3-data:/var/lib/kafka/data
     networks:
-      - curtz
+      - fupi
 
   kafka-single:
     <<: *kafka-common
@@ -1039,7 +1039,7 @@ services:
     volumes:
       - kafka-single-data:/var/lib/kafka/data
     networks:
-      curtz:
+      fupi:
         aliases: [kafka-1]
 
   kafka-init-ha:
@@ -1058,7 +1058,7 @@ services:
     volumes:
       - ./create-topics.sh:/create-topics.sh:ro
     networks:
-      - curtz
+      - fupi
 
   kafka-init-single:
     image: *kafka-image
@@ -1074,7 +1074,7 @@ services:
     volumes:
       - ./create-topics.sh:/create-topics.sh:ro
     networks:
-      - curtz
+      - fupi
 
   # Shared by both modes: both reach the cluster through the kafka-1 name.
   kafka-ui:
@@ -1084,11 +1084,11 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
-      KAFKA_CLUSTERS_0_NAME: curtz-local
+      KAFKA_CLUSTERS_0_NAME: fupi-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:9092
       DYNAMIC_CONFIG_ENABLED: "false"
     networks:
-      - curtz
+      - fupi
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.10.0
@@ -1096,7 +1096,7 @@ services:
     restart: unless-stopped
     command: ["--kafka.server=kafka-1:9092"]
     networks:
-      - curtz
+      - fupi
 
 volumes:
   kafka-1-data:
@@ -1105,8 +1105,8 @@ volumes:
   kafka-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 3: Append the helper target to `.make/docker.mk`**
@@ -1324,10 +1324,10 @@ x-redis-common: &redis-common
     retries: 20
 
 x-redis-env: &redis-env
-  REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
-  REDISCLI_AUTH: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
-  REDIS_USERNAME: ${REDIS_USERNAME:-curtz-svc}
-  REDIS_PASSWORD: ${REDIS_PASSWORD:-curtz-svc}
+  REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
+  REDISCLI_AUTH: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
+  REDIS_USERNAME: ${REDIS_USERNAME:-fupi-svc}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-fupi-svc}
 
 services:
   redis-1:
@@ -1337,7 +1337,7 @@ services:
     ports: ["127.0.0.1:7001:7001"]
     volumes: ["redis-1-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.11
 
   redis-2:
@@ -1347,7 +1347,7 @@ services:
     ports: ["127.0.0.1:7002:7002"]
     volumes: ["redis-2-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.12
 
   redis-3:
@@ -1357,7 +1357,7 @@ services:
     ports: ["127.0.0.1:7003:7003"]
     volumes: ["redis-3-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.13
 
   redis-4:
@@ -1367,7 +1367,7 @@ services:
     ports: ["127.0.0.1:7004:7004"]
     volumes: ["redis-4-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.14
 
   redis-5:
@@ -1377,7 +1377,7 @@ services:
     ports: ["127.0.0.1:7005:7005"]
     volumes: ["redis-5-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.15
 
   redis-6:
@@ -1387,7 +1387,7 @@ services:
     ports: ["127.0.0.1:7006:7006"]
     volumes: ["redis-6-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.16
 
   redis-single:
@@ -1397,7 +1397,7 @@ services:
     ports: ["127.0.0.1:7001:7001"]
     volumes: ["redis-single-data:/data", "./redis.conf:/usr/local/etc/redis/redis.conf:ro", "./start.sh:/start.sh:ro"]
     networks:
-      curtz:
+      fupi:
         aliases: [redis-1]
         ipv4_address: ${FUPI_NET_PREFIX:-172.29.0}.11
 
@@ -1413,12 +1413,12 @@ services:
       redis-5: {condition: service_healthy}
       redis-6: {condition: service_healthy}
     environment:
-      REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
+      REDIS_ADMIN_PASSWORD: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
       CLUSTER_MODE: ha
       NET_PREFIX: ${FUPI_NET_PREFIX:-172.29.0}
     entrypoint: ["/bin/sh", "/init-cluster.sh"]
     volumes: ["./init-cluster.sh:/init-cluster.sh:ro"]
-    networks: [curtz]
+    networks: [fupi]
 
   redis-init-single:
     image: redis:8.10.2-alpine
@@ -1426,10 +1426,10 @@ services:
     restart: "no"
     depends_on:
       redis-single: {condition: service_healthy}
-    environment: {REDIS_ADMIN_PASSWORD: "${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}", CLUSTER_MODE: single}
+    environment: {REDIS_ADMIN_PASSWORD: "${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}", CLUSTER_MODE: single}
     entrypoint: ["/bin/sh", "/init-cluster.sh"]
     volumes: ["./init-cluster.sh:/init-cluster.sh:ro"]
-    networks: [curtz]
+    networks: [fupi]
 
   # One exporter serves both modes: in cluster mode it discovers the other nodes from redis-1.
   redis-exporter:
@@ -1438,9 +1438,9 @@ services:
     restart: unless-stopped
     environment:
       REDIS_ADDR: redis://redis-1:7001
-      REDIS_PASSWORD: ${REDIS_ADMIN_PASSWORD:-curtz-redis-admin}
+      REDIS_PASSWORD: ${REDIS_ADMIN_PASSWORD:-fupi-redis-admin}
       REDIS_EXPORTER_IS_CLUSTER: "true"
-    networks: [curtz]
+    networks: [fupi]
 
 volumes:
   redis-1-data:
@@ -1452,8 +1452,8 @@ volumes:
   redis-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 5: Append the helper target to `.make/docker.mk`**
@@ -1553,7 +1553,7 @@ git commit -m "feat(infra): add Redis cluster stack with HA and single-node mode
 
 **Interfaces:**
 - Consumes: Task 1 (`PG_*` variables, network).
-- Produces: `postgres-single` (alias `postgres`; host `5432` and `5433` both map to it); shared `migrate` (one-shot, retries until the DB accepts connections, writes table `schema_migrations`) and `postgres-exporter` (in-network `postgres-exporter:9187`); `roles.sh [connection-string]` creating the app role/database (`curtz-user` / `curtzdb` by default), the `exporter` role (`pg_monitor`) and the `pg_stat_statements` extension, idempotently.
+- Produces: `postgres-single` (alias `postgres`; host `5432` and `5433` both map to it); shared `migrate` (one-shot, retries until the DB accepts connections, writes table `schema_migrations`) and `postgres-exporter` (in-network `postgres-exporter:9187`); `roles.sh [connection-string]` creating the app role/database (`fupi-user` / `fupidb` by default), the `exporter` role (`pg_monitor`) and the `pg_stat_statements` extension, idempotently.
 
 - [ ] **Step 1: Write `deploy/postgres/roles.sh`**
 
@@ -1592,10 +1592,10 @@ Then `chmod +x deploy/postgres/roles.sh` (git records the executable bit; the of
 #           reads (5433) from writes (5432) works in both modes. It answers to the alias "postgres".
 #   migrate and postgres-exporter are shared by both modes and reach the database through "postgres:5432".
 x-pg-env: &pg-env
-  PG_DATABASE: ${PG_DATABASE:-curtzdb}
-  PG_APP_USER: ${PG_APP_USER:-curtz-user}
-  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
-  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-curtz-exporter}
+  PG_DATABASE: ${PG_DATABASE:-fupidb}
+  PG_APP_USER: ${PG_APP_USER:-fupi-user}
+  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-fupi-pass}
+  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-fupi-exporter}
 
 services:
   postgres-single:
@@ -1605,7 +1605,7 @@ services:
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=200"]
     environment:
       <<: *pg-env
-      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-curtz-postgres-admin}
+      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-fupi-postgres-admin}
     ports:
       - "127.0.0.1:5432:5432"
       - "127.0.0.1:5433:5432"
@@ -1618,7 +1618,7 @@ services:
       timeout: 3s
       retries: 20
     networks:
-      curtz:
+      fupi:
         aliases: [postgres]
 
   # Applies ./app/internal/adapters/postgres/migrations. Retries until the database accepts connections, so it also
@@ -1629,28 +1629,28 @@ services:
     restart: "on-failure:10"
     command:
       - "-path=/migrations"
-      - "-database=postgres://${PG_APP_USER:-curtz-user}:${PG_APP_PASSWORD:-curtz-pass}@postgres:5432/${PG_DATABASE:-curtzdb}?sslmode=disable&x-migrations-table=schema_migrations"
+      - "-database=postgres://${PG_APP_USER:-fupi-user}:${PG_APP_PASSWORD:-fupi-pass}@postgres:5432/${PG_DATABASE:-fupidb}?sslmode=disable&x-migrations-table=schema_migrations"
       - "up"
     volumes:
       - ../../app/internal/adapters/postgres/migrations:/migrations:ro
     networks:
-      - curtz
+      - fupi
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.20.1
     profiles: [postgres-ha, postgres-single, core-ha, core-single, full-ha, full-single]
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-curtz-exporter}@postgres:5432/postgres?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-fupi-exporter}@postgres:5432/postgres?sslmode=disable"
     networks:
-      - curtz
+      - fupi
 
 volumes:
   postgres-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 3: Append the helper targets to `.make/docker.mk`**
@@ -1675,7 +1675,7 @@ sh -n deploy/postgres/roles.sh && echo "sh syntax ok"
 test -x deploy/postgres/roles.sh && echo "executable ok"
 ```
 
-Stale-env check (Review Focus 1): `mv .env .env.bak; printf 'ENV=development\n' > .env; docker compose --profile postgres-single config | grep -E "PG_APP_USER|POSTGRES_PASSWORD"; mv .env.bak .env`. Expected: `curtz-user` and `curtz-postgres-admin`.
+Stale-env check (Review Focus 1): `mv .env .env.bak; printf 'ENV=development\n' > .env; docker compose --profile postgres-single config | grep -E "PG_APP_USER|POSTGRES_PASSWORD"; mv .env.bak .env`. Expected: `fupi-user` and `fupi-postgres-admin`.
 
 - [ ] **Step 5: Runtime (pull gate)**
 
@@ -1693,7 +1693,7 @@ Q "select to_regclass('public.outbox_events') is not null"        # expect: t
 "$SCRATCH/infracheck/infracheck" postgres localhost:5433 false    # expect: ok (the read port reaches the same node in single mode)
 ```
 
-Monitoring role and extension: `dc exec -T postgres-single sh -c 'PGPASSWORD="$PG_EXPORTER_PASSWORD" psql -h postgres -U exporter -d postgres -tAc "select count(*) >= 1 from pg_stat_statements"'` → `t`. Exporter: `docker run --rm --network curtz busybox wget -qO- http://postgres-exporter:9187/metrics | grep '^pg_up'` → `pg_up 1`.
+Monitoring role and extension: `dc exec -T postgres-single sh -c 'PGPASSWORD="$PG_EXPORTER_PASSWORD" psql -h postgres -U exporter -d postgres -tAc "select count(*) >= 1 from pg_stat_statements"'` → `t`. Exporter: `docker run --rm --network fupi busybox wget -qO- http://postgres-exporter:9187/metrics | grep '^pg_up'` → `pg_up 1`.
 
 Re-run idempotency (Review Focus 2): the migrations and the role script must both be safe to repeat.
 
@@ -1732,7 +1732,7 @@ git commit -m "feat(infra): add single-node Postgres, migrate job and exporter" 
 
 **Interfaces:**
 - Consumes: Task 4 (`roles.sh`, `x-pg-env`, the shared `migrate` and `postgres-exporter`).
-- Produces: `etcd-1..3` (metrics on `:2381`), `patroni-1..3` (REST/metrics on `:8008`, host ports `8008`..`8010`), `haproxy` (alias `postgres`; host `5432` = primary, `5433` = replicas, `8404` = stats and `/metrics`); image `curtz-patroni:18.6-4.1.5`; target `infra.patroni.list`.
+- Produces: `etcd-1..3` (metrics on `:2381`), `patroni-1..3` (REST/metrics on `:8008`, host ports `8008`..`8010`), `haproxy` (alias `postgres`; host `5432` = primary, `5433` = replicas, `8404` = stats and `/metrics`); image `fupi-patroni:18.6-4.1.5`; target `infra.patroni.list`.
 
 - [ ] **Step 1: Write `deploy/postgres/Dockerfile`**
 
@@ -1780,7 +1780,7 @@ exec gosu postgres /opt/patroni/bin/patroni /etc/patroni/patroni.yml
 ```yaml
 # Shared by patroni-1..3. Node identity comes from PATRONI_NAME, PATRONI_RESTAPI_CONNECT_ADDRESS and
 # PATRONI_POSTGRESQL_CONNECT_ADDRESS; credentials from PATRONI_SUPERUSER_* and PATRONI_REPLICATION_*.
-scope: curtz
+scope: fupi
 namespace: /service/
 
 etcd3:
@@ -1888,17 +1888,17 @@ listen postgres_read
 #           reads (5433) from writes (5432) works in both modes. It answers to the alias "postgres" too.
 #   migrate and postgres-exporter are shared by both modes and reach the database through "postgres:5432".
 x-pg-env: &pg-env
-  PG_DATABASE: ${PG_DATABASE:-curtzdb}
-  PG_APP_USER: ${PG_APP_USER:-curtz-user}
-  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-curtz-pass}
-  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-curtz-exporter}
+  PG_DATABASE: ${PG_DATABASE:-fupidb}
+  PG_APP_USER: ${PG_APP_USER:-fupi-user}
+  PG_APP_PASSWORD: ${PG_APP_PASSWORD:-fupi-pass}
+  PG_EXPORTER_PASSWORD: ${PG_EXPORTER_PASSWORD:-fupi-exporter}
 
 x-patroni-env: &patroni-env
   <<: *pg-env
   PATRONI_SUPERUSER_USERNAME: postgres
-  PATRONI_SUPERUSER_PASSWORD: ${PG_SUPERUSER_PASSWORD:-curtz-postgres-admin}
+  PATRONI_SUPERUSER_PASSWORD: ${PG_SUPERUSER_PASSWORD:-fupi-postgres-admin}
   PATRONI_REPLICATION_USERNAME: replicator
-  PATRONI_REPLICATION_PASSWORD: ${PG_REPLICATION_PASSWORD:-curtz-replication}
+  PATRONI_REPLICATION_PASSWORD: ${PG_REPLICATION_PASSWORD:-fupi-replication}
 
 x-etcd: &etcd
   image: quay.io/coreos/etcd:v3.6.15
@@ -1908,7 +1908,7 @@ x-patroni: &patroni
   build:
     context: .
     dockerfile: Dockerfile
-  image: curtz-patroni:18.6-4.1.5
+  image: fupi-patroni:18.6-4.1.5
   restart: unless-stopped
   depends_on:
     etcd-1: {condition: service_started}
@@ -1934,13 +1934,13 @@ services:
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-advertise-peer-urls=http://etcd-1:2380
       - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
-      - --initial-cluster-token=curtz-etcd
+      - --initial-cluster-token=fupi-etcd
       - --initial-cluster-state=new
       - --listen-metrics-urls=http://0.0.0.0:2381
     volumes:
       - etcd-1-data:/etcd-data
     networks:
-      - curtz
+      - fupi
 
   etcd-2:
     <<: *etcd
@@ -1954,13 +1954,13 @@ services:
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-advertise-peer-urls=http://etcd-2:2380
       - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
-      - --initial-cluster-token=curtz-etcd
+      - --initial-cluster-token=fupi-etcd
       - --initial-cluster-state=new
       - --listen-metrics-urls=http://0.0.0.0:2381
     volumes:
       - etcd-2-data:/etcd-data
     networks:
-      - curtz
+      - fupi
 
   etcd-3:
     <<: *etcd
@@ -1974,13 +1974,13 @@ services:
       - --listen-peer-urls=http://0.0.0.0:2380
       - --initial-advertise-peer-urls=http://etcd-3:2380
       - --initial-cluster=etcd-1=http://etcd-1:2380,etcd-2=http://etcd-2:2380,etcd-3=http://etcd-3:2380
-      - --initial-cluster-token=curtz-etcd
+      - --initial-cluster-token=fupi-etcd
       - --initial-cluster-state=new
       - --listen-metrics-urls=http://0.0.0.0:2381
     volumes:
       - etcd-3-data:/etcd-data
     networks:
-      - curtz
+      - fupi
 
   patroni-1:
     <<: *patroni
@@ -1996,7 +1996,7 @@ services:
       - pgdata-1:/var/lib/postgresql
       - ./patroni.yml:/etc/patroni/patroni.yml:ro
     networks:
-      - curtz
+      - fupi
 
   patroni-2:
     <<: *patroni
@@ -2012,7 +2012,7 @@ services:
       - pgdata-2:/var/lib/postgresql
       - ./patroni.yml:/etc/patroni/patroni.yml:ro
     networks:
-      - curtz
+      - fupi
 
   patroni-3:
     <<: *patroni
@@ -2028,7 +2028,7 @@ services:
       - pgdata-3:/var/lib/postgresql
       - ./patroni.yml:/etc/patroni/patroni.yml:ro
     networks:
-      - curtz
+      - fupi
 
   haproxy:
     image: haproxy:3.2.25-alpine
@@ -2045,7 +2045,7 @@ services:
     volumes:
       - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
-      curtz:
+      fupi:
         aliases: [postgres]
 
   postgres-single:
@@ -2055,7 +2055,7 @@ services:
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=200"]
     environment:
       <<: *pg-env
-      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-curtz-postgres-admin}
+      POSTGRES_PASSWORD: ${PG_SUPERUSER_PASSWORD:-fupi-postgres-admin}
     ports:
       - "127.0.0.1:5432:5432"
       - "127.0.0.1:5433:5432"
@@ -2068,7 +2068,7 @@ services:
       timeout: 3s
       retries: 20
     networks:
-      curtz:
+      fupi:
         aliases: [postgres]
 
   # Applies ./app/internal/adapters/postgres/migrations. Retries until the database accepts connections, so it also
@@ -2079,21 +2079,21 @@ services:
     restart: "on-failure:10"
     command:
       - "-path=/migrations"
-      - "-database=postgres://${PG_APP_USER:-curtz-user}:${PG_APP_PASSWORD:-curtz-pass}@postgres:5432/${PG_DATABASE:-curtzdb}?sslmode=disable&x-migrations-table=schema_migrations"
+      - "-database=postgres://${PG_APP_USER:-fupi-user}:${PG_APP_PASSWORD:-fupi-pass}@postgres:5432/${PG_DATABASE:-fupidb}?sslmode=disable&x-migrations-table=schema_migrations"
       - "up"
     volumes:
       - ../../app/internal/adapters/postgres/migrations:/migrations:ro
     networks:
-      - curtz
+      - fupi
 
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.20.1
     profiles: [postgres-ha, postgres-single, core-ha, core-single, full-ha, full-single]
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-curtz-exporter}@postgres:5432/postgres?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://exporter:${PG_EXPORTER_PASSWORD:-fupi-exporter}@postgres:5432/postgres?sslmode=disable"
     networks:
-      - curtz
+      - fupi
 
 volumes:
   etcd-1-data:
@@ -2105,8 +2105,8 @@ volumes:
   postgres-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 6: Append the helper target to `.make/docker.mk`**
@@ -2203,7 +2203,7 @@ git commit -m "feat(infra): add Patroni HA mode for Postgres with etcd and HAPro
 
 **Interfaces:**
 - Consumes: Task 1 (`ELASTIC_PASSWORD`, `KIBANA_*`, `LOGSTASH_WRITER_PASSWORD`, `GRAFANA_READER_PASSWORD`, `METRICS_READER_PASSWORD`, `ES_HEAP`, `LS_HEAP`).
-- Produces: `es-single` (alias `es-1`, host `9200`), `elk-setup-single`, `logstash-single` (alias `logstash-1`, API `9600` in-network), `kibana-single` (host `5601`), `filebeat-single`; shared `elasticsearch-exporter` (`:9114`) and `logstash-exporter-1` (`:9198`). ES objects: users `logstash_writer`, `grafana_reader`, `metrics_reader`, `kibana_system`; ILM policy `curtz-logs`; index template `logs-curtz`; data stream `logs-curtz-default`. Log field contract: `message`, `log.level`, `service.name`, `trace.id`, `span.id`, `@timestamp`. `setup.sh` is shared with Task 7 (`ELK_MODE=ha|single`).
+- Produces: `es-single` (alias `es-1`, host `9200`), `elk-setup-single`, `logstash-single` (alias `logstash-1`, API `9600` in-network), `kibana-single` (host `5601`), `filebeat-single`; shared `elasticsearch-exporter` (`:9114`) and `logstash-exporter-1` (`:9198`). ES objects: users `logstash_writer`, `grafana_reader`, `metrics_reader`, `kibana_system`; ILM policy `fupi-logs`; index template `logs-fupi`; data stream `logs-fupi-default`. Log field contract: `message`, `log.level`, `service.name`, `trace.id`, `span.id`, `@timestamp`. `setup.sh` is shared with Task 7 (`ELK_MODE=ha|single`).
 
 - [ ] **Step 1: Write `deploy/elk/setup.sh`**
 
@@ -2265,12 +2265,12 @@ es -X POST "$ES/_security/user/kibana_system/_password" -d "{\"password\":\"${KI
 
 es -X PUT "$ES/_security/role/logstash_writer" -d '{
   "cluster": ["monitor"],
-  "indices": [{"names": ["logs-curtz-*"], "privileges": ["create_doc", "auto_configure", "view_index_metadata"]}]
+  "indices": [{"names": ["logs-fupi-*"], "privileges": ["create_doc", "auto_configure", "view_index_metadata"]}]
 }' >/dev/null
 # Grafana's datasource health check calls GET / on the cluster, which needs the cluster "monitor" privilege.
 es -X PUT "$ES/_security/role/grafana_reader" -d '{
   "cluster": ["monitor"],
-  "indices": [{"names": ["logs-curtz-*"], "privileges": ["read", "view_index_metadata"]}]
+  "indices": [{"names": ["logs-fupi-*"], "privileges": ["read", "view_index_metadata"]}]
 }' >/dev/null
 es -X PUT "$ES/_security/role/metrics_reader" -d '{
   "cluster": ["monitor"],
@@ -2282,19 +2282,19 @@ es -X PUT "$ES/_security/user/grafana_reader" -d "{\"password\":\"${GRAFANA_READ
 es -X PUT "$ES/_security/user/metrics_reader" -d "{\"password\":\"${METRICS_READER_PASSWORD}\",\"roles\":[\"metrics_reader\"]}" >/dev/null
 
 echo "installing the ILM policy and the index template"
-es -X PUT "$ES/_ilm/policy/curtz-logs" -d '{
+es -X PUT "$ES/_ilm/policy/fupi-logs" -d '{
   "policy": {"phases": {
     "hot": {"actions": {"rollover": {"max_age": "1d", "max_primary_shard_size": "5gb"}}},
     "delete": {"min_age": "7d", "actions": {"delete": {}}}
   }}
 }' >/dev/null
 
-es -X PUT "$ES/_index_template/logs-curtz" -d "{
-  \"index_patterns\": [\"logs-curtz-*\"],
+es -X PUT "$ES/_index_template/logs-fupi" -d "{
+  \"index_patterns\": [\"logs-fupi-*\"],
   \"data_stream\": {},
   \"priority\": 500,
   \"template\": {
-    \"settings\": {\"index.lifecycle.name\": \"curtz-logs\", \"index.number_of_replicas\": ${REPLICAS}},
+    \"settings\": {\"index.lifecycle.name\": \"fupi-logs\", \"index.number_of_replicas\": ${REPLICAS}},
     \"mappings\": {\"properties\": {
       \"@timestamp\": {\"type\": \"date\"},
       \"message\": {\"type\": \"text\"},
@@ -2387,7 +2387,7 @@ output {
     password => "${LOGSTASH_WRITER_PASSWORD}"
     data_stream => true
     data_stream_type => "logs"
-    data_stream_dataset => "curtz"
+    data_stream_dataset => "fupi"
     data_stream_namespace => "default"
   }
 }
@@ -2415,7 +2415,7 @@ processors:
       when:
         not:
           equals:
-            container.labels.com_docker_compose_project: curtz
+            container.labels.com_docker_compose_project: fupi
   - drop_event:
       when:
         contains:
@@ -2430,15 +2430,15 @@ logging.level: warning
 - [ ] **Step 4: Write `deploy/elk/compose.yml` (single mode and the shared exporters)**
 
 ```yaml
-# Elastic stack for logs (Filebeat -> Logstash -> Elasticsearch data stream logs-curtz-default -> Kibana).
+# Elastic stack for logs (Filebeat -> Logstash -> Elasticsearch data stream logs-fupi-default -> Kibana).
 #   single  es-single (alias es-1), logstash-single (alias logstash-1), kibana-single, filebeat-single
 #   HA      added by the ELK HA task: es-1..3, logstash-1..2, kibana-1..2 + nginx, filebeat-ha
 # Security is on in both modes. HTTP TLS is off locally; transport TLS is on in HA (required by multi-node clusters).
 x-es-image: &es-image docker.elastic.co/elasticsearch/elasticsearch:9.5.4
 
 x-es-env: &es-env
-  cluster.name: curtz-logs
-  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-curtz-elastic-dev}
+  cluster.name: fupi-logs
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-fupi-elastic-dev}
   bootstrap.memory_lock: "false"
   xpack.security.enabled: "true"
   xpack.security.http.ssl.enabled: "false"
@@ -2446,19 +2446,19 @@ x-es-env: &es-env
   ES_JAVA_OPTS: -Xms${ES_HEAP:-512m} -Xmx${ES_HEAP:-512m}
 
 x-setup-env: &setup-env
-  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-curtz-elastic-dev}
-  KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-curtz-kibana-dev}
-  LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-curtz-logstash-dev}
-  GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-curtz-grafana-reader}
-  METRICS_READER_PASSWORD: ${METRICS_READER_PASSWORD:-curtz-metrics-dev}
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-fupi-elastic-dev}
+  KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-fupi-kibana-dev}
+  LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-fupi-logstash-dev}
+  GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-fupi-grafana-reader}
+  METRICS_READER_PASSWORD: ${METRICS_READER_PASSWORD:-fupi-metrics-dev}
 
 x-kibana-env: &kibana-env
   SERVER_PUBLICBASEURL: http://localhost:5601
   ELASTICSEARCH_USERNAME: kibana_system
-  ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-curtz-kibana-dev}
-  XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:-curtz-dev-kibana-security-key-0123456789ab}
-  XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTED_OBJECTS_KEY:-curtz-dev-kibana-saved-objects-key-0123456789}
-  XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:-curtz-dev-kibana-reporting-key-0123456789ab}
+  ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-fupi-kibana-dev}
+  XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:-fupi-dev-kibana-security-key-0123456789ab}
+  XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTED_OBJECTS_KEY:-fupi-dev-kibana-saved-objects-key-0123456789}
+  XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:-fupi-dev-kibana-reporting-key-0123456789ab}
   TELEMETRY_OPTIN: "false"
   NODE_OPTIONS: --max-old-space-size=768
 
@@ -2485,7 +2485,7 @@ services:
       retries: 30
       start_period: 40s
     networks:
-      curtz:
+      fupi:
         aliases: [es-1]
 
   elk-setup-single:
@@ -2503,7 +2503,7 @@ services:
     volumes:
       - ./setup.sh:/setup.sh:ro
     networks:
-      - curtz
+      - fupi
 
   logstash-single:
     image: docker.elastic.co/logstash/logstash:9.5.4
@@ -2513,7 +2513,7 @@ services:
       elk-setup-single: {condition: service_completed_successfully}
     environment:
       LS_JAVA_OPTS: -Xms${LS_HEAP:-512m} -Xmx${LS_HEAP:-512m}
-      LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-curtz-logstash-dev}
+      LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-fupi-logstash-dev}
     volumes:
       - logstash-single-data:/usr/share/logstash/data
       - ./logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
@@ -2528,7 +2528,7 @@ services:
       retries: 30
       start_period: 40s
     networks:
-      curtz:
+      fupi:
         aliases: [logstash-1]
 
   kibana-single:
@@ -2550,7 +2550,7 @@ services:
       retries: 30
       start_period: 60s
     networks:
-      - curtz
+      - fupi
 
   # Reads container logs, so it runs as root and mounts the Docker socket read-only: the one documented
   # least-privilege exception in this stack.
@@ -2568,7 +2568,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - curtz
+      - fupi
 
   # Shared by both modes: they reach the cluster through es-1 / logstash-1.
   elasticsearch-exporter:
@@ -2576,11 +2576,11 @@ services:
     profiles: [elk-ha, elk-single, full-ha, full-single]
     restart: unless-stopped
     command:
-      - "--es.uri=http://metrics_reader:${METRICS_READER_PASSWORD:-curtz-metrics-dev}@es-1:9200"
+      - "--es.uri=http://metrics_reader:${METRICS_READER_PASSWORD:-fupi-metrics-dev}@es-1:9200"
       - "--es.all"
       - "--es.indices"
     networks:
-      - curtz
+      - fupi
 
   logstash-exporter-1:
     image: kuskoman/logstash-exporter:v1.9.1
@@ -2589,7 +2589,7 @@ services:
     environment:
       LOGSTASH_URL: http://logstash-1:9600
     networks:
-      - curtz
+      - fupi
 
 volumes:
   es-single-data:
@@ -2597,8 +2597,8 @@ volumes:
   filebeat-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 5: Append the helper target to `.make/docker.mk`**
@@ -2643,24 +2643,24 @@ Provisioned objects:
 ```bash
 E() { dc exec -T es-single sh -c 'curl -s -u elastic:"$ELASTIC_PASSWORD" "localhost:9200/$1"' _ "$1"; }
 E "_security/user/logstash_writer,grafana_reader,metrics_reader" | jq 'keys'   # expect: all three users
-E "_ilm/policy/curtz-logs" | jq -r '.["curtz-logs"].policy.phases.delete.min_age'   # expect: 7d
-E "_index_template/logs-curtz" | jq -r '.index_templates[0].name'                  # expect: logs-curtz
+E "_ilm/policy/fupi-logs" | jq -r '.["fupi-logs"].policy.phases.delete.min_age'   # expect: 7d
+E "_index_template/logs-fupi" | jq -r '.index_templates[0].name'                  # expect: logs-fupi
 ```
 
 End-to-end log path with a throwaway container (carries the compose project label so Filebeat keeps it):
 
 ```bash
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
+docker run --rm --label com.docker.compose.project=fupi --label com.docker.compose.service=smoke busybox \
   sh -c "echo '{\"time\":\"$NOW\",\"level\":\"INFO\",\"msg\":\"hello from smoke\",\"service\":\"smoke\",\"trace_id\":\"abc123\",\"span_id\":\"def456\"}'; echo 'plain text line'; sleep 20"
 sleep 5
-E "logs-curtz-default/_search?q=trace.id:abc123" | jq '.hits.hits[0]._source | {message, level: .log.level, service: .service.name, trace: .trace.id, span: .span.id}'
+E "logs-fupi-default/_search?q=trace.id:abc123" | jq '.hits.hits[0]._source | {message, level: .log.level, service: .service.name, trace: .trace.id, span: .span.id}'
 ```
 
 Expected: `message: "hello from smoke"`, `level: "INFO"`, `service: "smoke"`, `trace: "abc123"`, `span: "def456"`. The plain line must also be there with `service.name` = `smoke` taken from the compose label and its text stored without the trailing newline. The throwaway container sleeps for 20 seconds on purpose: `docker run --rm` deletes the container's log file as soon as it exits, which can happen before Filebeat's 10-second scan has found it.
 
 ```bash
-E 'logs-curtz-default/_search?q=message:plain&size=1' | jq -r '.hits.hits[0]._source | "\(.service.name) \(.message | @json)"'   # expect: smoke "plain text line" (no trailing newline)
+E 'logs-fupi-default/_search?q=message:plain&size=1' | jq -r '.hits.hits[0]._source | "\(.service.name) \(.message | @json)"'   # expect: smoke "plain text line" (no trailing newline)
 ```
 
 If no document arrives within about 40 seconds, read `dc logs filebeat-single` and `dc logs logstash-single` before changing anything. A `permission denied` or missing-path error from Filebeat means it cannot read `/var/lib/docker/containers` (spec risk: Filebeat on Docker Desktop; that path normally lives inside the Docker VM and is mountable). In that case stop and report the exact error to the user instead of working around it.
@@ -2669,9 +2669,9 @@ Kibana and exporters:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5601/login                      # expect: 200
-curl -s -u elastic:curtz-elastic-dev http://localhost:5601/api/status | jq -r '.status.overall.level'   # expect: available
-docker run --rm --network curtz busybox wget -qO- http://elasticsearch-exporter:9114/metrics | grep -c '^elasticsearch_cluster_health_status'   # expect: 3 (green/yellow/red series)
-docker run --rm --network curtz busybox wget -qO- http://logstash-exporter-1:9198/metrics | grep -c '^logstash_'                              # expect: >= 1
+curl -s -u elastic:fupi-elastic-dev http://localhost:5601/api/status | jq -r '.status.overall.level'   # expect: available
+docker run --rm --network fupi busybox wget -qO- http://elasticsearch-exporter:9114/metrics | grep -c '^elasticsearch_cluster_health_status'   # expect: 3 (green/yellow/red series)
+docker run --rm --network fupi busybox wget -qO- http://logstash-exporter-1:9198/metrics | grep -c '^logstash_'                              # expect: >= 1
 ```
 
 If the exporters return no series, check `dc logs elasticsearch-exporter logstash-exporter-1` before moving on.
@@ -2681,7 +2681,7 @@ Re-run idempotency (Review Focus 2) and restart persistence (Review Focus 3):
 ```bash
 make infra.elk.up MODE=single                  # expect: ready; elk-setup-single exits 0 again (PUTs are idempotent)
 make infra.elk.down && make infra.elk.up MODE=single
-E 'logs-curtz-default/_search?q=trace.id:abc123' | jq '.hits.total.value'     # expect: 1 (the data stream survived the restart)
+E 'logs-fupi-default/_search?q=trace.id:abc123' | jq '.hits.total.value'     # expect: 1 (the data stream survived the restart)
 ```
 
 - [ ] **Step 8: Tear down and commit**
@@ -2715,7 +2715,7 @@ output {
     password => "${LOGSTASH_WRITER_PASSWORD}"
     data_stream => true
     data_stream_type => "logs"
-    data_stream_dataset => "curtz"
+    data_stream_dataset => "fupi"
     data_stream_namespace => "default"
   }
 }
@@ -2743,7 +2743,7 @@ processors:
       when:
         not:
           equals:
-            container.labels.com_docker_compose_project: curtz
+            container.labels.com_docker_compose_project: fupi
   - drop_event:
       when:
         contains:
@@ -2783,7 +2783,7 @@ server {
 - [ ] **Step 4: Replace `deploy/elk/compose.yml` with the final version**
 
 ```yaml
-# Elastic stack for logs (Filebeat -> Logstash -> Elasticsearch data stream logs-curtz-default -> Kibana).
+# Elastic stack for logs (Filebeat -> Logstash -> Elasticsearch data stream logs-fupi-default -> Kibana).
 #   HA      es-1..3 (3 master+data nodes), logstash-1..2, kibana-1..2 behind nginx (kibana-lb), filebeat-ha.
 #           elk-setup-ha creates the CA and node certificates (transport TLS is required by multi-node clusters).
 #   single  es-single (alias es-1), logstash-single (alias logstash-1), kibana-single, filebeat-single.
@@ -2791,8 +2791,8 @@ server {
 x-es-image: &es-image docker.elastic.co/elasticsearch/elasticsearch:9.5.4
 
 x-es-env: &es-env
-  cluster.name: curtz-logs
-  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-curtz-elastic-dev}
+  cluster.name: fupi-logs
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-fupi-elastic-dev}
   bootstrap.memory_lock: "false"
   xpack.security.enabled: "true"
   xpack.security.http.ssl.enabled: "false"
@@ -2823,19 +2823,19 @@ x-es-common: &es-common
     start_period: 40s
 
 x-setup-env: &setup-env
-  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-curtz-elastic-dev}
-  KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-curtz-kibana-dev}
-  LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-curtz-logstash-dev}
-  GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-curtz-grafana-reader}
-  METRICS_READER_PASSWORD: ${METRICS_READER_PASSWORD:-curtz-metrics-dev}
+  ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-fupi-elastic-dev}
+  KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-fupi-kibana-dev}
+  LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-fupi-logstash-dev}
+  GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-fupi-grafana-reader}
+  METRICS_READER_PASSWORD: ${METRICS_READER_PASSWORD:-fupi-metrics-dev}
 
 x-kibana-env: &kibana-env
   SERVER_PUBLICBASEURL: http://localhost:5601
   ELASTICSEARCH_USERNAME: kibana_system
-  ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-curtz-kibana-dev}
-  XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:-curtz-dev-kibana-security-key-0123456789ab}
-  XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTED_OBJECTS_KEY:-curtz-dev-kibana-saved-objects-key-0123456789}
-  XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:-curtz-dev-kibana-reporting-key-0123456789ab}
+  ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-fupi-kibana-dev}
+  XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:-fupi-dev-kibana-security-key-0123456789ab}
+  XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTED_OBJECTS_KEY:-fupi-dev-kibana-saved-objects-key-0123456789}
+  XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:-fupi-dev-kibana-reporting-key-0123456789ab}
   TELEMETRY_OPTIN: "false"
   NODE_OPTIONS: --max-old-space-size=768
 
@@ -2856,7 +2856,7 @@ x-logstash-common: &logstash-common
   restart: unless-stopped
   environment:
     LS_JAVA_OPTS: -Xms${LS_HEAP:-512m} -Xmx${LS_HEAP:-512m}
-    LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-curtz-logstash-dev}
+    LOGSTASH_WRITER_PASSWORD: ${LOGSTASH_WRITER_PASSWORD:-fupi-logstash-dev}
   healthcheck:
     test: ["CMD-SHELL", "curl -fsS http://localhost:9600 >/dev/null"]
     interval: 10s
@@ -2886,7 +2886,7 @@ services:
       timeout: 2s
       retries: 90
     networks:
-      - curtz
+      - fupi
 
   es-1:
     <<: *es-common
@@ -2902,7 +2902,7 @@ services:
       - es-1-data:/usr/share/elasticsearch/data
       - es-certs:/usr/share/elasticsearch/config/certs:ro
     networks:
-      - curtz
+      - fupi
 
   es-2:
     <<: *es-common
@@ -2918,7 +2918,7 @@ services:
       - es-2-data:/usr/share/elasticsearch/data
       - es-certs:/usr/share/elasticsearch/config/certs:ro
     networks:
-      - curtz
+      - fupi
 
   es-3:
     <<: *es-common
@@ -2934,7 +2934,7 @@ services:
       - es-3-data:/usr/share/elasticsearch/data
       - es-certs:/usr/share/elasticsearch/config/certs:ro
     networks:
-      - curtz
+      - fupi
 
   logstash-1:
     <<: *logstash-common
@@ -2949,7 +2949,7 @@ services:
       - ./logstash/pipeline/20-filter.conf:/etc/logstash/conf.d/20-filter.conf:ro
       - ./logstash/pipeline/30-output-ha.conf:/etc/logstash/conf.d/30-output.conf:ro
     networks:
-      - curtz
+      - fupi
 
   logstash-2:
     <<: *logstash-common
@@ -2964,7 +2964,7 @@ services:
       - ./logstash/pipeline/20-filter.conf:/etc/logstash/conf.d/20-filter.conf:ro
       - ./logstash/pipeline/30-output-ha.conf:/etc/logstash/conf.d/30-output.conf:ro
     networks:
-      - curtz
+      - fupi
 
   kibana-1:
     <<: *kibana-common
@@ -2974,7 +2974,7 @@ services:
       SERVER_NAME: kibana-1
       ELASTICSEARCH_HOSTS: '["http://es-1:9200","http://es-2:9200","http://es-3:9200"]'
     networks:
-      - curtz
+      - fupi
 
   kibana-2:
     <<: *kibana-common
@@ -2984,7 +2984,7 @@ services:
       SERVER_NAME: kibana-2
       ELASTICSEARCH_HOSTS: '["http://es-1:9200","http://es-2:9200","http://es-3:9200"]'
     networks:
-      - curtz
+      - fupi
 
   kibana-lb:
     image: nginx:1.30.5-alpine
@@ -2998,7 +2998,7 @@ services:
     volumes:
       - ./nginx/kibana.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
-      curtz:
+      fupi:
         aliases: [kibana]
 
   filebeat-ha:
@@ -3016,7 +3016,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - curtz
+      - fupi
 
   logstash-exporter-2:
     image: kuskoman/logstash-exporter:v1.9.1
@@ -3025,7 +3025,7 @@ services:
     environment:
       LOGSTASH_URL: http://logstash-2:9600
     networks:
-      - curtz
+      - fupi
 
   # ---- single --------------------------------------------------------------------------------------------------
   es-single:
@@ -3050,7 +3050,7 @@ services:
       retries: 30
       start_period: 40s
     networks:
-      curtz:
+      fupi:
         aliases: [es-1]
 
   elk-setup-single:
@@ -3068,7 +3068,7 @@ services:
     volumes:
       - ./setup.sh:/setup.sh:ro
     networks:
-      - curtz
+      - fupi
 
   logstash-single:
     <<: *logstash-common
@@ -3083,7 +3083,7 @@ services:
       - ./logstash/pipeline/20-filter.conf:/etc/logstash/conf.d/20-filter.conf:ro
       - ./logstash/pipeline/30-output-single.conf:/etc/logstash/conf.d/30-output.conf:ro
     networks:
-      curtz:
+      fupi:
         aliases: [logstash-1]
 
   kibana-single:
@@ -3098,7 +3098,7 @@ services:
     ports:
       - "127.0.0.1:5601:5601"
     networks:
-      - curtz
+      - fupi
 
   # Reads container logs, so it runs as root and mounts the Docker socket read-only: the one documented
   # least-privilege exception in this stack.
@@ -3116,7 +3116,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - curtz
+      - fupi
 
   # ---- shared by both modes: they reach the cluster through es-1 / logstash-1 -------------------------------------
   elasticsearch-exporter:
@@ -3124,11 +3124,11 @@ services:
     profiles: [elk-ha, elk-single, full-ha, full-single]
     restart: unless-stopped
     command:
-      - "--es.uri=http://metrics_reader:${METRICS_READER_PASSWORD:-curtz-metrics-dev}@es-1:9200"
+      - "--es.uri=http://metrics_reader:${METRICS_READER_PASSWORD:-fupi-metrics-dev}@es-1:9200"
       - "--es.all"
       - "--es.indices"
     networks:
-      - curtz
+      - fupi
 
   logstash-exporter-1:
     image: kuskoman/logstash-exporter:v1.9.1
@@ -3137,7 +3137,7 @@ services:
     environment:
       LOGSTASH_URL: http://logstash-1:9600
     networks:
-      - curtz
+      - fupi
 
 volumes:
   es-certs:
@@ -3152,8 +3152,8 @@ volumes:
   filebeat-single-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 5: Static verification**
@@ -3185,15 +3185,15 @@ Cluster and transport TLS:
 make infra.es.health MODE=ha | grep -E '"status"|number_of_nodes'     # expect: "green", 3
 E() { dc exec -T es-1 sh -c 'curl -s -u elastic:"$ELASTIC_PASSWORD" "localhost:9200/$1"' _ "$1"; }
 E "_nodes/settings?filter_path=nodes.*.settings.xpack.security.transport.ssl.enabled" | jq -r '.nodes[].settings.xpack.security.transport.ssl.enabled' | sort -u   # expect: true
-E "_index_template/logs-curtz" | jq -r '.index_templates[0].index_template.template.settings.index.number_of_replicas'   # expect: 1 (HA)
+E "_index_template/logs-fupi" | jq -r '.index_templates[0].index_template.template.settings.index.number_of_replicas'   # expect: 1 (HA)
 ```
 
 End-to-end log path (same smoke container as Task 6), then the failure drills:
 
 ```bash
-smoke() { docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
+smoke() { docker run --rm --label com.docker.compose.project=fupi --label com.docker.compose.service=smoke busybox \
   sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"$1\",\"service\":\"smoke\",\"trace_id\":\"$2\"}'; sleep 20"; }
-hits() { E "logs-curtz-default/_search?q=trace.id:$1" | jq '.hits.total.value'; }
+hits() { E "logs-fupi-default/_search?q=trace.id:$1" | jq '.hits.total.value'; }
 
 smoke "ha baseline" ha0001; sleep 5; hits ha0001                    # expect: 1
 
@@ -3313,13 +3313,13 @@ tests:
   - name: Elasticsearch cluster red
     interval: 1m
     input_series:
-      - {series: 'elasticsearch_cluster_health_status{cluster="curtz-logs",color="red"}', values: "1 1 1 1 1"}
-      - {series: 'elasticsearch_cluster_health_status{cluster="curtz-logs",color="green"}', values: "0 0 0 0 0"}
+      - {series: 'elasticsearch_cluster_health_status{cluster="fupi-logs",color="red"}', values: "1 1 1 1 1"}
+      - {series: 'elasticsearch_cluster_health_status{cluster="fupi-logs",color="green"}', values: "0 0 0 0 0"}
     alert_rule_test:
       - eval_time: 4m
         alertname: ElasticsearchClusterRed
         exp_alerts:
-          - exp_labels: {severity: critical, cluster: curtz-logs, color: red}
+          - exp_labels: {severity: critical, cluster: fupi-logs, color: red}
             exp_annotations: {summary: Elasticsearch cluster status is red}
 ```
 
@@ -3336,7 +3336,7 @@ Expected: FAIL (`../rules/stack.yml` does not exist).
 
 ```yaml
 groups:
-  - name: curtz-stack
+  - name: fupi-stack
     rules:
       # "no leader" is only meaningful when Patroni members exist, so single mode (no Patroni) never alerts.
       - alert: PatroniNoLeader
@@ -3373,7 +3373,7 @@ groups:
 
       # Inert until the application exports OpenTelemetry HTTP metrics (a later slice).
       - alert: RedirectLatencyHigh
-        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="curtz"}[5m]))) > 0.1
+        expr: histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="fupi"}[5m]))) > 0.1
         for: 5m
         labels:
           severity: warning
@@ -3638,7 +3638,7 @@ services:
     volumes:
       - ./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
     networks:
-      - curtz
+      - fupi
 
   tempo:
     image: grafana/tempo:3.1.0
@@ -3651,7 +3651,7 @@ services:
       - ./tempo.yml:/etc/tempo.yaml:ro
       - tempo-data:/var/tempo
     networks:
-      - curtz
+      - fupi
 
   prometheus:
     image: prom/prometheus:v3.15.0
@@ -3669,7 +3669,7 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     networks:
-      - curtz
+      - fupi
 
   alertmanager:
     image: prom/alertmanager:v0.34.1
@@ -3684,7 +3684,7 @@ services:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
     networks:
-      - curtz
+      - fupi
 
 volumes:
   tempo-data:
@@ -3692,8 +3692,8 @@ volumes:
   alertmanager-data:
 
 networks:
-  curtz:
-    name: curtz
+  fupi:
+    name: fupi
 ```
 
 - [ ] **Step 7: Static verification**
@@ -3739,11 +3739,11 @@ Synthetic telemetry through the Collector (a real OTLP client, not a mock):
 
 ```bash
 TG=ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.161.0
-docker run --rm --network curtz "$TG" traces  --otlp-endpoint otel-collector:4317 --otlp-insecure --service curtz-smoke --traces 5
-docker run --rm --network curtz "$TG" metrics --otlp-endpoint otel-collector:4317 --otlp-insecure --service curtz-smoke --metrics 5
+docker run --rm --network fupi "$TG" traces  --otlp-endpoint otel-collector:4317 --otlp-insecure --service fupi-smoke --traces 5
+docker run --rm --network fupi "$TG" metrics --otlp-endpoint otel-collector:4317 --otlp-insecure --service fupi-smoke --metrics 5
 sleep 20
-curl -s "http://localhost:3200/api/search?tags=service.name%3Dcurtz-smoke" | jq '.traces | length'                     # expect: >= 1
-curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=gen{service_name="curtz-smoke"}' | jq '.data.result | length'   # expect: >= 1
+curl -s "http://localhost:3200/api/search?tags=service.name%3Dfupi-smoke" | jq '.traces | length'                     # expect: >= 1
+curl -s --get http://localhost:9090/api/v1/query --data-urlencode 'query=gen{service_name="fupi-smoke"}' | jq '.data.result | length'   # expect: >= 1
 ```
 
 If the telemetrygen tag does not exist, use the newest tag listed at `https://github.com/open-telemetry/opentelemetry-collector-contrib/pkgs/container/opentelemetry-collector-contrib%2Ftelemetrygen`.
@@ -3778,11 +3778,11 @@ git commit -m "feat(infra): add OpenTelemetry Collector, Tempo, Prometheus and A
 
 **Files:**
 - Modify: `deploy/observability/compose.yml` (add `grafana` and its volume)
-- Create: `deploy/observability/grafana/provisioning/datasources/datasources.yml`, `deploy/observability/grafana/provisioning/dashboards/dashboards.yml`, `deploy/observability/grafana/dashboards/stack-overview.json`, `deploy/observability/grafana/dashboards/curtz-service.json`
+- Create: `deploy/observability/grafana/provisioning/datasources/datasources.yml`, `deploy/observability/grafana/provisioning/dashboards/dashboards.yml`, `deploy/observability/grafana/dashboards/stack-overview.json`, `deploy/observability/grafana/dashboards/fupi-service.json`
 
 **Interfaces:**
 - Consumes: Task 8 (Prometheus `prometheus:9090`, Tempo `tempo:3200`), Task 6/7 (`es-1:9200` and the `grafana_reader` user), env `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `GRAFANA_READER_PASSWORD`.
-- Produces: `grafana` (host `3000`), datasource UIDs `prometheus`, `elasticsearch`, `tempo`, dashboards `curtz-stack` ("Stack overview") and `curtz-service` ("Curtz service") in folder "Curtz".
+- Produces: `grafana` (host `3000`), datasource UIDs `prometheus`, `elasticsearch`, `tempo`, dashboards `fupi-stack` ("Stack overview") and `fupi-service` ("Fupi service") in folder "Fupi".
 
 - [ ] **Step 1: Write the provisioning files**
 
@@ -3810,7 +3810,7 @@ datasources:
     basicAuthUser: grafana_reader
     editable: false
     jsonData:
-      index: "logs-curtz-*"
+      index: "logs-fupi-*"
       timeField: "@timestamp"
       logMessageField: message
       logLevelField: log.level
@@ -3839,8 +3839,8 @@ datasources:
 apiVersion: 1
 
 providers:
-  - name: curtz
-    folder: Curtz
+  - name: fupi
+    folder: Fupi
     type: file
     disableDeletion: true
     allowUiUpdates: false
@@ -3854,10 +3854,10 @@ providers:
 
 ```json
 {
-  "uid": "curtz-stack",
+  "uid": "fupi-stack",
   "title": "Stack overview",
   "tags": [
-    "curtz"
+    "fupi"
   ],
   "schemaVersion": 39,
   "version": 1,
@@ -3889,14 +3889,14 @@ providers:
 }
 ```
 
-`deploy/observability/grafana/dashboards/curtz-service.json` (its panels read OpenTelemetry HTTP metrics that exist only once the app is instrumented, so they show "No data" until then):
+`deploy/observability/grafana/dashboards/fupi-service.json` (its panels read OpenTelemetry HTTP metrics that exist only once the app is instrumented, so they show "No data" until then):
 
 ```json
 {
-  "uid": "curtz-service",
-  "title": "Curtz service",
+  "uid": "fupi-service",
+  "title": "Fupi service",
   "tags": [
-    "curtz"
+    "fupi"
   ],
   "schemaVersion": 39,
   "version": 1,
@@ -3913,13 +3913,13 @@ providers:
     "list": []
   },
   "panels": [
-    {"id":1,"type":"stat","title":"Requests per second","gridPos":{"x":0,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
-    {"id":2,"type":"stat","title":"p99 latency","gridPos":{"x":6,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
-    {"id":3,"type":"stat","title":"5xx ratio","gridPos":{"x":12,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(http_server_request_duration_seconds_count{service_name=\"curtz\",http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"percentunit","thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"red","value":0.01}]}},"overrides":[]}},
-    {"id":4,"type":"timeseries","title":"Requests per second by route","gridPos":{"x":0,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (http_route) (rate(http_server_request_duration_seconds_count{service_name=\"curtz\"}[5m]))","legendFormat":"{{http_route}}"}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
-    {"id":5,"type":"timeseries","title":"Latency p50 / p95 / p99","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.5, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p50"},{"refId":"B","expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p95"},{"refId":"C","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"curtz\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
-    {"id":6,"type":"logs","title":"Application logs (Elasticsearch)","gridPos":{"x":0,"y":12,"w":24,"h":9},"datasource":{"type":"elasticsearch","uid":"elasticsearch"},"targets":[{"refId":"A","query":"service.name:curtz","timeField":"@timestamp","metrics":[{"type":"logs","id":"1","settings":{"limit":"100"}}],"bucketAggs":[]}]},
-    {"id":7,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":21,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"curtz\" }","limit":20}]}
+    {"id":1,"type":"stat","title":"Requests per second","gridPos":{"x":0,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(http_server_request_duration_seconds_count{service_name=\"fupi\"}[5m]))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
+    {"id":2,"type":"stat","title":"p99 latency","gridPos":{"x":6,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"fupi\"}[5m])))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"id":3,"type":"stat","title":"5xx ratio","gridPos":{"x":12,"y":0,"w":6,"h":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum(rate(http_server_request_duration_seconds_count{service_name=\"fupi\",http_response_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{service_name=\"fupi\"}[5m]))","legendFormat":""}],"fieldConfig":{"defaults":{"unit":"percentunit","thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"red","value":0.01}]}},"overrides":[]}},
+    {"id":4,"type":"timeseries","title":"Requests per second by route","gridPos":{"x":0,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"sum by (http_route) (rate(http_server_request_duration_seconds_count{service_name=\"fupi\"}[5m]))","legendFormat":"{{http_route}}"}],"fieldConfig":{"defaults":{"unit":"reqps"},"overrides":[]}},
+    {"id":5,"type":"timeseries","title":"Latency p50 / p95 / p99","gridPos":{"x":12,"y":4,"w":12,"h":8},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"refId":"A","expr":"histogram_quantile(0.5, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"fupi\"}[5m])))","legendFormat":"p50"},{"refId":"B","expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"fupi\"}[5m])))","legendFormat":"p95"},{"refId":"C","expr":"histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name=\"fupi\"}[5m])))","legendFormat":"p99"}],"fieldConfig":{"defaults":{"unit":"s"},"overrides":[]}},
+    {"id":6,"type":"logs","title":"Application logs (Elasticsearch)","gridPos":{"x":0,"y":12,"w":24,"h":9},"datasource":{"type":"elasticsearch","uid":"elasticsearch"},"targets":[{"refId":"A","query":"service.name:fupi","timeField":"@timestamp","metrics":[{"type":"logs","id":"1","settings":{"limit":"100"}}],"bucketAggs":[]}]},
+    {"id":7,"type":"table","title":"Recent traces (Tempo)","gridPos":{"x":0,"y":21,"w":24,"h":9},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"refId":"A","queryType":"traceql","query":"{ resource.service.name = \"fupi\" }","limit":20}]}
   ]
 }
 ```
@@ -3944,10 +3944,10 @@ volumes:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-curtz-grafana-dev}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-fupi-grafana-dev}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-curtz-grafana-reader}
+      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:-fupi-grafana-reader}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
@@ -3961,7 +3961,7 @@ volumes:
       retries: 20
       start_period: 20s
     networks:
-      - curtz
+      - fupi
 
 volumes:
   tempo-data:
@@ -3998,24 +3998,24 @@ Expected: both end `ready`. Run the dashboard-query check from Step 4 now: only 
 Provisioning:
 
 ```bash
-G() { curl -s -u admin:curtz-grafana-dev "http://localhost:3000$1"; }
+G() { curl -s -u admin:fupi-grafana-dev "http://localhost:3000$1"; }
 G "/api/search?query=" | jq -r '.[] | select(.type=="dash-db") | "\(.uid) \(.title) [\(.folderTitle)]"' | sort
-# expect: curtz-service Curtz service [Curtz] and curtz-stack Stack overview [Curtz]
+# expect: fupi-service Fupi service [Fupi] and fupi-stack Stack overview [Fupi]
 for u in prometheus tempo elasticsearch; do echo -n "$u: "; G "/api/datasources/uid/$u/health" | jq -r .message; done
 # expect: Successfully queried the Prometheus API. / Successfully connected to the Tempo API (or similar) / Elasticsearch data source is healthy.
 G "/api/datasources/uid/tempo" | jq -r '.jsonData.tracesToLogsV2.query'     # expect: trace.id:"${__trace.traceId}"  (the $$ escape resolved to a literal $)
 ```
 
-If the Elasticsearch health check fails with an index error, add `database: "logs-curtz-*"` at the datasource's top level next to `url` (older provisioning field for the same setting), restart Grafana, and re-check.
+If the Elasticsearch health check fails with an index error, add `database: "logs-fupi-*"` at the datasource's top level next to `url` (older provisioning field for the same setting), restart Grafana, and re-check.
 
 Trace-to-logs end to end: send a log line carrying a trace id (Task 6's `smoke`), then query it through Grafana's datasource proxy exactly as the trace link would:
 
 ```bash
-docker run --rm --label com.docker.compose.project=curtz --label com.docker.compose.service=smoke busybox \
+docker run --rm --label com.docker.compose.project=fupi --label com.docker.compose.service=smoke busybox \
   sh -c "echo '{\"time\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"level\":\"INFO\",\"msg\":\"grafana link\",\"service\":\"smoke\",\"trace_id\":\"graf0001\"}'; sleep 20"
 sleep 5
-curl -s -u admin:curtz-grafana-dev -H 'Content-Type: application/x-ndjson' -X POST "http://localhost:3000/api/datasources/proxy/uid/elasticsearch/_msearch" \
-  --data-binary $'{"index":"logs-curtz-*","search_type":"query_then_fetch"}\n{"size":1,"query":{"query_string":{"query":"trace.id:\\"graf0001\\""}}}\n' | jq '.responses[0].hits.total.value'     # expect: 1
+curl -s -u admin:fupi-grafana-dev -H 'Content-Type: application/x-ndjson' -X POST "http://localhost:3000/api/datasources/proxy/uid/elasticsearch/_msearch" \
+  --data-binary $'{"index":"logs-fupi-*","search_type":"query_then_fetch"}\n{"size":1,"query":{"query_string":{"query":"trace.id:\\"graf0001\\""}}}\n' | jq '.responses[0].hits.total.value'     # expect: 1
 ```
 
 Re-run idempotency and restart persistence: `make infra.observability.up` again is a no-op; after `make infra.observability.down && make infra.observability.up` the two dashboards are still provisioned.
@@ -4059,14 +4059,14 @@ This is the success criterion that `full-single` fits the current Docker allocat
 ```bash
 make infra.full.up MODE=single        # expect: ready: full-single (allow up to 5 minutes)
 make infra.stats                      # record every row
-docker stats --no-stream --format '{{.MemUsage}}' $(docker ps --filter label=com.docker.compose.project=curtz -q) | awk '{print $1}' | sed 's/MiB//;s/GiB/*1024/' | bc | paste -sd+ - | bc    # total MiB
+docker stats --no-stream --format '{{.MemUsage}}' $(docker ps --filter label=com.docker.compose.project=fupi -q) | awk '{print $1}' | sed 's/MiB//;s/GiB/*1024/' | bc | paste -sd+ - | bc    # total MiB
 ```
 
 Record the per-stack subtotals and the total. Then confirm the stack works together:
 
 ```bash
 curl -s http://localhost:9090/api/v1/targets | jq -r '.data.activeTargets[] | "\(.labels.job) \(.health)"' | sort | uniq -c   # every job up: kafka redis postgres elasticsearch logstash tempo otel-collector grafana alertmanager ...
-for u in prometheus tempo elasticsearch; do curl -s -u admin:curtz-grafana-dev "http://localhost:3000/api/datasources/uid/$u/health" | jq -r .status; done   # OK x3
+for u in prometheus tempo elasticsearch; do curl -s -u admin:fupi-grafana-dev "http://localhost:3000/api/datasources/uid/$u/health" | jq -r .status; done   # OK x3
 "$SCRATCH/infracheck/infracheck" kafka localhost:19092
 "$SCRATCH/infracheck/infracheck" redis localhost:7001
 "$SCRATCH/infracheck/infracheck" postgres localhost:5432 false
@@ -4085,7 +4085,7 @@ In the memory table, replace the **Estimate** values with the numbers measured i
 ````markdown
 # Local infrastructure
 
-Curtz depends on Postgres, Redis and Kafka, and is observed with ELK (logs), Prometheus (metrics), Tempo (traces) and
+Fupi depends on Postgres, Redis and Kafka, and is observed with ELK (logs), Prometheus (metrics), Tempo (traces) and
 Grafana. This repository runs all of them locally with Docker Compose. Each stack runs in one of two modes:
 
 - **HA**: the clustered topology used in production (3 Kafka brokers, a 6-node Redis Cluster, Postgres with Patroni and
@@ -4160,7 +4160,7 @@ The `MODE` variable also selects which node the helper commands talk to (for exa
 ## Connecting the application
 
 The same names work in both modes; the lists just get shorter. Use the "host" column when the app runs on your machine
-(for example `make run.dev`) and the "network" column when it runs in a container on the `curtz` network.
+(for example `make run.dev`) and the "network" column when it runs in a container on the `fupi` network.
 
 | Concern | App on the host | App in the compose network |
 |---|---|---|
@@ -4194,7 +4194,7 @@ Notes:
 ### Redis
 
 - HA: `redis-1..6` (3 masters, 3 replicas). Single: `redis-single`, one node owning all slots. Both run in cluster mode.
-- Eviction `allkeys-lru`, 128 MB per node, AOF persistence. Application user `curtz-svc` cannot run dangerous commands
+- Eviction `allkeys-lru`, 128 MB per node, AOF persistence. Application user `fupi-svc` cannot run dangerous commands
   (`FLUSHALL`, `KEYS`, `CONFIG`...).
 - `make infra.redis.cli` opens a cluster-aware shell.
 
@@ -4211,12 +4211,12 @@ Notes:
 ### ELK
 
 - Path: your app logs JSON to stdout, Filebeat reads every container's logs of this compose project, Logstash parses
-  them, Elasticsearch stores them in the data stream `logs-curtz-default` (rolled over daily, deleted after 7 days),
+  them, Elasticsearch stores them in the data stream `logs-fupi-default` (rolled over daily, deleted after 7 days),
   Kibana shows them.
 - JSON log lines are mapped to `message`, `log.level`, `service.name`, `trace.id`, `span.id`; any other line keeps its text
   and takes the compose service as `service.name`.
 - HA: 3 Elasticsearch nodes (transport TLS between them), 2 Logstash, 2 Kibana behind nginx. Single: one of each.
-- Kibana: <http://localhost:5601>, log in as `elastic`. First time: Stack Management, Data Views, create `logs-curtz-*`
+- Kibana: <http://localhost:5601>, log in as `elastic`. First time: Stack Management, Data Views, create `logs-fupi-*`
   with timestamp `@timestamp`.
 - Filebeat runs as root and mounts the Docker socket read-only to read container logs. This is the one least-privilege
   exception, acceptable for local development only.
@@ -4226,7 +4226,7 @@ Notes:
 - The app sends OTLP to the OpenTelemetry Collector (`localhost:4317`). Traces go to Tempo, metrics are re-exposed to
   Prometheus. Logs do not pass through the Collector.
 - Grafana: <http://localhost:3000>. Datasources Prometheus, Tempo and Elasticsearch are provisioned; Tempo links spans to
-  logs by `trace.id`. Dashboards "Stack overview" and "Curtz service" are in the folder "Curtz". The service dashboard
+  logs by `trace.id`. Dashboards "Stack overview" and "Fupi service" are in the folder "Fupi". The service dashboard
   shows "No data" until the app emits OpenTelemetry metrics.
 - Prometheus: <http://localhost:9090>; Alertmanager: <http://localhost:9093>; Tempo: <http://localhost:3200>.
 - Prometheus finds exporters by DNS, so only running components appear as targets. To get notifications, replace the
@@ -4247,14 +4247,14 @@ All credentials are development defaults from `.env.example`. Override any of th
 |---|---|---|
 | Kafka (host) | `localhost:19092` (HA also `29092`, `39092`) | none |
 | Kafka UI | <http://localhost:8080> | none |
-| Redis | `localhost:7001`..`7006` | user `curtz-svc`, password `curtz-svc`; admin (default user) `curtz-redis-admin` |
-| Postgres | `localhost:5432` write, `5433` read | `curtz-user` / `curtz-pass`, database `curtzdb`; superuser `postgres` / `curtz-postgres-admin` |
-| Elasticsearch | `localhost:9200` | `elastic` / `curtz-elastic-dev` |
-| Kibana | <http://localhost:5601> | `elastic` / `curtz-elastic-dev` |
-| Grafana | <http://localhost:3000> | `admin` / `curtz-grafana-dev` |
+| Redis | `localhost:7001`..`7006` | user `fupi-svc`, password `fupi-svc`; admin (default user) `fupi-redis-admin` |
+| Postgres | `localhost:5432` write, `5433` read | `fupi-user` / `fupi-pass`, database `fupidb`; superuser `postgres` / `fupi-postgres-admin` |
+| Elasticsearch | `localhost:9200` | `elastic` / `fupi-elastic-dev` |
+| Kibana | <http://localhost:5601> | `elastic` / `fupi-elastic-dev` |
+| Grafana | <http://localhost:3000> | `admin` / `fupi-grafana-dev` |
 | Prometheus, Alertmanager, Tempo | `9090`, `9093`, `3200` | none |
 | OTLP | `4317` gRPC, `4318` HTTP | none |
-| Legacy MongoDB / Redis | `27017` / `6379` | `curtzUser` / `curtzPassword` / none |
+| Legacy MongoDB / Redis | `27017` / `6379` | `fupiUser` / `fupiPassword` / none |
 
 Every published port is bound to `127.0.0.1`. Do not reuse these values anywhere else; passwords must not contain quotes,
 backslashes or `$` (`make infra.config` checks this).
@@ -4307,11 +4307,11 @@ First look: `make infra.ps` (health), `make infra.logs SERVICE=<name>`, `make in
 | Redis `CROSSSLOT` | a multi-key command spans slots; use hash tags (`{user42}:a`). This is the same in production |
 | Postgres connection refused right after start (HA) | no primary elected yet: `make infra.patroni.list`, wait for a Leader |
 | Postgres `cannot execute ... in a read-only transaction` | writing to port 5433; use 5432 |
-| Patroni member stuck, wrong timeline | `docker compose --profile '*' exec patroni-1 /opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml reinit curtz patroni-2` |
-| Migration says dirty | fix the SQL, then `docker run --rm --network curtz -v "$PWD/app/internal/adapters/postgres/migrations:/m" migrate/migrate -path=/m -database "postgres://curtz-user:curtz-pass@postgres:5432/curtzdb?sslmode=disable&x-migrations-table=schema_migrations" force <version>` |
+| Patroni member stuck, wrong timeline | `docker compose --profile '*' exec patroni-1 /opt/patroni/bin/patronictl -c /etc/patroni/patroni.yml reinit fupi patroni-2` |
+| Migration says dirty | fix the SQL, then `docker run --rm --network fupi -v "$PWD/app/internal/adapters/postgres/migrations:/m" migrate/migrate -path=/m -database "postgres://fupi-user:fupi-pass@postgres:5432/fupidb?sslmode=disable&x-migrations-table=schema_migrations" force <version>` |
 | Elasticsearch `max virtual memory areas vm.max_map_count` (Linux) | `sudo sysctl -w vm.max_map_count=262144` |
 | Kibana "server is not ready" | it needs 1 to 2 minutes after Elasticsearch is healthy |
-| Kibana shows no logs | create the `logs-curtz-*` data view; check `make infra.logs SERVICE=filebeat-single` (or `filebeat-ha`); only containers of the `curtz` compose project are collected |
+| Kibana shows no logs | create the `logs-fupi-*` data view; check `make infra.logs SERVICE=filebeat-single` (or `filebeat-ha`); only containers of the `fupi` compose project are collected |
 | Grafana Elasticsearch datasource error | ELK is not running |
 | An exporter target is missing in Prometheus | its stack is not running; targets are discovered by DNS |
 
@@ -4409,7 +4409,7 @@ Edit 1, Redis. `old_string`:
 - Cluster state lives in a per-node volume (`nodes.conf`); init jobs are idempotent (skip when
   `cluster_state:ok`).
 - Nodes have **fixed IP addresses** (`${FUPI_NET_PREFIX}.11`–`.16`, default `172.29.0`) because the cluster bus persists
-  peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `curtz` network
+  peer IPs in `nodes.conf`; after a restart with changed IPs the cluster could not re-form. The `fupi` network
   therefore has an explicit subnet, with other containers drawn from its upper half (`ip_range`).
 ```
 
@@ -4443,7 +4443,7 @@ cat >> docs/superpowers/specs/2026-10-01-local-infra-stack-design.md <<'EOF'
   waits for readiness: a service is ready when running and healthy (or without a healthcheck), or when a one-shot job
   exited 0. Shared services (Kafka UI, exporters, `migrate`) belong to both modes' profiles, so switching mode recreates
   them.
-- Every included compose file redeclares the `curtz` network as `name: curtz` with no `external:` flag; the root file owns
+- Every included compose file redeclares the `fupi` network as `name: fupi` with no `external:` flag; the root file owns
   the driver and subnet. An `external: true` declaration in an included file merges into the root's definition, makes
   Compose treat the network as pre-existing, and drops the subnet the Redis static IPs need (found while checking the
   rendered model).
@@ -4470,7 +4470,7 @@ Fix any shellcheck finding in the script that owns it and re-run that task's sta
 
 - [ ] **Step 7: Update the project-state memory**
 
-Update `/Users/lusina/.claude/projects/-Users-lusina-Projects-SanctumLabs-curtz/memory/curtz-current-state.md`: add a short dated section recording that branch `feat/local-infra-stack` (from `feat/domain-url`) adds the local infrastructure stack (profiles, `infra.*` Make targets, `docs/LocalInfrastructure.md`), that slices 2 (Dockerfile), 3 (app connectivity), 4 (OpenTelemetry) and 5 (outbox relay) remain, and the measured memory numbers. Keep it factual and short.
+Update `/Users/lusina/.claude/projects/-Users-lusina-Projects-SanctumLabs-fupi/memory/fupi-current-state.md`: add a short dated section recording that branch `feat/local-infra-stack` (from `feat/domain-url`) adds the local infrastructure stack (profiles, `infra.*` Make targets, `docs/LocalInfrastructure.md`), that slices 2 (Dockerfile), 3 (app connectivity), 4 (OpenTelemetry) and 5 (outbox relay) remain, and the measured memory numbers. Keep it factual and short.
 
 - [ ] **Step 8: Commit**
 
