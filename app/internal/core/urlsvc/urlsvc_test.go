@@ -12,11 +12,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/app/test/data"
-	"github.com/sanctumlabs/curtz/app/test/mocks"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/test/data"
+	"github.com/sanctumlabs/fupi/app/test/mocks"
 	"github.com/stretchr/testify/assert"
 )
 

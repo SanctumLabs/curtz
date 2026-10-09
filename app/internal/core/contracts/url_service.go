@@ -5,7 +5,7 @@ package contracts
 import (
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
 )
 
 // Url

@@ -5,13 +5,13 @@ package write
 import (
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
-	"github.com/sanctumlabs/curtz/app/pkg/validators"
+	"github.com/sanctumlabs/fupi/app/internal/core/contracts"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/pkg/validators"
 )
 
-//UrlSvc represents a url service use case
+// UrlSvc represents a url service use case
 type UrlWriteSvc struct {
 	// repo is an interface used to perform CUD operations on URL records. Does not perform write operations
 	repo contracts.UrlWriteRepository

@@ -3,11 +3,11 @@
 package read
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
-	"github.com/sanctumlabs/curtz/app/internal/core/entities"
+	"github.com/sanctumlabs/fupi/app/internal/core/contracts"
+	"github.com/sanctumlabs/fupi/app/internal/core/entities"
 )
 
-//UrlReadSvc represents a url service use case
+// UrlReadSvc represents a url service use case
 type UrlReadSvc struct {
 	// repo is an interface used to perform CRUD operations on URL records
 	repo contracts.UrlReadRepository

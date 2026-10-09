@@ -5,8 +5,8 @@ package entities
 import (
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/encoding"
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/pkg/encoding"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
 )
 
 // Token contains token information for a user

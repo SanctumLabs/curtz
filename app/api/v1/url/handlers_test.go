@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/sanctumlabs/curtz/app/server/router"
-	"github.com/sanctumlabs/curtz/app/test/mocks"
+	"github.com/sanctumlabs/fupi/app/server/router"
+	"github.com/sanctumlabs/fupi/app/test/mocks"
 )
 
-var baseURI = "/api/v1/curtz"
+var baseURI = "/api/v1/fupi"
 
 func createUrlRouter(t *testing.T) (*urlRouter, mocks.MockUrlService, mocks.MockUrlReadService, mocks.MockUrlWriteService) {
 	mockCtrl := gomock.NewController(t)

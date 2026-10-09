@@ -5,7 +5,7 @@ package entities
 import (
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/identifier"
+	"github.com/sanctumlabs/fupi/app/pkg/identifier"
 )
 
 const (

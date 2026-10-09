@@ -3,11 +3,11 @@
 package urlsvc
 
 import (
-	"github.com/sanctumlabs/curtz/app/internal/core/contracts"
-	"github.com/sanctumlabs/curtz/app/pkg/errdefs"
+	"github.com/sanctumlabs/fupi/app/internal/core/contracts"
+	"github.com/sanctumlabs/fupi/app/pkg/errdefs"
 )
 
-//UrlSvc represents a url service use case
+// UrlSvc represents a url service use case
 type UrlSvc struct {
 	// urlReadRepo is an interface used to perform R operations on URL records
 	urlReadRepo contracts.UrlReadRepository

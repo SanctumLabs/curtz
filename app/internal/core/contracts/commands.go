@@ -5,7 +5,7 @@ package contracts
 import (
 	"time"
 
-	"github.com/sanctumlabs/curtz/app/pkg/validators"
+	"github.com/sanctumlabs/fupi/app/pkg/validators"
 )
 
 type UpdateUrlRequest struct {
